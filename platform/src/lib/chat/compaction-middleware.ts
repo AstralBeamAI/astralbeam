@@ -45,6 +45,13 @@ export interface ChatCompactionState {
 export const chatCompactionContextKey = (state: ChatCompactionState) =>
   state.artifact?.payload.kind === "portable" ? state.artifact.id : undefined
 
+const chatCompactionTools = (tools: Tool[]) =>
+  tools.map(({ name, description, inputSchema }) => ({
+    name,
+    description,
+    schema: inputSchema && convertSchemaToJsonSchema(inputSchema),
+  }))
+
 export function chatCompactionKey(
   model: ChatModelConfiguration,
   systemPrompts: string[],
@@ -59,11 +66,7 @@ export function chatCompactionKey(
         modelId: model.modelId,
         endpoint: model.baseUrl,
         systemPrompts,
-        tools: tools.map(({ name, description, inputSchema }) => ({
-          name,
-          description,
-          schema: inputSchema && convertSchemaToJsonSchema(inputSchema),
-        })),
+        tools: chatCompactionTools(tools),
       }),
     )
     .digest("hex")
@@ -247,11 +250,7 @@ export function createChatCompactionMiddleware(options: {
       const fixed = Math.ceil(
         JSON.stringify({
           systemPrompts: config.systemPrompts,
-          tools: config.tools.map(({ name, description, inputSchema }) => ({
-            name,
-            description,
-            schema: inputSchema && convertSchemaToJsonSchema(inputSchema),
-          })),
+          tools: chatCompactionTools(config.tools),
         }).length / 3,
       )
       budget = modelInputAllowance(options.configuration) - fixed

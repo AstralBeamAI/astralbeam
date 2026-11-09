@@ -46,6 +46,10 @@ export function createChatAnthropicCompactionAdapter(
     baseURL: configuration.baseUrl,
     fetch: configuration.fetch,
   })
+  const clientForRequest = (wrapFetch: TextCompactOptions["wrapFetch"]) =>
+    wrapFetch
+      ? client.withOptions({ fetch: wrapFetch(configuration.fetch as typeof globalThis.fetch) })
+      : client
   const models = [createModel(configuration.modelId, ["text", "image", "document"])]
   const makeAdapter = (create: AnthropicMessagesClient["beta"]["messages"]["create"]) =>
     extendAdapter(createAnthropicChatWithClient, models)(configuration.modelId, {
@@ -69,11 +73,7 @@ export function createChatAnthropicCompactionAdapter(
       if (message === undefined) return chatStream(input)
       if (!Schema.is(AnthropicCompactionMessageSchema)(message))
         throw new ChatCompactionError({ code: "compaction_failed" })
-      const replayClient = input.wrapFetch
-        ? client.withOptions({
-            fetch: input.wrapFetch(configuration.fetch as typeof globalThis.fetch),
-          })
-        : client
+      const replayClient = clientForRequest(input.wrapFetch)
       // Inject after TanStack maps the suffix, so adjacent assistant messages cannot merge the block.
       return makeAdapter(
         (params: MessageCreateParamsStreaming, options?: Anthropic.RequestOptions) =>
@@ -94,11 +94,7 @@ export function createChatAnthropicCompactionAdapter(
       },
     ) {
       input.signal?.throwIfAborted()
-      const compactClient = input.wrapFetch
-        ? client.withOptions({
-            fetch: input.wrapFetch(configuration.fetch as typeof globalThis.fetch),
-          })
-        : client
+      const compactClient = clientForRequest(input.wrapFetch)
       if (supported === undefined) {
         const model = await compactClient.beta.models.retrieve(
           configuration.modelId,

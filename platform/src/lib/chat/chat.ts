@@ -79,11 +79,12 @@ import { chatUsageLimitGuard } from "./usage-limits"
 const modelErrorMessages: Readonly<Record<string, string>> = {
   compaction_usage_limit:
     "The conversation’s usage limit has been reached. Try again after it resets.",
-  compaction_limits: "Set the model token limits in Models to continue long conversations.",
+  compaction_limits:
+    "This agent’s model needs token limits to continue long conversations. Ask the site owner to configure them.",
   compaction_context_full:
     "This conversation cannot fit safely. Finish pending actions, shorten the input, or start a new conversation.",
   compaction_instructions:
-    "The agent instructions and tools exceed the model’s context limit. Reduce them or select a larger model.",
+    "This agent’s instructions and tools exceed its model’s context limit. Ask the site owner to adjust the agent.",
   compaction_failed:
     "Conversation context could not be prepared. Try again or start a new conversation.",
   invalid_api_key: "The model provider rejected its API key. Ask the site owner to update it.",

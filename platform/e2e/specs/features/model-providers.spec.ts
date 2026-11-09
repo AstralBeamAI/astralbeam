@@ -120,6 +120,20 @@ test("independent OpenAI connections supply distinct agent models and protect as
     await captureMilestone(page, "02-provider-qualified-agent-models")
   })
 
+  await test.step("summarization defaults on and saved choices survive reload", async () => {
+    const summarize = page.getByRole("switch", {
+      name: "Summarize long conversations",
+      exact: true,
+    })
+    await expect(summarize).toBeChecked()
+    for (const enabled of [false, true]) {
+      await summarize.setChecked(enabled)
+      await agents.saveChanges()
+      await page.reload()
+      await expect(summarize).toBeChecked({ checked: enabled })
+    }
+  })
+
   await test.step("edit only explicit overrides and restore catalog defaults", async () => {
     await page.goto(modelPath)
     await page.getByRole("link", { name: "Add provider", exact: true }).first().click()

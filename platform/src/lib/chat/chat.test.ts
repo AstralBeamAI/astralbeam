@@ -249,8 +249,8 @@ describe("Chat.run", () => {
         assert.strictEqual(
           error?.message,
           configured
-            ? "The agent instructions and tools exceed the model’s context limit. Reduce them or select a larger model."
-            : "Set the model token limits in Models to continue long conversations.",
+            ? "This agent’s instructions and tools exceed its model’s context limit. Ask the site owner to adjust the agent."
+            : "This agent’s model needs token limits to continue long conversations. Ask the site owner to configure them.",
         )
         assert.notInclude(chatRunTest.order, "aborted")
         assert.include(chatRunTest.order, "interrupted")

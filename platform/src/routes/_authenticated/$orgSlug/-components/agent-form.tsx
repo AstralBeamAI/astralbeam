@@ -264,10 +264,25 @@ export function AgentForm({
                     Summarize long conversations
                   </FieldLabel>
                   <FieldDescription id="agent-compaction-description">
-                    Summarize earlier messages automatically. Uses additional model tokens and may
-                    lose details. The full conversation stays visible.
-                    {!compactionAvailable &&
-                      " Set the default model’s token limits in Models to enable this."}
+                    Keep conversations going as the model’s context fills up. Summaries use extra
+                    tokens and can lose details. Saved messages and files stay available.{" "}
+                    <DocsLink href="/docs/dashboard/agents#long-conversations">
+                      How summarization works
+                    </DocsLink>
+                    {!compactionAvailable && (
+                      <>
+                        {" "}
+                        Choose a default model with known token limits, or configure them in{" "}
+                        <Link
+                          to="/$orgSlug/models"
+                          params={{ orgSlug: organizationSlug }}
+                          className="underline"
+                        >
+                          Models
+                        </Link>
+                        .
+                      </>
+                    )}
                   </FieldDescription>
                 </FieldContent>
                 <Switch

@@ -4,19 +4,19 @@ import type { ChatModelConfiguration } from "@/lib/model-providers/model-provide
 
 const ChatCompactionNativeUsageSchema = Schema.Struct({
   usage: Schema.Struct({
-    input_tokens: Schema.Number,
-    output_tokens: Schema.Number,
-    input_tokens_details: Schema.optional(Schema.Struct({ cached_tokens: Schema.Number })),
+    input_tokens: Schema.Finite,
+    output_tokens: Schema.Finite,
+    input_tokens_details: Schema.optional(Schema.Struct({ cached_tokens: Schema.Finite })),
   }),
 })
 
 const AnthropicCompactionTokenUsageSchema = Schema.Struct({
-  input_tokens: Schema.Number,
-  output_tokens: Schema.Number,
-  cache_read_input_tokens: Schema.optional(Schema.NullOr(Schema.Number)),
-  cache_creation_input_tokens: Schema.optional(Schema.NullOr(Schema.Number)),
+  input_tokens: Schema.Finite,
+  output_tokens: Schema.Finite,
+  cache_read_input_tokens: Schema.optional(Schema.NullOr(Schema.Finite)),
+  cache_creation_input_tokens: Schema.optional(Schema.NullOr(Schema.Finite)),
   cache_creation: Schema.optional(
-    Schema.NullOr(Schema.Struct({ ephemeral_1h_input_tokens: Schema.Number })),
+    Schema.NullOr(Schema.Struct({ ephemeral_1h_input_tokens: Schema.Finite })),
   ),
 })
 const AnthropicCompactionUsageSchema = Schema.Struct({

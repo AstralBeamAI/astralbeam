@@ -2,18 +2,18 @@ import type { ModelMessage } from "@tanstack/ai"
 import { Schema } from "effect"
 import type { MessageRecord } from "./threads/threads"
 
-export class ChatCompactionError extends Schema.TaggedError<ChatCompactionError>()(
-  "ChatCompactionError",
-  {
-    code: Schema.Literals([
-      "compaction_context_full",
-      "compaction_instructions",
-      "compaction_failed",
-      "compaction_usage_limit",
-      "compaction_limits",
-    ]),
-  },
-) {}
+export class ChatCompactionError extends Schema.TaggedError<
+  ChatCompactionError,
+  { readonly brand: unique symbol }
+>()("ChatCompactionError", {
+  code: Schema.Literals([
+    "compaction_context_full",
+    "compaction_instructions",
+    "compaction_failed",
+    "compaction_usage_limit",
+    "compaction_limits",
+  ]),
+}) {}
 
 export const ChatCompactionPayloadSchema = Schema.Struct({
   version: Schema.Literal(1),
