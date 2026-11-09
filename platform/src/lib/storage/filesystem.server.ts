@@ -28,8 +28,8 @@ async function syncFileSystemDirectory(directory: string): Promise<void> {
 
 // Keys are application-generated. Local processes and the configured directory are trusted.
 async function fileSystemObjectPath(input: FileSystemObject, create = false): Promise<string> {
-  Schema.decodeUnknownSync(StorageDirectorySchema)(input.directory)
-  Schema.decodeUnknownSync(fileSystemKeySchema)(input.key)
+  Schema.decodeSync(StorageDirectorySchema)(input.directory)
+  Schema.decodeSync(fileSystemKeySchema)(input.key)
   const path = join(input.directory, input.key)
   if (!create && !(await stat(input.directory).catch(() => undefined))?.isDirectory())
     throw new StorageUnavailable()

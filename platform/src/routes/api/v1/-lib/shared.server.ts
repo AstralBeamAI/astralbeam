@@ -1,6 +1,6 @@
 import { NonEmptyStringSchema, enumSchema } from "@/lib/schemas.ts"
 import { Context, Predicate, Schema, SchemaGetter } from "effect"
-import { HttpServerResponse } from "effect/http"
+import { HttpServerResponse, ProblemDetails } from "effect/http"
 import { HttpApiMiddleware, HttpApiSchema } from "effect/http-api"
 import type { OrganizationCurrentUser } from "@/lib/auth/organization-token.server"
 import type { TenantScope } from "@/lib/tenants/tenants"
@@ -50,7 +50,10 @@ export interface RestError {
 }
 
 /** A problem read back from the wire, which carries its status instead of declaring it. */
-export class RestProblem extends Schema.TaggedError<RestProblem>()("RestProblem", {
+export class RestProblem extends Schema.TaggedError<
+  RestProblem,
+  { readonly brand: unique symbol }
+>()("RestProblem", {
   status: Schema.Int,
   message: Schema.String,
   issues: RestApiErrorSchema.fields.issues,
@@ -105,11 +108,7 @@ function restProblem(error: RestError) {
 
 export function restProblemResponse(error: RestError): HttpServerResponse.HttpServerResponse {
   const { body, headers } = restProblem(error)
-  return HttpServerResponse.jsonUnsafe(body, {
-    status: body.status,
-    headers,
-    contentType: "application/problem+json",
-  })
+  return HttpServerResponse.setHeaders(ProblemDetails.toResponse(body), headers)
 }
 
 export function isRestError(error: unknown): error is RestError {
@@ -203,7 +202,7 @@ export const restPageQuery = Schema.Struct({
   ),
   page_size: Schema.optionalKey(
     Schema.String.check(Schema.isPattern(/^0*[1-9]\d*$/)).pipe(
-      Schema.decodeTo(Schema.Number, {
+      Schema.decodeTo(Schema.Finite, {
         decode: SchemaGetter.transform((value) => Math.min(Number(value), 100)),
         encode: SchemaGetter.transform<string, number>(String),
       }),

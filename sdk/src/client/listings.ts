@@ -13,6 +13,8 @@ export interface AstralBeamListingOptions extends AstralBeamListingCoreOptions {
   fetchAstralBeamToken: NonNullable<AstralBeamListingCoreOptions["fetchAstralBeamToken"]>
   /** Host-session boundary for remount reuse. Replacing it resets authentication and view state. */
   cacheKey?: object | undefined
+  /** Keep retained rows visible while refreshing them after a remount. */
+  revalidateOnMount?: boolean | undefined
   pageSize?: 20 | 50 | 100 | undefined
   title?: string | undefined
   showHeader?: boolean | undefined

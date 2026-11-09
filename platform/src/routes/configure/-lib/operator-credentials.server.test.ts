@@ -9,7 +9,11 @@ import { clearOperatorSessionCookie, setOperatorSessionCookie } from "./operator
 
 function serveConfigureBoundary(
   request: Request,
-  effect: Effect.Effect<void, { readonly _tag: string }, ServerRequest> = checkConfigureRequest(),
+  effect: Effect.Effect<
+    void,
+    { readonly _tag: string } | Response,
+    ServerRequest
+  > = checkConfigureRequest(),
 ) {
   return createServerEntry({
     fetch: async () => {
@@ -19,7 +23,10 @@ function serveConfigureBoundary(
             ...captureServerRequest(),
             clientAddress: "172.18.0.1",
           }),
-          Effect.match({ onFailure: (error) => error._tag, onSuccess: () => "ok" }),
+          Effect.match({
+            onFailure: (error) => (error instanceof Response ? "Redirect" : error._tag),
+            onSuccess: () => "ok",
+          }),
         ),
       )
       return new Response(outcome, { headers: [...getResponseHeaders()] })
@@ -57,7 +64,7 @@ describe("operator request boundary", () => {
   )
 
   test.each<[string, string, HeadersInit, string]>([
-    ["", "GET", { "x-forwarded-proto": "https" }, "ServerRedirect"],
+    ["", "GET", { "x-forwarded-proto": "https" }, "Redirect"],
     ["false", "POST", {}, "ConfigureHttpsRequired"],
     ["true", "GET", {}, "ok"],
     ["true", "POST", { origin: "http://app.example" }, "ok"],

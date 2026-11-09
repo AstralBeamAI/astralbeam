@@ -10,12 +10,13 @@ Implementation rules live in [AGENTS.md](../AGENTS.md) and its project-specific 
 | --- | --- | --- |
 | `platform` | Dashboard, `/configure`, `/docs`, management APIs, and chat execution | Bun binary |
 | `sdk` | Widget, headless session, React bindings, and token minting | `@astralbeam/sdk` npm package |
+| `cli` | Organization admin commands over the public API, built on the SDK | `@astralbeam/cli` npm package and Bun binaries |
 | `website` | Prerendered TanStack Start website | Cloudflare assets |
 | `examples/todos` | Standalone SDK consumer and browser tests | Demo application |
 | `examples/linearity-react` | Project-tracking playground with browser state, Astro tools, and Basic Auth | Bun server and browser assets |
 | `examples/todos-rails` | Rails consumer of the SDK from jsDelivr, outside the Bun toolchain | Demo application |
 
-Each project owns its dependencies and tooling because they ship independently. Bun installs the five projects as one workspace with a root lockfile and local SDK links. The root shares compiler defaults in `tsconfig.base.json` and launches `dev` and `build` tasks.
+Each project owns its dependencies and tooling because they ship independently. Bun installs the six projects as one workspace with a root lockfile and local SDK links. The root shares compiler defaults in `tsconfig.base.json` and launches `dev` and `build` tasks.
 
 ```text
 Tenant user's browser
@@ -146,7 +147,7 @@ Host tools and widgets execute in the host page with agent-chosen input. Attachm
 
 ## Build and deployment
 
-The platform compiles to a Bun binary with an out-of-tree startup, asset and shutdown check. The SDK publishes independently. `website` deploys as static assets. CI validates each project. The deterministic browser suites run locally after PR creation and every push to a PR. Model-driven tests require separate credentials and spend credits.
+The platform compiles to a Bun binary with an out-of-tree startup, asset and shutdown check. The SDK publishes independently. The CLI bundles the SDK's API client, token minting, and headless chat session, and releases in lockstep with the SDK as an npm package and cross-compiled Bun binaries. `website` deploys as static assets. CI validates each project. The deterministic browser suites run locally after PR creation and every push to a PR. Model-driven tests require separate credentials and spend credits.
 
 The Platform release installs native dependencies for every supported target, then `platform/scripts/compile.ts` stages the Nitro server with only that target's Sharp and libvips packages before calling `Bun.build`. Bun embeds asset directories verbatim, so selecting a compile target alone does not remove other platforms' libraries from the server tree. The original build output stays available for the remaining targets. Deployment still uses the standard Bun executable without a separate launcher.
 

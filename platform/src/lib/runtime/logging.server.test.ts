@@ -1,5 +1,5 @@
 import { assert, it } from "@effect/vitest"
-import { Cause, Effect, Layer, References } from "effect"
+import { Cause, Context, Effect, Layer, References } from "effect"
 import { HttpClient, HttpClientResponse } from "effect/http"
 import { TestConsole } from "effect/testing"
 
@@ -53,8 +53,7 @@ it.effect("redacts console paths, causes, provider messages and nested metadata"
     assert.include(output, "note=ordinary")
   }).pipe(
     Effect.annotateLogs({ path: "/api/auth/reset-password/opaque-reset-token" }),
-    Effect.provide(serverLoggerLayer),
-    Effect.provide(TestConsole.layer),
+    Effect.provide([serverLoggerLayer, TestConsole.layer]),
   ),
 )
 
@@ -72,7 +71,7 @@ it.effect("redacts shipped request/error logs and replaces a closed exporter", (
     }).pipe(Layer.provide(Layer.succeed(HttpClient.HttpClient, client)))
     yield* Effect.gen(function* () {
       // Nitro and fallback errors log outside the application's runtime.
-      Effect.runSync(
+      Effect.runSyncWith(Context.empty())(
         Effect.logInfo("HTTP response ready").pipe(
           Effect.annotateLogs({
             requestId: "request-export-test",
@@ -117,5 +116,5 @@ it.effect("redacts shipped request/error logs and replaces a closed exporter", (
     assert.notInclude(consoleOutput, "opaque-")
     yield* Effect.logInfo("Replacement exporter").pipe(Effect.provide(exporter))
     assert.include(batches.join(""), "Replacement exporter")
-  }).pipe(Effect.provide(serverLoggerLayer), Effect.provide(TestConsole.layer)),
+  }).pipe(Effect.provide([serverLoggerLayer, TestConsole.layer])),
 )

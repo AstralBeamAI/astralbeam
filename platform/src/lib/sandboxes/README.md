@@ -15,7 +15,7 @@ Platform owns authorization, result metadata, and safe error messages. The CLI p
 import { DockerSandbox } from "@astralbeam/sandbox"
 
 if (await DockerSandbox.available()) {
-  const connection = new DockerSandbox({ image: "ghcr.io/astralbeamai/sandbox:<version>" })
+  const connection = new DockerSandbox({ image: "ghcr.io/astralbeamai/sandbox:latest" })
   await connection.valid()
   const provider = await connection.provider // TanStack SandboxProvider
 }
@@ -44,7 +44,7 @@ Defaults only populate a new organization form. Once saved, the database values 
 1. Install and start [Docker Engine](https://docs.docker.com/engine/install/) or [Docker Desktop](https://docs.docker.com/desktop/).
 2. Run the platform directly on that host. As the same operating-system user, run [`docker info`](https://docs.docker.com/reference/cli/docker/system/info/) and resolve any daemon or socket permission error.
 3. The adapter connects through `DOCKER_HOST`, or else `~/.docker/run/docker.sock` before `/var/run/docker.sock`, and ignores the CLI's [contexts](https://docs.docker.com/engine/manage-resources/contexts/). With OrbStack, Colima, or a stale Docker Desktop socket, start the platform with `DOCKER_HOST=$(docker context inspect --format '{{.Endpoints.docker.Host}}')` exported.
-4. In the app, open **Sandboxes** from the organization sidebar, add a provider, give it a unique name, choose **Docker**, and select **Test and save**. The operator controls the image through `LOCAL_SANDBOX_IMAGE`. Bootstrap saves the release-tagged default to `.env` when unset and downloads missing images into the native caches. Repeat bootstrap runs and normal sandbox creation reuse those caches. Choose a new version tag or digest to prepare another image.
+4. In the app, open **Sandboxes** from the organization sidebar, add a provider, give it a unique name, choose **Docker**, and select **Test and save**. The operator controls the image through `LOCAL_SANDBOX_IMAGE`. Bootstrap saves `ghcr.io/astralbeamai/sandbox:latest` to `.env` when unset and downloads missing images into the native caches. Repeat bootstrap runs and normal sandbox creation reuse those caches. Pull `latest` with your runtime to refresh it, or choose a tag or digest to pin another image.
 
 The image installs commands under `/usr/local/bin` and uses the root/home defaults expected by the stock Docker adapter. The adapter is unmodified.
 

@@ -76,6 +76,8 @@ Directories refresh stale results on focus or reconnect. By default, unmounting 
 
 To reuse data across remounts, pass a stable object as `cacheKey` for the host session. Replace that object on sign-out or account changes. Reuse requires the same verified account and API. Each mount still owns its requests and cancellation, so refreshing one does not refresh another.
 
+Set `revalidateOnMount` to keep retained rows visible while refreshing them in the background on every remount. By default, results fetched within the last 30 seconds are reused without another request.
+
 ### Refresh and reset
 
 Call `refresh()` after a host edit to reload the current view. Use `reset()` to clear this mount's authentication, cached data, and view state, then load it again. Reset also clears retained data for its `cacheKey`. Neither action changes active sibling mounts.
@@ -137,6 +139,7 @@ Directories use the same `theme`, `colorScheme`, and trusted `customCss` options
 | `fetchAstralBeamToken` | Required | Endpoint `{ url, ...RequestInit }` or function returning `{ token }`. Unlike chat, directories have no default token source. |
 | `apiUrl` | `https://astralbeam.ai/api` | AstralBeam API base. Set your deployment's `/api` URL when self-hosting. |
 | `cacheKey` | None | Opaque host-session object for remount reuse. Changing its identity clears authentication and the view. Replace it on sign-out or account changes. |
+| `revalidateOnMount` | `false` | Refresh retained rows and usage in the background on remount while keeping cached content visible. |
 | `scope` | `"tenant"` | Tenant view, or `"organization"` with an organization-management JWT. |
 | `tenantId`, `tenantExternalId` | Signed tenant in tenant scope | Pin a Tenant by internal UUID or exact external ID. Internal ID takes precedence. |
 | `pageSize` | `20` | Initial page size, one of `20`, `50`, or `100`. |

@@ -1,4 +1,4 @@
-import { Cause, Effect, Layer, Option, SchemaIssue, Scope } from "effect"
+import { ByteSize, Cause, Effect, Layer, Option, Result, SchemaIssue, Scope } from "effect"
 import {
   HttpRouter,
   HttpServer,
@@ -15,6 +15,7 @@ import { Config } from "@/lib/config/config"
 import { reportFailure } from "@/lib/runtime/failure-report.server"
 import { appLayer, getAppRuntime } from "@/lib/runtime/runtime.server"
 import { annotateHttpRoute } from "@/lib/runtime/tracing-context.server"
+import { CHAT_MAX_REQUEST_BYTES } from "@/lib/chat/constants"
 import { Tenants } from "@/lib/tenants/tenants"
 import { ApiV1 } from "./contract.server"
 import {
@@ -67,6 +68,13 @@ function restValidationError(error: HttpApiError.HttpApiSchemaError) {
  */
 function restBoundaryFailure(cause: Cause.Cause<unknown>, operation: string) {
   if (Cause.hasInterruptsOnly(cause)) return Effect.interrupt
+  const defect = Result.getOrUndefined(Cause.findDefect(cause))
+  if (
+    HttpServerError.isHttpServerError(defect) &&
+    defect.reason._tag === "RequestParseError" &&
+    defect.reason.reason === "BodyTooLarge"
+  )
+    return Effect.fail(new RestProblem({ status: 413, message: "Request body is too large." }))
   const failure = Cause.findErrorOption(cause)
   if (Option.isSome(failure) && !Cause.hasDies(cause)) {
     const error = failure.value
@@ -100,6 +108,7 @@ const ApiBoundaryLive = Layer.succeed(ApiBoundary, (httpEffect, { endpoint }) =>
     }
     return yield* httpEffect
   }).pipe(
+    Effect.provideService(HttpServerRequest.MaxBodySize, ByteSize.bytes(CHAT_MAX_REQUEST_BYTES)),
     Effect.catchCause((cause) => restBoundaryFailure(cause, endpoint.identifier)),
     Effect.annotateLogs({ operation: endpoint.identifier, route: endpoint.path }),
   ),

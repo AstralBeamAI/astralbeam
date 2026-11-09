@@ -35,7 +35,6 @@ import { organizationImageHooks } from "@/lib/organizations/image-hooks.server"
 import { organizationApiKeyPlugin } from "@/lib/organizations/hooks.server"
 import { forkAppEffect, runAppEffect } from "@/lib/runtime/app-effect.server"
 import { IS_TEST_RUNTIME, skipEmailVerification } from "@/lib/runtime/environment.server"
-import { tryPromiseInServerRequest } from "@/lib/runtime/server-request.server"
 import {
   assertNoGlobalAvatar,
   enqueueGravatar,
@@ -631,7 +630,13 @@ export class Auth extends Context.Service<
       const instance = Effect.map(configured, ({ auth }) => auth)
 
       const callApi = <A>(call: (api: AppAuth["api"]) => Promise<A>) =>
-        Effect.flatMap(instance, (auth) => tryPromiseInServerRequest(() => call(auth.api)))
+        Effect.flatMap(instance, (auth) =>
+          Effect.tryPromise(() => call(auth.api)).pipe(
+            Effect.catch(({ cause }) =>
+              cause instanceof APIError ? Effect.fail(cause) : Effect.die(cause),
+            ),
+          ),
+        )
 
       // Dies with Better Auth's own error, which a hook rethrows to its caller unchanged.
       const api = <A>(call: (api: AppAuth["api"]) => Promise<A>) => callApi(call).pipe(Effect.orDie)
@@ -666,8 +671,11 @@ export class Auth extends Context.Service<
       })
 
       const requireSession = (input: { headers: Headers }) =>
-        Effect.flatMap(getSession(input), (session) =>
-          session ? Effect.succeed(session) : Effect.fail(new SignInRequired()),
+        getSession(input).pipe(
+          Effect.filterOrFail(
+            (session) => session !== null,
+            () => new SignInRequired(),
+          ),
         )
 
       const handler = Effect.fn("Auth.handler")(function* (
@@ -675,9 +683,9 @@ export class Auth extends Context.Service<
         peerAddress: string | undefined,
       ) {
         const { auth, config } = yield* configured
-        return yield* tryPromiseInServerRequest(() =>
+        return yield* Effect.promise(() =>
           auth.handler(withTrustedProxyHeaders(request, peerAddress, config.proxy)),
-        ).pipe(Effect.orDie)
+        )
       })
 
       const updateOrganization = Effect.fn("Auth.updateOrganization")(function* (input: {

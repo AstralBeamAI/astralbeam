@@ -82,8 +82,10 @@ const fetchExternalImage = Effect.fn("ImageSources.fetch")(({ source }: { source
         ? error
         : new ImageImportUnavailable(),
   }).pipe(
-    Effect.timeout("20 seconds"),
-    Effect.catchTag("TimeoutError", () => Effect.fail(new ImageImportUnavailable())),
+    Effect.timeoutOrElse({
+      duration: "20 seconds",
+      orElse: () => Effect.fail(new ImageImportUnavailable()),
+    }),
     Effect.flatMap(verifiedImage),
   ),
 )

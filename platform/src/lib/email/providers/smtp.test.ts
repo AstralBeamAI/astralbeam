@@ -100,8 +100,8 @@ describe("SMTP provider", () => {
 })
 
 function decodeSmtpTestSettings(settings: Record<string, unknown>) {
-  return Effect.map(
-    Schema.decodeUnknownEffect(SmtpProviderSettingsSchema)(settings),
-    (decoded) => ({ provider: "smtp" as const, settings: decoded }),
-  )
+  return Effect.map(Schema.decodeEffect(SmtpProviderSettingsSchema)(settings), (decoded) => ({
+    provider: "smtp" as const,
+    settings: decoded,
+  }))
 }

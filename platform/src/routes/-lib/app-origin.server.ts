@@ -12,7 +12,7 @@ export function resolveAppOrigin(request: Request): Promise<string> {
   if (getDatabaseBootstrapIssues().length > 0) return Promise.resolve(requestOrigin)
   return runAppEffect(
     Effect.flatMap(Config, (config) => config.get("app_base_url")).pipe(
-      Effect.catchCause(() => Effect.succeed(undefined)),
+      Effect.catchCause(() => Effect.undefined),
       Effect.map((appBaseUrl) => appBaseUrl ?? requestOrigin),
     ),
   )

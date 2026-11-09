@@ -160,8 +160,10 @@ test("rejects corrupt downloads and missing metadata, and cleans up after cancel
         return yield* storage.get({ key: "denied", maxBytes: 1024 })
       }).pipe(
         Effect.result,
-        Effect.provide(layer),
-        Effect.provide(Logger.layer([Logger.map(Logger.formatJson, (entry) => logs.push(entry))])),
+        Effect.provide([
+          layer,
+          Logger.layer([Logger.map(Logger.formatJson, (entry) => logs.push(entry))]),
+        ]),
       ),
     )
     expect(denied).toMatchObject({ _tag: "Failure", failure: { _tag: "StorageUnavailable" } })

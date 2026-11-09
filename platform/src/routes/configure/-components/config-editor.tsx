@@ -148,7 +148,7 @@ export function ConfigEditor({
     settings,
   })
   const canTestEmailProvider = Option.isSome(emailProviderConnectionInput)
-  const storageSettings = Schema.decodeUnknownOption(StorageConnectionSchema)({
+  const storageSettings = Schema.decodeOption(StorageConnectionSchema)({
     endpoint: currentValue("s3_endpoint"),
     region: currentValue("s3_region"),
     bucket: currentValue("s3_bucket"),

@@ -1,6 +1,7 @@
 import { useDebouncedValue } from "@tanstack/react-pacer"
-import { QueryClient, QueryClientContext, useInfiniteQuery } from "@tanstack/react-query"
-import { useContext, useEffect, useId, useRef, useState } from "react"
+import { useInfiniteQuery } from "@tanstack/react-query"
+import { useId, useRef, useState } from "react"
+import { useScrollPagination } from "../lib/use-scroll-pagination.ts"
 import { Button } from "./ui/button.tsx"
 import {
   Combobox,
@@ -51,35 +52,17 @@ export function SearchDropdown<T extends { id: string }>({
   const [text, setText] = useState("")
   const [open, setOpen] = useState(false)
   const [search] = useDebouncedValue(text.trim(), { wait: 300 })
-  const sharedClient = useContext(QueryClientContext)
-  const [client] = useState(() => new QueryClient())
-  useEffect(() => () => client.clear(), [client])
   const queryId = useId()
-  const query = useInfiniteQuery(
-    {
-      queryKey: ["search-dropdown", queryId, search],
-      enabled: open,
-      initialPageParam: undefined as string | undefined,
-      queryFn: ({ signal, pageParam }) => loadPage(search, pageParam, signal),
-      getNextPageParam: (page) => page.page_after ?? undefined,
-      retry: false,
-    },
-    sharedClient ?? client,
-  )
+  const query = useInfiniteQuery({
+    queryKey: ["search-dropdown", queryId, search],
+    enabled: open,
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ signal, pageParam }) => loadPage(search, pageParam, signal),
+    getNextPageParam: (page) => page.page_after ?? undefined,
+    retry: false,
+  })
   const searching = text.trim() !== search || query.isPending
-  const { hasNextPage, isFetching, isError, fetchNextPage } = query
-  useEffect(() => {
-    const element = list.current
-    if (!open || !element || searching || !hasNextPage || isFetching || isError) return
-    const loadNextPage = () => {
-      if (element.scrollHeight - element.scrollTop - element.clientHeight < 48)
-        void fetchNextPage({ cancelRefetch: false })
-    }
-    // Short pages must load the next page even when there is no overflow to scroll yet.
-    loadNextPage()
-    element.addEventListener("scroll", loadNextPage)
-    return () => element.removeEventListener("scroll", loadNextPage)
-  }, [open, searching, hasNextPage, isFetching, isError, fetchNextPage, query.data])
+  useScrollPagination({ list, enabled: open && !searching, query })
   const choices = searching ? [] : (query.data?.pages.flatMap((page) => page.items) ?? [])
   const input = (
     <ComboboxInput

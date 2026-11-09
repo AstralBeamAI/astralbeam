@@ -44,6 +44,7 @@ export function claimListingQueryClient(
   }
   const key = viewKey(options, kind)
   const client = cache.clients.get(key) ?? createListingQueryClient()
+  if (options.revalidateOnMount) void client.invalidateQueries({ refetchType: "none" })
   // Active mounts own their sessions independently, even when they display the same view.
   cache.clients.delete(key)
   return client

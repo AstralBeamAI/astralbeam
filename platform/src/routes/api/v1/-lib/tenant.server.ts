@@ -43,7 +43,6 @@ export const TenantRecordSchema = Schema.Struct(ManagementTenantRecordSchema.fie
 )
 const CreateTenantSchema = TenantWriteSchema.pipe(
   Schema.encodeKeys({ externalId: "external_id" }),
-).pipe(
   Schema.annotateEncoded({
     identifier: "CreateTenantInput",
     examples: [

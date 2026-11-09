@@ -530,6 +530,7 @@ test.each<
     delayed?: string
     validation?: string
     restart?: boolean
+    mutateResult?: boolean
     thrownName?: string
   }
 >([
@@ -544,6 +545,7 @@ test.each<
     "changed-schema",
     "current-callback",
     "reject-validation",
+    "throws-primitive",
   ].map((validation) => ({
     ...browserEffectDefaults,
     validation,
@@ -559,6 +561,7 @@ test.each<
   { ...browserEffectDefaults, grant: false, expectedExecutions: 0 },
   { ...browserEffectDefaults, saved: false, expectedExecutions: 0 },
   { ...browserEffectDefaults, failOnce: true },
+  { ...browserEffectDefaults, failOnce: true, mutateResult: true },
   { ...browserEffectDefaults, failOnce: true, navigate: true },
   { ...browserEffectDefaults, failOnce: true, advance: true },
   ...["Error", "AbortError"].map((name) => ({
@@ -568,7 +571,7 @@ test.each<
     thrownName: name,
   })),
 ])(
-  "browser effects require a committed grant and retries preserve outcomes: grant=$grant saved=$saved retry=$failOnce uncertain=$throwsAfterCommit navigation=$navigate advance=$advance questionnaire=$questionnaire delayed=$delayed validation=$validation restart=$restart thrown=$thrownName",
+  "browser effects require a committed grant and retries preserve outcomes: grant=$grant saved=$saved retry=$failOnce uncertain=$throwsAfterCommit navigation=$navigate advance=$advance questionnaire=$questionnaire delayed=$delayed validation=$validation restart=$restart thrown=$thrownName mutation=$mutateResult",
   async ({
     grant,
     saved,
@@ -582,6 +585,7 @@ test.each<
     validation,
     restart,
     thrownName,
+    mutateResult,
   }) => {
     const toolName = questionnaire ? "ask_questionnaire" : "change_data"
     let chatRequests = 0
@@ -592,6 +596,7 @@ test.each<
       finishTool = resolve
     })
     const delivered = expectedExecutions > 0 && delayed !== "api" && delayed !== "identity"
+    const sharedResult = { changed: true }
     const execute = vi.fn(async () => {
       mutations++
       if (delayed) await toolFinished
@@ -599,7 +604,7 @@ test.each<
         throw thrownName === "AbortError"
           ? new DOMException("Response lost after mutation", "AbortError")
           : new TypeError("Response lost after mutation")
-      return { changed: true }
+      return sharedResult
     })
     const pendingValidation = Promise.withResolvers<unknown>()
     const parameters = {
@@ -838,11 +843,13 @@ test.each<
             },
           },
         })
-      pendingValidation.resolve(
-        validation === "reject-validation"
-          ? { issues: [{ message: "Rejected input" }] }
-          : undefined,
-      )
+      if (validation === "throws-primitive") pendingValidation.reject("Validation unavailable")
+      else
+        pendingValidation.resolve(
+          validation === "reject-validation"
+            ? { issues: [{ message: "Rejected input" }] }
+            : undefined,
+        )
       await sending
     } else if (delayed) {
       await vi.waitUntil(() => execute.mock.calls.length === 1)
@@ -874,6 +881,7 @@ test.each<
     await vi.waitFor(() => expect(resultRequests).toBe(failOnce || delivered ? 1 : 0))
     if (validation) return
     if (failOnce) {
+      if (mutateResult) sharedResult.changed = false
       if (navigate) await chat.openThread(thread.id)
       else if (advance) await chat.sendMessage("An independent input")
       else await chat.refreshThread()
@@ -2088,4 +2096,120 @@ test("a send waiting on token renewal never reaches the account the renewal reso
   await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
   expect(JSON.stringify(chat.getState().messages)).not.toContain("Private to the first account")
   expect(sends).not.toHaveBeenCalled()
+})
+
+test.each(["history completion", "onThreadReady"] as const)(
+  "a send follows a full history read started by %s",
+  async (trigger) => {
+    const reads: Array<PromiseWithResolvers<Response>> = []
+    let holding = false
+    const sends = vi.fn()
+    stubSessionFetch((input: string | URL) => {
+      const path = new URL(input).pathname
+      if (path.endsWith("/config")) return sessionResponse({ attachments: true })
+      if (path.endsWith("/chat")) {
+        sends()
+        return Promise.resolve(acceptedStream("accepted"))
+      }
+      if (!holding) return sessionResponse(page())
+      const read = Promise.withResolvers<Response>()
+      reads.push(read)
+      return read.promise
+    })
+    const chat = createTestSession({ threadId: thread.id })
+    await vi.waitFor(() =>
+      expect(chat.getState()).toMatchObject({ thread: { id: thread.id }, history: "idle" }),
+    )
+    let first: Promise<void> | undefined
+    let latest: Promise<void> | undefined
+    const refresh = () => {
+      holding = true
+      latest = chat.refreshThread()
+    }
+    if (trigger === "history completion") {
+      holding = true
+      first = chat.refreshThread()
+      await vi.waitUntil(() => reads.length === 1)
+      const unsubscribe = chat.subscribe(() => {
+        if (chat.getState().history !== "idle") return
+        unsubscribe()
+        refresh()
+      })
+    }
+    const sent = chat.sendMessage(
+      "Wait for the current history",
+      trigger === "onThreadReady" ? { onThreadReady: refresh } : undefined,
+    )
+    if (first) reads[0]!.resolve(Response.json(page()))
+    await vi.waitFor(() => expect(reads).toHaveLength(first ? 2 : 1))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    const earlySends = sends.mock.calls.length
+    holding = false
+    reads.at(-1)!.resolve(Response.json(page()))
+    expect(await sent).toMatchObject({ phase: "accepted" })
+    await Promise.all([first, latest])
+    expect(earlySends).toBe(0)
+    expect(sends).toHaveBeenCalledOnce()
+  },
+)
+
+test.each([400, 429])(
+  "a stopped attempt's late %s cannot change its active Retry",
+  async (status) => {
+    const requests: Array<{ response: PromiseWithResolvers<Response>; key: string | null }> = []
+    stubSessionFetch((input: string | URL, init?: RequestInit) => {
+      if (!new URL(input).pathname.endsWith("/chat")) return sessionResponse(page())
+      const response = Promise.withResolvers<Response>()
+      requests.push({ response, key: new Headers(init?.headers).get("Idempotency-Key") })
+      return response.promise
+    })
+    const chat = createTestSession({ threadId: thread.id })
+    await vi.waitFor(() =>
+      expect(chat.getState()).toMatchObject({ thread: { id: thread.id }, history: "idle" }),
+    )
+    const first = chat.sendMessage("Keep this intent")
+    await vi.waitFor(() => expect(requests).toHaveLength(1))
+    chat.stop()
+    const retried = chat.retry()
+    await vi.waitFor(() => expect(requests).toHaveLength(2))
+    requests[0]!.response.resolve(
+      Response.json(
+        {
+          detail: "Rejected",
+          ...(status === 429
+            ? { usage_limit: { name: "Old allowance", resets_at: thread.created_at } }
+            : {}),
+        },
+        { status },
+      ),
+    )
+    await first
+    const limit = chat.getState().usageLimitReached
+    chat.stop()
+    requests[1]!.response.resolve(new Response(null, { status: 503 }))
+    expect(await retried).toMatchObject({ phase: "failed", content: "Keep this intent" })
+    expect(chat.getState().submission?.phase).toBe("failed")
+    expect(limit).toBeUndefined()
+    expect(requests[1]!.key).toBe(requests[0]!.key)
+  },
+)
+
+test("a synchronous reset during refresh handles the cancelled history read", async () => {
+  let holding = false
+  const held = Promise.withResolvers<Response>()
+  stubSessionFetch(() => (holding ? held.promise : sessionResponse(page())))
+  const chat = createTestSession({ threadId: thread.id })
+  await vi.waitFor(() =>
+    expect(chat.getState()).toMatchObject({ thread: { id: thread.id }, history: "idle" }),
+  )
+  holding = true
+  const unsubscribe = chat.subscribe(() => {
+    if (chat.getState().history !== "refreshing") return
+    unsubscribe()
+    chat.reset()
+  })
+  const refresh = chat.refreshThread()
+  held.resolve(Response.json(page()))
+  await refresh
+  expect(chat.getState()).toMatchObject({ thread: undefined, history: "idle" })
 })

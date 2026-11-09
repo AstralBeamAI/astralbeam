@@ -9,7 +9,7 @@ import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
 import { SlugSchema } from "@/lib/organizations/slug"
 import { consumeImageUpload, retireImage } from "@/lib/organizations/images.server"
 import { avatarFileUrl } from "@/lib/organizations/images"
-import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
+import { effectHandler, exposeError } from "@/lib/runtime/server-fn.server"
 import { toValidationSchema } from "@/lib/schemas"
 import { InvalidImage } from "@/lib/storage/errors"
 import { IMAGE_MAX_BYTES } from "@/lib/storage/image-limits"
@@ -28,8 +28,8 @@ const AvatarUploadSchema = Schema.Struct({
 export const updateMemberAvatar = createServerFn({ method: "POST" })
   .middleware([organizationAccessMiddleware()])
   .validator(toValidationSchema(AvatarUploadSchema))
-  .handler(({ data, context, serverFnMeta }) =>
-    runEffect(
+  .handler(
+    effectHandler(({ data, context }) =>
       Effect.gen(function* () {
         const db = yield* Database
         const files = yield* StoredFiles
@@ -66,6 +66,5 @@ export const updateMemberAvatar = createServerFn({ method: "POST" })
           exposeError,
         ),
       ),
-      serverFnMeta.name,
     ),
   )

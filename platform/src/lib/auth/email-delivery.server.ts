@@ -11,7 +11,6 @@ import {
 import type { EmailDeliveryError } from "@/lib/email/errors"
 import { runAppEffect } from "@/lib/runtime/app-effect.server"
 import { reportFailure } from "@/lib/runtime/failure-report.server"
-import { tryPromiseInServerRequest } from "@/lib/runtime/server-request.server"
 import { AuthEmailNotDelivered } from "./errors.ts"
 
 // `runInBackgroundOrAwait` swallows a callback's rejection, so a failed send is recorded against its
@@ -24,10 +23,10 @@ export const withBlockingAuthEmailDelivery = Effect.fnUntraced(function* <A>(
   operation: () => Promise<A>,
 ) {
   const scope: { error?: APIError } = {}
-  const result = yield* tryPromiseInServerRequest(() =>
+  const result = yield* Effect.tryPromise(() =>
     blockingAuthEmailContext.run(scope, operation),
   ).pipe(
-    Effect.catch((cause) =>
+    Effect.catch(({ cause }) =>
       scope.error ? Effect.fail(new AuthEmailNotDelivered()) : Effect.die(cause),
     ),
   )
@@ -50,7 +49,7 @@ export function deliverBlockingAuthEmail(
   request: Request | undefined,
   send: Effect.Effect<void, EmailDeliveryError>,
 ): Promise<void> {
-  // Read before the fiber starts, which may resume in another request's async context.
+  // Capture the caller's delivery scope before deferring to the transaction's after-commit hook.
   const scope = blockingAuthEmailContext.getStore()
   // Signup invokes email callbacks inside its transaction. Await delivery only after commit.
   // https://github.com/better-auth/better-auth/blob/v1.7.7/packages/core/src/context/transaction.ts

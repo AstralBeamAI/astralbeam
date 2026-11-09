@@ -3,18 +3,17 @@ import { Effect } from "effect"
 
 import { Agents } from "@/lib/agents/agents.server"
 import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
-import { runEffect } from "@/lib/runtime/server-fn.server"
+import { effectHandler } from "@/lib/runtime/server-fn.server"
 import { toValidationSchema } from "@/lib/schemas"
 import { OrganizationRouteInputSchema } from "@/lib/organizations/schemas"
 
 export const getAgentsPageData = createServerFn({ method: "GET" })
   .middleware([organizationAccessMiddleware({ organizationConfiguration: ["read"] })])
   .validator(toValidationSchema(OrganizationRouteInputSchema))
-  .handler(({ context, serverFnMeta }) =>
-    runEffect(
+  .handler(
+    effectHandler(({ context }) =>
       Effect.flatMap(Agents, (agents) => agents.list(context.organizationId)).pipe(
         Effect.map((data) => ({ data, permissions: context.permissions })),
       ),
-      serverFnMeta.name,
     ),
   )

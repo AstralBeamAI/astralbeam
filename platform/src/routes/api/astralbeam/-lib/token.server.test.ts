@@ -3,6 +3,10 @@ import { Effect, Layer } from "effect"
 import { TestConsole } from "effect/testing"
 import { beforeEach, vi } from "vitest"
 
+import { DatabaseRateLimiter } from "@/db/lib/rate-limiter"
+import { ApiKeys } from "@/lib/api-keys/api-keys.server"
+import { Auth } from "@/lib/auth/auth.server"
+import { Organizations } from "@/lib/organizations/organizations.server"
 import { issueDashboardToken } from "@/lib/auth/dashboard-token.server"
 import { EmbeddedAssistantUnavailable } from "@/lib/auth/errors"
 import { Config, type SetupState } from "@/lib/config/config"
@@ -25,11 +29,16 @@ function tokenRequest(origin: string, contentType: string, body: string) {
   })
 }
 
-// The mocked issuer needs none of the services its real type still names.
+const issuerServices = Layer.mergeAll(
+  config,
+  Layer.mock(Auth, {}),
+  Layer.mock(ApiKeys, {}),
+  Layer.mock(Organizations, {}),
+  Layer.mock(DatabaseRateLimiter, {}),
+)
+
 const respond = (request: Request) =>
-  (handleDashboardTokenRequest(request) as Effect.Effect<Response, never, Config>).pipe(
-    Effect.provide(config),
-  )
+  handleDashboardTokenRequest(request).pipe(Effect.provide(issuerServices))
 
 beforeEach(() => {
   vi.mocked(issueDashboardToken)

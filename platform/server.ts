@@ -7,10 +7,15 @@ import process from "node:process"
 import { fileURLToPath, pathToFileURL, URL } from "node:url"
 
 import * as BunRuntime from "@effect/platform-bun/BunRuntime"
-import { Cause, Effect, Exit, Result, Schedule, Schema } from "effect"
+import { Cause, Data, Effect, Exit, Result, Schedule, Schema } from "effect"
 import { defineServerEntry } from "nitro"
 
 import { stopEmbeddedPostgres } from "@/db/embedded-postgres.ts"
+
+class PlatformWorkerExited extends Data.TaggedError("PlatformWorkerExited")<{
+  worker: number
+  code: number
+}> {}
 
 const workerCountSchema = Schema.NumberFromString.pipe(
   Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
@@ -29,7 +34,7 @@ export default defineServerEntry({
 function resolvePlatformWorkerCount(): number {
   const value = process.env.WORKERS ?? "auto"
   if (value === "auto") return process.platform === "linux" ? availableParallelism() : 1
-  const count = Schema.decodeUnknownResult(workerCountSchema)(value)
+  const count = Schema.decodeResult(workerCountSchema)(value)
   if (Result.isFailure(count)) throw new Error("WORKERS must be auto or a positive integer")
   if (process.platform !== "linux" && count.success > 1) {
     throw new Error("Multiple HTTP workers require Linux. Use WORKERS=1 on macOS and Windows")
@@ -128,7 +133,7 @@ export function supervisePlatformWorkers(options: {
         Effect.gen(function* () {
           const code = yield* exited
           console.error(`Worker ${worker} exited (${code}), restarting with backoff`)
-          return yield* Effect.fail(new Error("Worker exited"))
+          return yield* new PlatformWorkerExited({ worker, code })
         }),
       ({ child, exited }) =>
         Effect.gen(function* () {

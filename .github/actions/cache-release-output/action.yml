@@ -1,0 +1,27 @@
+name: Cache release output
+description: Reuse generated build outputs from the same commit and architecture
+inputs:
+  lookup-only:
+    description: Skip restoring files and save a missing cache after the job succeeds
+    default: "false"
+outputs:
+  cache-hit:
+    description: Whether this exact bundle was found
+    value: ${{ steps.cache.outputs.cache-hit }}
+runs:
+  using: composite
+  steps:
+    - id: cache
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      with:
+        lookup-only: ${{ inputs.lookup-only }}
+        key: release-bundle-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
+        # SDK/OpenAPI feed CLI packaging and generation. Server/public are embedded in executables.
+        # Source maps go to PostHog. Sandbox dist resolves bootstrap imports. Executables are rebuilt.
+        path: |
+          sdk/dist
+          platform/.output/server
+          platform/.output/public
+          platform/.output/sourcemaps
+          platform/public/api/openapi.json
+          platform/packages/sandbox/dist

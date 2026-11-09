@@ -20,7 +20,7 @@ import { ChatSandboxOperationFailed, type ChatSandboxUnavailable } from "./error
 import { chatSandboxCall, logChatSandboxFailure } from "./operations"
 import type { ChatSandboxSession } from "./sandbox"
 import { resolveSandboxPath } from "./paths"
-import { chatToolInputSchema } from "../tool-schema"
+import { toolSchema } from "@tanstack/ai-effect"
 
 const sandboxArtifactLimitMessage = `Artifacts are limited to ${CHAT_SANDBOX_MAX_ARTIFACT_BYTES} bytes. Compress or split the file.`
 
@@ -28,7 +28,7 @@ const sandboxPath = NonEmptyStringSchema.pipe(
   Schema.check(Schema.isMaxLength(CHAT_SANDBOX_MAX_PATH_LENGTH)),
 )
 
-const WriteSandboxFileInputSchema = chatToolInputSchema(
+const WriteSandboxFileInputSchema = toolSchema(
   Schema.Struct({
     path: sandboxPath.annotate({
       description: "File to create or replace, relative to the workspace or absolute inside it.",
@@ -39,7 +39,7 @@ const WriteSandboxFileInputSchema = chatToolInputSchema(
   }),
 )
 
-const ReadSandboxFileInputSchema = chatToolInputSchema(
+const ReadSandboxFileInputSchema = toolSchema(
   Schema.Struct({
     path: sandboxPath.annotate({ description: "File to read, inside the workspace." }),
     offset: Schema.optionalKey(
@@ -56,7 +56,7 @@ const ReadSandboxFileInputSchema = chatToolInputSchema(
   }),
 )
 
-const ListSandboxFilesInputSchema = chatToolInputSchema(
+const ListSandboxFilesInputSchema = toolSchema(
   Schema.Struct({
     path: Schema.optionalKey(
       sandboxPath.annotate({ description: "Directory to list. Defaults to the workspace root." }),
@@ -64,7 +64,7 @@ const ListSandboxFilesInputSchema = chatToolInputSchema(
   }),
 )
 
-const PublishSandboxArtifactInputSchema = chatToolInputSchema(
+const PublishSandboxArtifactInputSchema = toolSchema(
   Schema.Struct({
     path: sandboxPath.annotate({
       description: "File to share with the user, inside the workspace.",
@@ -72,7 +72,7 @@ const PublishSandboxArtifactInputSchema = chatToolInputSchema(
   }),
 )
 
-const RunSandboxCommandInputSchema = chatToolInputSchema(
+const RunSandboxCommandInputSchema = toolSchema(
   Schema.Struct({
     command: NonEmptyStringSchema.annotate({
       description:

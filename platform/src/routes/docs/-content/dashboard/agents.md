@@ -46,7 +46,7 @@ SDK options can narrow supported files and sizes, but cannot raise deployment li
 
 Web access lets the agent search and read public pages. Choose an OpenAI Responses, Anthropic, xAI Grok, or OpenRouter default model. OpenAI Chat Completions and Google Gemini connections do not currently support this capability. Enable it on custom models and endpoints only after checking their native web-tool support.
 
-Answers include citations and sources in saved conversations. Tenant users cannot enable Web access themselves. Provider charges may include web-tool fees.
+Web search uses the selected provider's native tools. Citation formatting and paused-search behavior follow its TanStack adapter. OpenRouter's native adapter does not accept inline PDF attachments. Tenant users cannot enable Web access themselves. Provider charges may include web-tool fees.
 
 ## Sandboxes
 

@@ -270,6 +270,10 @@ Several response slots become one aggregate provider tool result in response-ID 
 
 ### TanStack integration
 
+`chat.ts` and provider connection tests use `@tanstack/ai-effect` for scoped streams and cancellation. Built-in tool schemas use its `toolSchema` converter. Native adapters own provider events, reasoning context, web tools, retries, and usage reporting, including billed failures.
+
+Web tools are saved as completed provider-executed parts with no application response slots. TanStack's `StreamProcessor` retains provider-only tool calls that terminal engine messages omit, and public snapshots preserve their native tool IDs. Native model messages retain replay metadata within the same provider, protocol, and model boundary. Custom citation offsets, early retrieval progress, Anthropic `pause_turn` continuation, and OpenRouter inline-PDF conversion are not implemented. Existing saved citation metadata remains readable.
+
 `stream.ts` supplies a messages-only `defineMessageStore` through `defineAIPersistence` and `withPersistence`. `loadThread` returns trusted server history. `saveThread` reconciles the trusted projection into the current writer's message without deleting concurrent or immutable nodes. It never accepts browser replacement history as canonical state.
 
 Streaming snapshots use `snapshotStreaming: true` and `snapshotIntervalMs: 1000`. They preserve saved partial output, but are not an ordered delivery log. Application gates separately commit admission, tool decisions, results, waiting boundaries, and completion. Native persistence completion is awaited at terminal completion. At a browser wait, the application commits that boundary without waiting for the native terminal promise, which remains pending.

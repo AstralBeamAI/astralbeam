@@ -102,6 +102,7 @@ export function OrganizationDirectory({ kind }: { kind: "tenants" | "tenant-user
           <Directory
             key={`${access.userId}:${organization.organizationId}`}
             cacheKey={cacheKey}
+            revalidateOnMount
             apiUrl="/api"
             scope="organization"
             showHeader={false}

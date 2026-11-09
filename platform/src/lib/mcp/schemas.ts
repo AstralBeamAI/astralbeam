@@ -139,7 +139,7 @@ export const McpOAuthTokensSchema = Schema.Struct({
   access_token: NonEmptyStringSchema,
   token_type: NonEmptyStringSchema,
   refresh_token: Schema.optionalKey(NonEmptyStringSchema),
-  expires_in: Schema.optionalKey(Schema.Number),
+  expires_in: Schema.optionalKey(Schema.Finite),
   scope: Schema.optionalKey(Schema.String),
 })
 const McpStaticHeadersSchema = Schema.Record(
@@ -181,7 +181,7 @@ const McpCredentialSchema = Schema.Union([
     kind: Schema.Literal("oauth"),
     clientInformation: Schema.JsonObject,
     tokens: McpOAuthTokensSchema,
-    expiresAt: Schema.NullOr(Schema.Number),
+    expiresAt: Schema.NullOr(Schema.Finite),
     discovery: McpDiscoverySchema,
   }),
 ])
@@ -192,7 +192,7 @@ export const McpCredentialEnvelopeSchema = Schema.Struct({
   id: UuidV7Schema,
   mcpServerId: UuidV7Schema,
   lockVersion: LockVersionSchema,
-  refreshStartedAt: Schema.optionalKey(Schema.Number),
+  refreshStartedAt: Schema.optionalKey(Schema.Finite),
   credential: McpCredentialSchema,
 })
 export type McpCredentialEnvelope = typeof McpCredentialEnvelopeSchema.Type
@@ -201,7 +201,7 @@ export const McpAttemptEnvelopeSchema = Schema.Struct({
   actor: McpActorSchema,
   expectedVersion: LockVersionSchema,
   origin: Schema.String,
-  expiresAt: Schema.Number,
+  expiresAt: Schema.Finite,
   status: Schema.Literals(["authorizing", "exchanging", "awaiting_completion", "failed"]),
   browserBindingHash: Schema.NullOr(Schema.String),
   state: Schema.String,
@@ -236,67 +236,59 @@ export function mcpActorEquals(left: McpActor, right: McpActor): boolean {
   )
 }
 
-export class McpForbidden extends Schema.TaggedError<McpForbidden>()(
-  "McpForbidden",
-  {},
-  { httpApiStatus: 403 },
-) {
+export class McpForbidden extends Schema.TaggedError<
+  McpForbidden,
+  { readonly brand: unique symbol }
+>()("McpForbidden", {}, { httpApiStatus: 403 }) {
   override readonly message = "You cannot use or manage this MCP connection."
 }
-export class McpNotFound extends Schema.TaggedError<McpNotFound>()(
-  "McpNotFound",
-  {},
-  { httpApiStatus: 404 },
-) {
+export class McpNotFound extends Schema.TaggedError<
+  McpNotFound,
+  { readonly brand: unique symbol }
+>()("McpNotFound", {}, { httpApiStatus: 404 }) {
   override readonly message = "The MCP server or connection was not found."
 }
-export class McpServerExists extends Schema.TaggedError<McpServerExists>()(
-  "McpServerExists",
-  {},
-  { httpApiStatus: 409 },
-) {
+export class McpServerExists extends Schema.TaggedError<
+  McpServerExists,
+  { readonly brand: unique symbol }
+>()("McpServerExists", {}, { httpApiStatus: 409 }) {
   override readonly message = "An MCP server with this URL already exists."
 }
-export class McpChanged extends Schema.TaggedError<McpChanged>()(
+export class McpChanged extends Schema.TaggedError<McpChanged, { readonly brand: unique symbol }>()(
   "McpChanged",
   {},
   { httpApiStatus: 409 },
 ) {
   override readonly message = "The MCP configuration changed. Refresh and try again."
 }
-export class McpInvalidConfiguration extends Schema.TaggedError<McpInvalidConfiguration>()(
-  "McpInvalidConfiguration",
-  {},
-  { httpApiStatus: 400 },
-) {
+export class McpInvalidConfiguration extends Schema.TaggedError<
+  McpInvalidConfiguration,
+  { readonly brand: unique symbol }
+>()("McpInvalidConfiguration", {}, { httpApiStatus: 400 }) {
   override readonly message = "Use a public HTTPS endpoint and supported authentication settings."
 }
-export class McpAuthorizationRequired extends Schema.TaggedError<McpAuthorizationRequired>()(
-  "McpAuthorizationRequired",
-  {},
-  { httpApiStatus: 409 },
-) {
+export class McpAuthorizationRequired extends Schema.TaggedError<
+  McpAuthorizationRequired,
+  { readonly brand: unique symbol }
+>()("McpAuthorizationRequired", {}, { httpApiStatus: 409 }) {
   override readonly message = "Reconnect to continue using this MCP server."
 }
-export class McpAuthorizationFailed extends Schema.TaggedError<McpAuthorizationFailed>()(
-  "McpAuthorizationFailed",
-  {},
-  { httpApiStatus: 409 },
-) {
+export class McpAuthorizationFailed extends Schema.TaggedError<
+  McpAuthorizationFailed,
+  { readonly brand: unique symbol }
+>()("McpAuthorizationFailed", {}, { httpApiStatus: 409 }) {
   override readonly message = "Authorization was not completed. Try connecting again."
 }
-export class McpUnavailable extends Schema.TaggedError<McpUnavailable>()(
-  "McpUnavailable",
-  {},
-  { httpApiStatus: 503 },
-) {
+export class McpUnavailable extends Schema.TaggedError<
+  McpUnavailable,
+  { readonly brand: unique symbol }
+>()("McpUnavailable", {}, { httpApiStatus: 503 }) {
   override readonly message = "The MCP server is unavailable. Check the connection and try again."
 }
 
-export class McpUnsupportedProtocol extends Schema.TaggedError<McpUnsupportedProtocol>()(
-  "McpUnsupportedProtocol",
-  {},
-  { httpApiStatus: 400 },
-) {
+export class McpUnsupportedProtocol extends Schema.TaggedError<
+  McpUnsupportedProtocol,
+  { readonly brand: unique symbol }
+>()("McpUnsupportedProtocol", {}, { httpApiStatus: 400 }) {
   override readonly message = `Could not connect using MCP ${MCP_PROTOCOL_VERSION}. Check the server URL and confirm it supports this version over Streamable HTTP.`
 }

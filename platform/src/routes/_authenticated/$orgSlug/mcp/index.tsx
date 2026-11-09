@@ -39,7 +39,7 @@ function McpDashboardPage() {
     }
   }
   const create: NonNullable<AstralBeamMcpServersProps["onCreateServer"]> = async (fields) => {
-    const parsed = Schema.decodeUnknownResult(McpServerWriteSchema, validationParseOptions)(fields)
+    const parsed = Schema.decodeResult(McpServerWriteSchema, validationParseOptions)(fields)
     if (Result.isFailure(parsed))
       return {
         errors: formatMcpServerIssues(parsed.failure.issue).issues.map((issue) => ({

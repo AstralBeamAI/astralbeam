@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest"
-import { Clock, Context, Deferred, Effect, Exit, Fiber, Layer, Result } from "effect"
+import { Context, Deferred, Effect, Exit, Fiber, Layer, Result } from "effect"
 import { TestClock } from "effect/testing"
 import type { SqlClient, SqlConnection } from "effect/sql"
 import { afterEach, beforeAll, beforeEach, vi } from "vitest"
@@ -296,11 +296,9 @@ describe("Config", () => {
     return Effect.gen(function* () {
       const config = yield* Config
       const committed = yield* config.snapshot
-      const clock = yield* Clock.Clock
+      const runPromise = Effect.runPromiseWith(yield* Effect.context<never>())
       const read = Effect.promise(() =>
-        runGuardedPromiseTransaction({}, () =>
-          Effect.runPromise(config.snapshot.pipe(Effect.provideService(Clock.Clock, clock))),
-        ),
+        runGuardedPromiseTransaction({}, () => runPromise(config.snapshot)),
       )
       assert.strictEqual(yield* read, committed)
       assert.strictEqual(state.reads, 1)

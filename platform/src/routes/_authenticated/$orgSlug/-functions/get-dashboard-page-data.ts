@@ -7,14 +7,14 @@ import { ModelProviders } from "@/lib/model-providers/model-providers.server"
 import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
 import { Organizations } from "@/lib/organizations/organizations.server"
 import { OrganizationRouteInputSchema } from "@/lib/organizations/schemas"
-import { runEffect } from "@/lib/runtime/server-fn.server"
+import { effectHandler } from "@/lib/runtime/server-fn.server"
 import { toValidationSchema } from "@/lib/schemas"
 
 export const getDashboardPageData = createServerFn({ method: "GET" })
   .middleware([organizationAccessMiddleware()])
   .validator(toValidationSchema(OrganizationRouteInputSchema))
-  .handler(({ context, serverFnMeta }) =>
-    runEffect(
+  .handler(
+    effectHandler(({ context }) =>
       Effect.gen(function* () {
         // Counting only what this role may read makes the serialized payload the authorization
         // boundary, rather than the cards the browser chooses to render.
@@ -57,6 +57,5 @@ export const getDashboardPageData = createServerFn({ method: "GET" })
           permissions: context.permissions,
         }
       }),
-      serverFnMeta.name,
     ),
   )

@@ -3,15 +3,15 @@ import { Effect } from "effect"
 
 import { Agents } from "@/lib/agents/agents.server"
 import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
-import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
+import { effectHandler, exposeError } from "@/lib/runtime/server-fn.server"
 import { toValidationSchema } from "@/lib/schemas"
 import { AgentVersionInputSchema } from "../-lib/schemas.ts"
 
 export const deleteAgent = createServerFn({ method: "POST" })
   .middleware([organizationAccessMiddleware({ organizationConfiguration: ["delete"] })])
   .validator(toValidationSchema(AgentVersionInputSchema))
-  .handler(({ context, data, serverFnMeta }) =>
-    runEffect(
+  .handler(
+    effectHandler(({ context, data }) =>
       Effect.flatMap(Agents, (agents) =>
         agents.remove({
           organizationId: context.organizationId,
@@ -19,6 +19,5 @@ export const deleteAgent = createServerFn({ method: "POST" })
           lockVersion: data.lockVersion,
         }),
       ).pipe(Effect.catchTag("AgentChanged", exposeError)),
-      serverFnMeta.name,
     ),
   )

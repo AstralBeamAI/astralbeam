@@ -77,7 +77,7 @@ const handleMcpBrowserRequest = Effect.gen(function* () {
             ? Response.json({ url: destination }, { headers: { "Cache-Control": "no-store" } })
             : new Response("Authorization pending", { status: 409 }),
         ),
-        Effect.catch(() => Effect.succeed(new Response("Authorization ended", { status: 403 }))),
+        Effect.orElseSucceed(() => new Response("Authorization ended", { status: 403 })),
       )
   }
   if (url.pathname.endsWith("/callback")) {
@@ -98,11 +98,9 @@ const handleMcpBrowserRequest = Effect.gen(function* () {
             `mcp_oauth_${reference.connectionId}=; Path=/api/mcp/oauth; HttpOnly; SameSite=Lax; Max-Age=0${new URL(baseUrl).protocol === "https:" ? "; Secure" : ""}`,
           ),
         ),
-        Effect.catch(() =>
-          Effect.succeed(
-            mcpPopupHtml(
-              `document.getElementById('status').textContent='Authorization failed. Close this window and try again.';`,
-            ),
+        Effect.orElseSucceed(() =>
+          mcpPopupHtml(
+            `document.getElementById('status').textContent='Authorization failed. Close this window and try again.';`,
           ),
         ),
       )

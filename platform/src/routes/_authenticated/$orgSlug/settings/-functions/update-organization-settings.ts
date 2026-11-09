@@ -4,7 +4,7 @@ import { Effect, Schema } from "effect"
 import { Auth } from "@/lib/auth/auth.server"
 import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
 import { SlugSchema } from "@/lib/organizations/slug"
-import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
+import { effectHandler, exposeError } from "@/lib/runtime/server-fn.server"
 import { ServerRequest } from "@/lib/runtime/server-request.server"
 import { DisplayNameSchema, toValidationSchema } from "@/lib/schemas"
 
@@ -19,8 +19,8 @@ export const updateOrganizationSettings = createServerFn({ method: "POST" })
       }),
     ),
   )
-  .handler(({ context, data, serverFnMeta }) =>
-    runEffect(
+  .handler(
+    effectHandler(({ context, data }) =>
       Effect.gen(function* () {
         const auth = yield* Auth
         yield* auth.updateOrganization({
@@ -30,6 +30,5 @@ export const updateOrganizationSettings = createServerFn({ method: "POST" })
           slug: data.slug,
         })
       }).pipe(Effect.catchTag("OrganizationSlugTaken", exposeError)),
-      serverFnMeta.name,
     ),
   )

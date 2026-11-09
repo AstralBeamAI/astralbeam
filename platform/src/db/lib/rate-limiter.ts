@@ -87,7 +87,7 @@ export class DatabaseRateLimiter extends Context.Service<
             windowExpiresAt: rateLimit.lastRequest,
           })
           .pipe(Effect.mapError(storeError))
-        if (!row) return yield* Effect.fail(storeError())
+        if (!row) return yield* storeError()
 
         const resetAfter = Duration.millis(Math.max(0, row.windowExpiresAt - row.currentTime))
         const remaining = options.limit - row.count

@@ -19,20 +19,18 @@ const idempotencyProcess = globalThis as typeof globalThis & {
 }
 const idempotencyExecutions = (idempotencyProcess[idempotencyExecutionsKey] ??= new Set<string>())
 
-export class IdempotencyParametersMismatch extends Schema.TaggedError<IdempotencyParametersMismatch>()(
-  "IdempotencyParametersMismatch",
-  {},
-  { httpApiStatus: 400 },
-) {
+export class IdempotencyParametersMismatch extends Schema.TaggedError<
+  IdempotencyParametersMismatch,
+  { readonly brand: unique symbol }
+>()("IdempotencyParametersMismatch", {}, { httpApiStatus: 400 }) {
   override readonly message =
     "This idempotency key was used with a different operation or parameters"
 }
 
-export class IdempotencyInProgress extends Schema.TaggedError<IdempotencyInProgress>()(
-  "IdempotencyInProgress",
-  {},
-  { httpApiStatus: 409 },
-) {
+export class IdempotencyInProgress extends Schema.TaggedError<
+  IdempotencyInProgress,
+  { readonly brand: unique symbol }
+>()("IdempotencyInProgress", {}, { httpApiStatus: 409 }) {
   override readonly message = "An operation with this idempotency key is still in progress"
 }
 
@@ -69,7 +67,7 @@ export const withDatabaseIdempotency = Effect.fn("withDatabaseIdempotency")(func
 ) {
   const { namespace = "idempotency", scope, key: clientKey, operation, parameters: input } = options
   const { name, parameters: parameterSchema, success, error } = operation
-  yield* Schema.decodeUnknownEffect(databaseIdempotencyKeySchema, strictParseOptions)(clientKey)
+  yield* Schema.decodeEffect(databaseIdempotencyKeySchema, strictParseOptions)(clientKey)
   const parameters = yield* Schema.decodeUnknownEffect(parameterSchema, strictParseOptions)(input)
   const parameterCodec = Schema.toCodecJson(parameterSchema)
   const encodedParameters = structuredClone(yield* Schema.encodeEffect(parameterCodec)(parameters))
@@ -93,12 +91,10 @@ export const withDatabaseIdempotency = Effect.fn("withDatabaseIdempotency")(func
       const existing = yield* cache.get(key)
       if (Option.isSome(existing)) {
         if (existing.value.operation !== name) return yield* new IdempotencyParametersMismatch()
-        const previous = yield* Schema.decodeUnknownEffect(parameterCodec)(
-          existing.value.parameters,
-        )
+        const previous = yield* Schema.decodeEffect(parameterCodec)(existing.value.parameters)
         if (!Schema.toEquivalence(Schema.toType(parameterSchema))(previous, parameters))
           return yield* new IdempotencyParametersMismatch()
-        return yield* Schema.decodeUnknownEffect(outcomeCodec)(existing.value.outcome)
+        return yield* Schema.decodeEffect(outcomeCodec)(existing.value.outcome)
       }
       const exit = yield* Effect.exit(
         sql.withTransaction(Effect.suspend(() => execute(parameters))),
@@ -120,7 +116,7 @@ export const withDatabaseIdempotency = Effect.fn("withDatabaseIdempotency")(func
         parameters: encodedParameters,
         outcome: encodedOutcome,
       })
-      return yield* Schema.decodeUnknownEffect(outcomeCodec)(encodedOutcome)
+      return yield* Schema.decodeEffect(outcomeCodec)(encodedOutcome)
     }),
   )
   if (Option.isNone(locked)) return yield* new IdempotencyInProgress()

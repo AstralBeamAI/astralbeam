@@ -1,17 +1,18 @@
 // Added from @better-auth-ui/auth
-// Local changes: Add configured CAPTCHA; use browser-safe globals and domain-specific function names; preserve return paths when browser storage is unavailable, strict typing, and a semantic heading. Wait for hydration before submission.
+// Local changes: Share native field validation. Add configured CAPTCHA; use browser-safe globals and domain-specific function names; preserve return paths when browser storage is unavailable, strict typing, and a semantic heading. Wait for hydration before submission.
 
 "use client"
 
 import { getAuthLinkURL, getViewURL } from "@better-auth-ui/core"
 import { useAuth, useFetchOptions, useRequestPasswordReset } from "@better-auth-ui/react"
-import { type SyntheticEvent, useState } from "react"
+import { type SyntheticEvent } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
+import { useAuthFieldErrors } from "./use-auth-field-errors"
 import { cn } from "cn"
 import { RESET_LINK_SENT_STORAGE_KEY } from "./reset-link-sent"
 import { useHydrated } from "@tanstack/react-router"
@@ -77,9 +78,7 @@ export function ForgotPassword({ className }: ForgotPasswordProps) {
     })
   }
 
-  const [fieldErrors, setFieldErrors] = useState<{
-    email: string | undefined
-  }>({ email: undefined })
+  const { fieldErrors, fieldValidation } = useAuthFieldErrors()
   const captchaComponent = plugins?.find((plugin) => plugin.id === "captcha")?.captchaComponent
   const captchaReady = !captchaComponent || Boolean(fetchOptions?.headers?.["x-captcha-response"])
 
@@ -105,24 +104,7 @@ export function ForgotPassword({ className }: ForgotPasswordProps) {
                 placeholder={localization.auth.emailPlaceholder}
                 required
                 disabled={isPending}
-                onChange={() => {
-                  setFieldErrors((prev) => ({
-                    ...prev,
-                    email: undefined,
-                  }))
-                }}
-                onInvalid={(e) => {
-                  e.preventDefault()
-                  const el = e.target as HTMLInputElement
-                  const msg = el.validity.valueMissing
-                    ? localization.auth.fieldRequired
-                    : localization.auth.invalidEmail
-
-                  setFieldErrors((prev) => ({
-                    ...prev,
-                    email: msg,
-                  }))
-                }}
+                {...fieldValidation({ name: "email" })}
                 aria-invalid={!!fieldErrors.email}
               />
 

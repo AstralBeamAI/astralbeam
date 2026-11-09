@@ -14,6 +14,7 @@ import {
   McpNotFound,
   McpServerExists,
   MCP_REFRESH_LEASE_MS,
+  MCP_REFRESH_MARGIN_MS,
   McpCredentialEnvelopeSchema,
   McpStoredAuthConfigSchema,
   McpClientEnvelopeSchema,
@@ -126,6 +127,45 @@ export function mcpDecodeCredential(row: McpStoredConnection) {
     : null
 }
 
+export function mcpCredentialState(input: {
+  connection: McpStoredConnection
+  authConfig: McpAuthConfig | null | undefined
+  now: number
+  rejectedToken?: string | undefined
+}) {
+  const { authConfig, now } = input
+  if (authConfig?.kind === "none")
+    return { state: "ready" as const, credential: { kind: "none" as const } }
+  const envelope = mcpDecodeCredential(input.connection)
+  if (
+    !authConfig ||
+    !envelope ||
+    (envelope.refreshStartedAt !== undefined &&
+      envelope.refreshStartedAt + MCP_REFRESH_LEASE_MS <= now)
+  )
+    return { state: "reauthorization-required" as const }
+  const credential = envelope.credential
+  if (
+    authConfig.kind === "oauth" &&
+    (credential.kind !== "oauth" ||
+      !mcpOAuthBindingIsValid(authConfig, credential.clientInformation, credential.discovery))
+  )
+    return { state: "reauthorization-required" as const }
+  if (
+    credential.kind !== "oauth" ||
+    (input.rejectedToken !== credential.tokens.access_token &&
+      (credential.expiresAt === null || credential.expiresAt > now + MCP_REFRESH_MARGIN_MS))
+  )
+    return { state: "ready" as const, credential }
+  return {
+    state:
+      envelope.refreshStartedAt === undefined
+        ? ("refresh-needed" as const)
+        : ("refreshing" as const),
+    envelope,
+  }
+}
+
 function mcpServerSummary(
   row: Pick<typeof mcpServer.$inferSelect, "organizationId" | "id" | "endpointUrl">,
   config: McpAuthConfig | null,
@@ -224,37 +264,24 @@ const makeMcpConnections = Effect.gen(function* () {
     }))
     const servers = configured.map((row) => mcpServerSummary(row, row.config))
     const connections = (yield* mcpReadConnections(db, actor)).map((row): McpConnectionSummary => {
-      const credential = mcpDecodeCredential(row)
       const config = configured.find((entry) => entry.id === row.mcpServerId)?.config
-      const bindingInvalid =
-        config?.kind === "oauth" &&
-        (credential?.credential.kind !== "oauth" ||
-          !mcpOAuthBindingIsValid(
-            config,
-            credential.credential.clientInformation,
-            credential.credential.discovery,
-          ))
+      const credential = mcpCredentialState({ connection: row, authConfig: config, now })
       return {
         organizationId: row.organizationId,
         tenantId: row.tenantId,
         id: row.id,
         mcpServerId: row.mcpServerId,
         lockVersion: row.lockVersion,
-        authState: servers.some(
-          (server) => server.id === row.mcpServerId && server.authKind === "none",
-        )
-          ? "connected"
-          : row.storedCredentials === null
-            ? row.lockVersion > 0
-              ? "reauthorization_required"
-              : "disconnected"
-            : !config ||
-                !credential ||
-                bindingInvalid ||
-                (credential.refreshStartedAt !== undefined &&
-                  credential.refreshStartedAt + MCP_REFRESH_LEASE_MS <= now)
-              ? "reauthorization_required"
-              : "connected",
+        authState:
+          config?.kind === "none"
+            ? "connected"
+            : row.storedCredentials === null
+              ? row.lockVersion > 0
+                ? "reauthorization_required"
+                : "disconnected"
+              : credential.state === "reauthorization-required"
+                ? "reauthorization_required"
+                : "connected",
       }
     })
     return { servers, connections }

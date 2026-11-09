@@ -1,0 +1,71 @@
+name: Sandbox image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - platform/packages/sandbox/image/**
+  schedule:
+    - cron: "17 3 * * 0"
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Build and verify without publishing. Branches other than main always use dry-run mode.
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}${{ inputs.dry-run && format('-dry-run-{0}', github.ref) || '' }}
+
+jobs:
+  build:
+    name: Build and publish the sandbox image
+    uses: docker/github-builder/.github/workflows/build.yml@a31d2311da4d55e21b978c1c52bab82ba97d51ee # v1
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    with:
+      output: image
+      push: ${{ github.ref == 'refs/heads/main' && !inputs.dry-run }}
+      context: platform/packages/sandbox/image
+      platforms: linux/amd64,linux/arm64
+      # Builds only run for image changes or a refresh, so rerun apt/pip even when RUN lines are unchanged.
+      cache: false
+      meta-images: ghcr.io/astralbeamai/sandbox
+      # Keep a build tag so cleanup preserves images pinned by operators.
+      meta-tags: |
+        type=raw,value=latest
+        type=raw,value=build-${{ github.run_id }}-${{ github.run_attempt }}
+      set-meta-labels: true
+      set-meta-annotations: true
+      meta-labels: &sandbox-metadata |
+        org.opencontainers.image.title=AstralBeam Sandbox
+        org.opencontainers.image.description=General-purpose execution environment for AI agents
+        org.opencontainers.image.url=https://astralbeam.ai
+        org.opencontainers.image.licenses=AGPL-3.0-only
+      meta-annotations: *sandbox-metadata
+      sbom: true
+    secrets:
+      registry-auths: |
+        - registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+  cleanup:
+    name: Remove redundant sandbox build indexes
+    needs: build
+    if: ${{ github.ref == 'refs/heads/main' && !inputs.dry-run }}
+    uses: ./.github/workflows/cleanup-image.yml
+    permissions:
+      contents: read
+      packages: write
+    with:
+      package: sandbox
+      digest: ${{ needs.build.outputs.digest }}
+      cosign-version: ${{ needs.build.outputs.cosign-version }}
+      verify-commands: ${{ needs.build.outputs.cosign-verify-commands }}
+      signed: ${{ needs.build.outputs.signed }}

@@ -131,8 +131,7 @@ describe("theme document schema", () => {
       },
     }
 
-    const safelyDecodeMalformedTheme = () =>
-      Schema.decodeUnknownExit(themeDocumentSchema)(malformedTheme)
+    const safelyDecodeMalformedTheme = () => Schema.decodeExit(themeDocumentSchema)(malformedTheme)
 
     expect(safelyDecodeMalformedTheme).not.toThrow()
     expect(Exit.isFailure(safelyDecodeMalformedTheme())).toBe(true)
@@ -191,9 +190,7 @@ describe("theme document schema", () => {
     }
 
     expect(() => parseThemeDocument(lowContrastTheme)).toThrow(/contrast/u)
-    expect(() => Schema.decodeUnknownSync(themeDocumentSchema)(lowContrastTheme)).toThrow(
-      /contrast/u,
-    )
+    expect(() => Schema.decodeSync(themeDocumentSchema)(lowContrastTheme)).toThrow(/contrast/u)
 
     for (const token of ["destructive", "warning"] as const) {
       expect(() =>

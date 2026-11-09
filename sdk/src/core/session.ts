@@ -305,17 +305,29 @@ export function createAstralBeamChat(
   // The selected conversation's admitted send. Retryable sends are kept per conversation.
   type Submission = ChatSubmission & {
     key: string
-    tools?: Array<Record<string, unknown>>
+    delivery:
+      | { state: "undispatched" }
+      | { state: "uncertain"; tools: Array<Record<string, unknown>> }
     callbacks?: ChatSubmissionCallbacks | undefined
     /** Returns interrupted, undispatched input before its pending work unwinds. */
     onRefused?: () => void
   }
   let submission: Submission | undefined
   const submissions = new Map<string, Submission>()
+  type ClientAuthority = { client: ChatClient; selection: number }
+  type Operation = ClientAuthority &
+    ({ kind: "submission"; submission: Submission } | { kind: "tool-result" })
+  type SubmissionAttempt = Extract<Operation, { kind: "submission" }>
+  type HistoryRead = {
+    owner: ClientAuthority
+    phase: AstralBeamChatState["history"]
+    completion: Promise<unknown>
+  }
+  let historyRead: HistoryRead | undefined
   // The session owns the run status, so a send is "submitted" while its conversation is prepared,
   // and a replaced client's reports never reach it.
   let clientStatus: ChatClientState = "ready"
-  let operation: object | undefined
+  let operation: Operation | undefined
   const update = (next: Partial<AstralBeamChatState>) => {
     const status =
       operation || submission?.phase === "submitting"
@@ -323,12 +335,15 @@ export function createAstralBeamChat(
           ? "streaming"
           : "submitted"
         : clientStatus
-    state = { ...state, ...next, status }
+    state = { ...state, ...next, status, history: historyRead?.phase ?? "idle" }
     for (const listener of listeners) listener()
   }
+  const currentAuthority = (owner: ClientAuthority) =>
+    owner.client === client && owner.selection === selectionGeneration
+  const currentOperation = (owner: Operation) => operation === owner && currentAuthority(owner)
   // Only the current owner releases dispatch after native cleanup and reconciliation.
-  const finishOperation = (owner: object) => {
-    if (operation !== owner) return
+  const finishOperation = (owner: Operation) => {
+    if (!currentOperation(owner)) return
     operation = undefined
     update({})
   }
@@ -354,25 +369,27 @@ export function createAstralBeamChat(
   }
   // A delivery attempt acts only while it is the session's submission and its current attempt, and
   // it continues dispatching only while that send is still submitting.
-  const current = (sent: Submission, attempt: object) =>
-    sent === submission && operation === attempt
-  const owns = (sent: Submission, attempt: object) =>
-    current(sent, attempt) && sent.phase === "submitting"
+  const currentAttempt = (attempt: SubmissionAttempt) =>
+    attempt.submission === submission && currentOperation(attempt)
+  const ownsAttempt = (attempt: SubmissionAttempt) =>
+    currentAttempt(attempt) && attempt.submission.phase === "submitting"
   // A dispatched send may have reached the server, so it keeps Retry. Otherwise it was not sent.
   const endUnaccepted = (sent: Submission, error?: Error) =>
-    settle(
-      sent,
-      sent.tools ? "failed" : "refused",
-      error ??
-        (sent.tools
-          ? new Error("This message may not have been sent. Retry to send it.")
-          : undefined),
-    )
+    sent.delivery.state === "undispatched"
+      ? settle(sent, "refused", error)
+      : settle(
+          sent,
+          "failed",
+          error ?? new Error("This message may not have been sent. Retry to send it."),
+        )
   // Every owner change settles the send before dropping it, so no orphan keeps submitting.
   const releaseSubmission = (reason: string) => {
     const released = submission
     if (released?.phase === "submitting")
-      endUnaccepted(released, released.tools ? undefined : new Error(reason))
+      endUnaccepted(
+        released,
+        released.delivery.state === "uncertain" ? undefined : new Error(reason),
+      )
     if (released?.phase === "refused") released.onRefused?.()
     submission = undefined
     return released
@@ -389,8 +406,23 @@ export function createAstralBeamChat(
   let started = false
   let selectionGeneration = 0
   let toolExecutionGeneration = 0
-  let historyGeneration = 0
-  let hydration: Promise<unknown> = Promise.resolve()
+  const waitForHistory = async (owner: ClientAuthority) => {
+    while (currentAuthority(owner)) {
+      const read = historyRead
+      try {
+        await read?.completion
+      } catch (error) {
+        if (read === historyRead) throw error
+      }
+      if (read === historyRead) return
+    }
+  }
+  const waitToDispatch = async (attempt: SubmissionAttempt) => {
+    await waitForHistory(attempt).catch(() => undefined)
+    if (!ownsAttempt(attempt)) return false
+    if (state.history === "failed") throw new Error(HISTORY_FAILED)
+    return true
+  }
   let requestController = new AbortController()
   let threadKey: string | undefined
   let startWithNewThread = false
@@ -484,7 +516,9 @@ export function createAstralBeamChat(
         state.unavailableMcpConnections?.filter((entry) => entry !== id) ?? [],
     })
   }
-  const requestOptions = async (conversation = true): Promise<JwtOptions> => {
+  const requestOptions = async (
+    conversation = true,
+  ): Promise<JwtOptions & { signal: AbortSignal }> => {
     const generation = selectionGeneration
     const authSignal = authentication.session.abortController.signal
     const token = await getValidChatAuthToken(authentication)
@@ -765,11 +799,15 @@ export function createAstralBeamChat(
   }
   const forwardedProps = () => (live.debug ? { debug: true } : {})
 
-  const threadRequest = async (init: RequestInit, auth: JwtOptions): Promise<Response> => {
+  const threadRequest = async (
+    init: RequestInit,
+    auth: JwtOptions,
+    owner: Operation,
+  ): Promise<Response> => {
+    if (!currentOperation(owner)) throw new DOMException("Request cancelled", "AbortError")
     const thread = state.thread
     if (!thread || typeof init.body !== "string")
       throw new Error("Open a conversation before sending.")
-    const generation = selectionGeneration
     const body = JSON.parse(init.body) as {
       messages: Array<{ role: string; toolCallId?: string }>
       tools: Array<Record<string, unknown>>
@@ -780,10 +818,10 @@ export function createAstralBeamChat(
     let path = getRunChatUrl()
     let payload: unknown
     const sent =
-      body.messages.at(-1)?.role === "user" && submission?.phase === "submitting"
-        ? submission
+      body.messages.at(-1)?.role === "user" && owner.kind === "submission" && ownsAttempt(owner)
+        ? owner.submission
         : undefined
-    const previouslyAttempted = sent?.tools !== undefined
+    const previousDelivery = sent?.delivery
     if (sent) {
       payload = {
         ...body,
@@ -791,7 +829,7 @@ export function createAstralBeamChat(
         resume: undefined,
         parentRunId: undefined,
         messages: [body.messages.at(-1)],
-        tools: (sent.tools ??= body.tools),
+        tools: previousDelivery?.state === "uncertain" ? previousDelivery.tools : body.tools,
         forwardedProps: {
           ...body.forwardedProps,
           clientId,
@@ -800,8 +838,7 @@ export function createAstralBeamChat(
     } else {
       scopeCompletedToolCalls()
       const history = await loadThreadMessages(thread.id, auth, undefined, liveToolMessageIds)
-      if (generation !== selectionGeneration)
-        throw new DOMException("Conversation changed", "AbortError")
+      if (!currentOperation(owner)) throw new DOMException("Request cancelled", "AbortError")
       update({
         thread: threadFromRecord(history.thread, history.messages.length > 0),
       })
@@ -839,34 +876,36 @@ export function createAstralBeamChat(
     update({ activeToolCallIds: [] })
     const headers = new Headers(init.headers)
     if (sent) headers.set("Idempotency-Key", sent.key)
+    if (!currentOperation(owner)) throw new DOMException("Request cancelled", "AbortError")
+    if (sent && sent.delivery.state === "undispatched")
+      sent.delivery = { state: "uncertain", tools: body.tools }
     const response = await astralBeamChatFetch(path, {
       ...auth,
       ...init,
       headers,
       body: JSON.stringify(payload),
     }).catch((error: unknown) => {
-      // The chat client rewraps failures, so the problem's limit is kept before it is lost.
-      const limit = isAstralBeamApiError(error) ? error.body?.usage_limit : undefined
-      if (limit) update({ usageLimitReached: { name: limit.name, resetsAt: limit.resets_at } })
+      if (!currentOperation(owner)) throw error
       if (
         sent &&
-        !previouslyAttempted &&
+        previousDelivery?.state === "undispatched" &&
         isAstralBeamApiError(error) &&
         (error.status === 400 || error.status === 413 || error.status === 429)
       )
-        delete sent.tools
+        sent.delivery = { state: "undispatched" }
+      // The chat client rewraps failures, so the problem's limit is kept before it is lost.
+      const limit = isAstralBeamApiError(error) ? error.body?.usage_limit : undefined
+      if (limit) update({ usageLimitReached: { name: limit.name, resetsAt: limit.resets_at } })
       throw error
     })
-    if (generation !== selectionGeneration)
-      throw new DOMException("Conversation changed", "AbortError")
+    if (!currentOperation(owner)) throw new DOMException("Request cancelled", "AbortError")
     if (response.headers.get("Content-Type")?.includes("application/json")) {
       const receipt = (await response.json()) as {
         thread_version: number
         accepted_message_id: string
         usage_limit?: { name: string; resets_at: string }
       }
-      if (generation !== selectionGeneration)
-        throw new DOMException("Conversation changed", "AbortError")
+      if (!currentOperation(owner)) throw new DOMException("Request cancelled", "AbortError")
       update({
         thread: { ...state.thread!, version: receipt.thread_version },
         // Saved tool results whose continuation a used-up limit skipped.
@@ -881,8 +920,7 @@ export function createAstralBeamChat(
       })
       if (sent) {
         const history = await loadThreadMessages(thread.id, auth, undefined, liveToolMessageIds)
-        if (generation !== selectionGeneration)
-          throw new DOMException("Conversation changed", "AbortError")
+        if (!currentOperation(owner)) throw new DOMException("Request cancelled", "AbortError")
         const accepted = history.messages.find(
           (message) => message.id === receipt.accepted_message_id,
         )
@@ -898,23 +936,14 @@ export function createAstralBeamChat(
   const connection = fetchServerSentEvents(
     () => resolveApiUrl(getRunChatUrl(), authentication.apiUrl),
     async () => {
-      const previousIdentity = identity
-      const token = await getValidChatAuthToken(authentication)
-      if (previousIdentity !== undefined && previousIdentity !== identity) {
-        throw new DOMException("Identity changed", "AbortError")
-      }
+      const owner = operation
+      if (!owner || !currentOperation(owner))
+        throw new DOMException("Request cancelled", "AbortError")
+      const auth = await requestOptions()
+      if (!currentOperation(owner)) throw new DOMException("Request cancelled", "AbortError")
       return {
-        fetchClient: (_input, init) => {
-          const auth: JwtOptions = {
-            apiUrl: authentication.apiUrl,
-            astralBeamToken: token,
-            ...(init?.signal ? { signal: init.signal } : {}),
-            cache: "no-store",
-            fetchClient: (input, request) =>
-              fetchAuthenticatedChat({ ...authentication, input, init: request }),
-          }
-          return threadRequest(init ?? {}, auth)
-        },
+        fetchClient: (_input, init) =>
+          threadRequest(init ?? {}, { ...auth, signal: init?.signal ?? auth.signal }, owner),
       }
     },
   )
@@ -977,16 +1006,9 @@ export function createAstralBeamChat(
         // The latest full read owns thread-wide state. An older page only adds its messages, and a
         // newer full read supersedes it. A client's work stays valid until that client is replaced.
         const older = options?.before !== undefined
-        const readGeneration = older ? historyGeneration : ++historyGeneration
-        // Like TanStack Query's isLoading and isRefetching, loading means nothing is shown yet.
-        if (!options?.before)
-          update({
-            olderMessagesLoading: false,
-            history:
-              state.messages.length > 0 || state.thread?.hasMessages === false
-                ? "refreshing"
-                : "loading",
-          })
+        const owner = older ? historyRead?.owner : { client: next, selection: selectionGeneration }
+        const currentRead = () =>
+          owner !== undefined && historyRead?.owner === owner && currentAuthority(owner)
         const read = (async () => {
           let history = await loadThreadMessages(
             threadId,
@@ -1009,8 +1031,7 @@ export function createAstralBeamChat(
             )
             history = { ...earlier, messages: [...earlier.messages, ...history.messages] }
           }
-          if (client !== next || readGeneration !== historyGeneration)
-            throw new DOMException("Conversation changed", "AbortError")
+          if (!currentRead()) throw new DOMException("Conversation changed", "AbortError")
           if (!older) retainToolResults(history)
           threadRecords = older ? [...history.messages, ...threadRecords] : history.messages
           const pageIds = new Set(history.messages.map((message) => message.id))
@@ -1045,27 +1066,31 @@ export function createAstralBeamChat(
               : { truncated: false as const },
           }
         })()
-        if (!older) {
+        if (!older && owner) {
           // Settle the phase after ChatClient applies the page, including hydration on React remount.
-          const settled = read
+          const completion = read
             .then(
               () => "idle" as const,
               () => "failed" as const,
             )
-            .then(
-              (history) =>
-                new Promise<void>((resolve) =>
-                  queueMicrotask(() => {
-                    if (client === next && readGeneration === historyGeneration) {
-                      if (unsubscribeSnapshot) observeSnapshot()
-                      update({ history })
-                    }
-                    resolve()
-                  }),
-                ),
-            )
-          hydration = settled.then(() => read)
-          void hydration.catch(() => undefined)
+            .then((history) => {
+              if (historyRead && currentRead()) {
+                historyRead.phase = history
+                if (unsubscribeSnapshot) observeSnapshot()
+                update({})
+              }
+              return read
+            })
+          historyRead = {
+            owner,
+            phase:
+              state.messages.length > 0 || state.thread?.hasMessages === false
+                ? "refreshing"
+                : "loading",
+            completion,
+          }
+          void completion.catch(() => undefined)
+          update({ olderMessagesLoading: false })
         }
         return read
       },
@@ -1200,6 +1225,7 @@ export function createAstralBeamChat(
   const replaceClient = (messages?: ChatClientSnapshot["messages"]) => {
     const previous = client
     operation = undefined
+    historyRead = undefined
     unsubscribeSnapshot?.()
     unsubscribeSnapshot = undefined
     snapshotMessages = undefined
@@ -1265,6 +1291,7 @@ export function createAstralBeamChat(
       threadToolResults.set(previousId, toolResults)
     }
     selectionGeneration++
+    historyRead = undefined
     selectedId = threadId
     requestController.abort()
     requestController = new AbortController()
@@ -1287,7 +1314,6 @@ export function createAstralBeamChat(
       pendingInteractions: [],
       serverToolTitles: {},
       unavailableMcpConnections: [],
-      history: "idle",
       messagesCursor: undefined,
       olderMessagesLoading: false,
     })
@@ -1301,7 +1327,7 @@ export function createAstralBeamChat(
     if (submission) update({ submission: project(submission) })
     try {
       if (!started) attachClient()
-      await hydration
+      await waitForHistory({ client, selection: generation })
       if (generation !== selectionGeneration) return
       if (threadKey) selectedThread(threadKey, id)
     } catch (error) {
@@ -1337,11 +1363,12 @@ export function createAstralBeamChat(
   }
 
   // A cancelled send's thread is never published, so it cannot capture a later send.
-  const ensureThread = async (sent: Submission, attempt: object) => {
+  const ensureThread = async (attempt: SubmissionAttempt) => {
     if (state.thread) return
     const options = await requestOptions()
+    if (!ownsAttempt(attempt)) throw new DOMException("Send cancelled", "AbortError")
     const record = await createChatThread(live.agentId ? { agent_id: live.agentId } : {}, options)
-    if (!owns(sent, attempt)) throw new DOMException("Send cancelled", "AbortError")
+    if (!ownsAttempt(attempt)) throw new DOMException("Send cancelled", "AbortError")
     selectedId = record.id
     update({ thread: threadFromRecord(record, false) })
     void resolveCapabilities()
@@ -1355,7 +1382,7 @@ export function createAstralBeamChat(
     try {
       client.detach()
       attachClient()
-      await hydration
+      await waitForHistory({ client, selection: generation })
       if (explicit && generation === selectionGeneration) update({ error: undefined })
     } catch (error) {
       if (generation !== selectionGeneration) return
@@ -1430,6 +1457,7 @@ export function createAstralBeamChat(
       return
     }
     const current = authenticationState(authentication)
+    const key = toolResultKey(result.toolCallId)
     const pending = state.pendingInteractions.find((item) => item.toolCallId === result.toolCallId)
     const closure =
       !("tool" in result) &&
@@ -1443,43 +1471,47 @@ export function createAstralBeamChat(
       pending?.targetTenantUserId === current.currentUser.user.id
     if (
       state.thread?.role === "viewer" ||
-      (!liveToolCalls.has(result.toolCallId) &&
-        !questionnaire &&
-        !closure &&
-        !toolResults.has(toolResultKey(result.toolCallId)))
+      (!liveToolCalls.has(result.toolCallId) && !questionnaire && !closure && !toolResults.has(key))
     ) {
       reportError(
         new Error("This tool call belongs to another session and cannot be executed here."),
       )
       return
     }
-    if (closure && !toolResults.has(toolResultKey(result.toolCallId)))
-      toolResults.set(toolResultKey(result.toolCallId), { outcome: "unknown", output: null })
-    else if (!toolResults.has(toolResultKey(result.toolCallId)) && "tool" in result) {
-      const output: unknown = result.output
-      toolResults.set(toolResultKey(result.toolCallId), {
-        outcome: result.state === "output-error" ? "failed" : "succeeded",
-        output: output ?? null,
-      })
+    if (!toolResults.has(key)) {
+      if (closure) toolResults.set(key, { outcome: "unknown", output: null })
+      else if ("tool" in result) {
+        const output: unknown = result.output
+        toolResults.set(key, {
+          outcome: result.state === "output-error" ? "failed" : "succeeded",
+          output: output ?? null,
+        })
+      }
     }
-    const owner = (operation = {})
+    const owner: Operation = {
+      kind: "tool-result",
+      client,
+      selection: generation,
+    }
+    operation = owner
     try {
       update({})
-      if (operation !== owner) return
+      if (!currentOperation(owner)) return
       scopeCompletedToolCalls()
+      if (!currentOperation(owner)) return
       if (pending) {
-        client.stop()
+        owner.client.stop()
         await refreshThread(false)
-        if (operation !== owner || generation !== selectionGeneration) return
-        await client.append({
+        if (!currentOperation(owner)) return
+        await owner.client.append({
           role: "tool",
           toolCallId: result.toolCallId,
           content: JSON.stringify(toolResults.get(toolResultKey(result.toolCallId))),
         })
       } else if ("tool" in result) {
-        await client.addToolResult(result)
+        await owner.client.addToolResult(result)
       }
-      if (operation === owner && generation === selectionGeneration) await refreshThread(false)
+      if (currentOperation(owner)) await refreshThread(false)
     } finally {
       finishOperation(owner)
     }
@@ -1490,23 +1522,28 @@ export function createAstralBeamChat(
   // a send taken during a full history read waits for that read.
   const deliver = async (sent: Submission): Promise<ChatSubmission> => {
     if (sent !== submission || sent.phase !== "submitting") return project(sent)
-    const attempt = (operation = {})
+    const attempt: SubmissionAttempt = {
+      kind: "submission",
+      submission: sent,
+      client,
+      selection: selectionGeneration,
+    }
+    operation = attempt
     try {
       await getValidChatAuthToken(authentication)
-      await hydration.catch(() => undefined)
-      if (!owns(sent, attempt)) return project(sent)
-      if (state.history === "failed") throw new Error(HISTORY_FAILED)
-      await ensureThread(sent, attempt)
-      if (!owns(sent, attempt)) return project(sent)
+      if (!(await waitToDispatch(attempt))) return project(sent)
+      await ensureThread(attempt)
+      if (!ownsAttempt(attempt)) return project(sent)
       sent.callbacks?.onThreadReady?.(state.thread!.id)
-      if (!owns(sent, attempt)) return project(sent)
+      if (!ownsAttempt(attempt)) return project(sent)
       scopeCompletedToolCalls()
-      await client.sendMessage(sent.content)
-      if (!current(sent, attempt)) return project(sent)
-      endUnaccepted(sent, client.getError())
-      await refreshThread(false)
+      if (!(await waitToDispatch(attempt))) return project(sent)
+      await attempt.client.sendMessage(sent.content)
+      if (!currentAttempt(attempt)) return project(sent)
+      endUnaccepted(sent, attempt.client.getError())
+      if (currentAttempt(attempt)) await refreshThread(false)
     } catch (error) {
-      if (!current(sent, attempt)) return project(sent)
+      if (!currentAttempt(attempt)) return project(sent)
       const failure = error instanceof Error ? error : new Error(String(error))
       if (failure.name === "AbortError") endUnaccepted(sent)
       else if (endUnaccepted(sent, failure)) notifyError(failure)
@@ -1541,6 +1578,7 @@ export function createAstralBeamChat(
       content,
       phase: "submitting",
       key: newUuid(),
+      delivery: { state: "undispatched" },
       callbacks,
     }
     submission = sent
@@ -1718,7 +1756,7 @@ export function createAstralBeamChat(
       const options = await requestOptions()
       const page = await listChatThreads(
         { q, page_size: 50, ...(cursor ? { page_after: cursor } : {}) },
-        { ...options, signal: AbortSignal.any([options.signal!, ...(signal ? [signal] : [])]) },
+        { ...options, signal: AbortSignal.any([options.signal, ...(signal ? [signal] : [])]) },
       )
       return {
         items: page.items.map((record) => threadFromRecord(record)),
@@ -1788,6 +1826,7 @@ export function createAstralBeamChat(
     dispose: () => {
       releaseSubmission("The chat closed before this was sent.")
       operation = undefined
+      historyRead = undefined
       unsubscribeSnapshot?.()
       unsubscribeSnapshot = undefined
       client.detach()

@@ -9,6 +9,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/components/ui/toast"
 import { parseServerFnError } from "@/lib/runtime/server-fn-error"
 import { logoutOperator } from "../-functions/logout-operator"
+import { PlatformVersionStatus } from "./platform-version-status"
 
 // The page's main actions, rendered above and below the content so they are reachable without
 // scrolling past every configuration group.
@@ -62,6 +63,7 @@ export function ConfigureActions({
           Save
         </Button>
       )}
+      <PlatformVersionStatus />
       <div className="grow" />
       {setupComplete && (
         <Button
@@ -83,7 +85,7 @@ export function ConfigureActions({
         title="End this operator session"
       >
         <SignOutIcon aria-hidden="true" />
-        End operator session
+        Log out operator
       </Button>
     </div>
   )

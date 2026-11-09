@@ -18,11 +18,11 @@
     "format:check": "oxfmt --check",
     "knip": "knip",
     "knip:fix": "knip --fix --allow-remove-files && knip --fix --allow-remove-files && bun install --frozen-lockfile",
-    "lint": "oxlint",
-    "lint:fix": "oxlint --fix",
+    "lint": "effect-tsgo oxlint",
+    "lint:fix": "effect-tsgo oxlint --fix",
     "ready": "bun run ../scripts/ready.ts check build test",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "effect-tsgo tsc --noEmit",
     "deploy": "bun run ready && wrangler deploy"
   },
   "dependencies": {
@@ -40,6 +40,7 @@
     "react-markdown": "^10.1.0"
   },
   "devDependencies": {
+    "@effect/tsgo": "0.67.5",
     "@posthog/cli": "^0.18.11",
     "@tanstack/eslint-plugin-router": "^1.162.0",
     "@tanstack/eslint-plugin-start": "^0.1.0",
@@ -58,10 +59,9 @@
     "knip": "^6.41.0",
     "nitro": "3.0.261029-rc",
     "oxfmt": "^0.73.0",
-    "oxlint": "^1.88.0",
-    "oxlint-tsgolint": "^7.0.2004",
+    "oxlint": "1.92.0",
+    "oxlint-tsgolint": "7.0.2006",
     "sharp": "^0.35.5",
-    "typescript": "^6.0.3",
     "vite": "^8.3.4",
     "vitest": "^5.0.4",
     "wrangler": "^4.151.0"

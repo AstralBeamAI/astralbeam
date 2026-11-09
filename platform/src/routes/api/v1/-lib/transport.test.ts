@@ -56,7 +56,7 @@ import {
 } from "@sdk/api/index.ts"
 
 const restTestState = vi.hoisted(() => ({
-  rows: [] as (unknown[] | { fail: unknown })[],
+  rows: [] as (unknown[] | { fail: EffectDrizzleQueryError })[],
   predicates: [] as SQL[],
   writes: [] as unknown[],
   order: [] as SQL[],
@@ -103,13 +103,13 @@ vi.mock("@/lib/chat/auth", async (original) => {
   return {
     ...(await original<typeof import("@/lib/chat/auth")>()),
     authenticateChatRequest: (request: Request) =>
-      Effect.tryPromise({
-        try: () => restTestState.chat(request) as Promise<unknown>,
-        catch: (error) =>
-          error instanceof Error && error.name === "ChatAuthenticationError"
+      Effect.tryPromise(() => restTestState.chat(request) as Promise<unknown>).pipe(
+        Effect.mapError((error) =>
+          error.cause instanceof Error && error.cause.name === "ChatAuthenticationError"
             ? new ChatAuthenticationError()
             : error,
-      }),
+        ),
+      ),
   }
 })
 vi.mock("@/lib/runtime/runtime.server", async (original) => ({

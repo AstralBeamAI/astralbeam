@@ -13,10 +13,10 @@ import type { SqlError } from "effect/sql/SqlError"
 import { Client } from "pg"
 import type { Pool, PoolClient } from "pg"
 
-class TransactionNetworkError extends Schema.TaggedError<TransactionNetworkError>()(
-  "TransactionNetworkError",
-  { operation: Schema.String },
-) {
+class TransactionNetworkError extends Schema.TaggedError<
+  TransactionNetworkError,
+  { readonly brand: unique symbol }
+>()("TransactionNetworkError", { operation: Schema.String }) {
   override get message() {
     return `${this.operation} is forbidden inside a database transaction`
   }
@@ -221,9 +221,11 @@ export function guardSqlTransactions(client: PgClient.PgClient): void {
         const previous = fiber.getRef(Statement.CurrentTransformer)
         const guard = transactionStatementGuard(client)
         const transformer: Statement.Transformer = (statement, constructor, current, span) =>
-          Effect.flatMap(guard(statement, constructor, current, span), (checked) =>
-            previous ? previous(checked, constructor, current, span) : Effect.succeed(checked),
-          )
+          previous
+            ? Effect.flatMap(guard(statement, constructor, current, span), (checked) =>
+                previous(checked, constructor, current, span),
+              )
+            : guard(statement, constructor, current, span)
         return withGuardedSqlTransaction(
           original,
           Effect.provideService(effect, Statement.CurrentTransformer, transformer),

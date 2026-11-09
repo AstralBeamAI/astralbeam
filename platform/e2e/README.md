@@ -103,7 +103,7 @@ The platform server receives its derived ports, database URL, and resolved `DOCK
 - **Every page is server-rendered, so a control can appear before React attaches to it.** Shared text inputs and native selects stay disabled until hydration finishes. Other controls may still accept early clicks or submit forms natively. `waitForHydration(locator)` from `hydration.ts` waits for React's own instance key on the element. Use it after `page.goto`, and not after an in-app navigation.
 - **Base UI toasts carry `role="dialog"`.** `getByRole("dialog")` matches every toast still on screen, so use `openDialog(page)` and `openAlertDialog(page)` from `dialogs.ts`.
 - **The shadcn checkbox keeps its `id` on a hidden proxy input.** `#some-checkbox` is never clickable; use `getByRole("checkbox")`.
-- **`/configure` renders its action row above and below the fields**, so `Save`, `Sign out`, and `Go to app` each match twice.
+- **`/configure` renders its action row above and below the fields**, so `Save`, `Log out operator`, `Go to app`, and the Platform version each match twice.
 - **A value supplied by the server's environment is read-only in `/configure`.** `isEnvironmentProvided(key)` says so, and the journey asserts it for the authentication secret rather than failing on a disabled input.
 - **The invitations table keeps a cancelled row** and only changes its status badge, so a cancelled invitation does not disappear.
 - **Creating an organization generates a random slug suffix**, so a spec that asserts URLs must type its own slug into the dialog.

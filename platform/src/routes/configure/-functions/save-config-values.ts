@@ -7,7 +7,7 @@ import { provideClusterWorkflowEngine } from "@/lib/cluster/runtime"
 import { modelPriceCatalogInitialization } from "@/lib/workflows/model-price-catalog-refresh"
 import { Dogfood } from "@/lib/dogfood/dogfood.server"
 import { OwnerOnboardingInput } from "@/lib/dogfood/schemas"
-import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
+import { effectHandler, exposeError } from "@/lib/runtime/server-fn.server"
 import { NonEmptyStringSchema, toValidationSchema } from "@/lib/schemas"
 import { configureMiddleware } from "../-lib/configure-middleware"
 import type { ConfigureFieldError } from "../-lib/types"
@@ -27,8 +27,8 @@ const SaveConfigValuesInput = Schema.Struct({
 export const saveConfigValues = createServerFn({ method: "POST" })
   .middleware([configureMiddleware])
   .validator(toValidationSchema(SaveConfigValuesInput))
-  .handler(({ data, serverFnMeta }) =>
-    runEffect(
+  .handler(
+    effectHandler(({ data }) =>
       Effect.gen(function* () {
         const config = yield* Config
         const dogfood = yield* Dogfood
@@ -56,6 +56,5 @@ export const saveConfigValues = createServerFn({ method: "POST" })
         ),
         Effect.catchTag(["OwnerOnboardingFailed", "ConfigurationBusy"], exposeError),
       ),
-      serverFnMeta.name,
     ),
   )

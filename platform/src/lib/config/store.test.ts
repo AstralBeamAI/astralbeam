@@ -58,7 +58,7 @@ function encryptedValue(key: string, value: string): string {
   return configTable.value.mapToDriverValue({ key, value }) as string
 }
 
-function readDatabase(rows: Effect.Effect<readonly unknown[], unknown>): EffectDatabase {
+function readDatabase<E>(rows: Effect.Effect<readonly unknown[], E>): EffectDatabase {
   const query = Object.assign(rows, { where: () => rows })
   return { select: () => ({ from: () => query }) } as unknown as EffectDatabase
 }

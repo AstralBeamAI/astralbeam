@@ -3,6 +3,7 @@ import {
   convertSchemaToJsonSchema,
   isProviderExecutedToolCall,
   modelMessagesToUIMessages,
+  StreamProcessor,
   type ChatMiddleware,
   type ModelMessage,
   type StreamChunk,
@@ -17,7 +18,7 @@ import {
   PersistenceCompletionCapability,
   withPersistence,
 } from "@tanstack/ai-persistence"
-import { BigDecimal, Effect, Schema } from "effect"
+import { BigDecimal, Effect, Schema, Stream } from "effect"
 
 import type { ChatFileCache } from "../attachments/attachments"
 import { APP_HANDLE } from "@/lib/constants"
@@ -27,7 +28,6 @@ import { modelUsageCost } from "@/lib/model-providers/usage-cost"
 import type { ChatThreads } from "./threads"
 import type { ChatMessagePayload, ChatWriterClaim } from "./schemas"
 import { chatStoredJson, chatPublicParts } from "./projection"
-import { CHAT_WEB_ACTIVITY_EVENT, chatWebContext, type ChatWebState } from "../web"
 
 const CHAT_THREAD_EVENT = `${APP_HANDLE}_thread`
 
@@ -53,14 +53,13 @@ interface ManagedChatStreamOptions {
   readonly model: ChatModelConfiguration
   readonly pricing?: ModelConfiguration | null | undefined
   readonly agentId: string
-  readonly web?: ChatWebState | undefined
-  readonly publicHistory?: UIMessage[] | undefined
+  readonly publicHistory: UIMessage[]
   readonly refreshContext?:
     | ((claim: ChatWriterClaim) => Promise<{
         providerMessages: ModelMessage[]
         tools: AnyTool[]
         systemPrompts: string[]
-        publicHistory?: UIMessage[] | undefined
+        publicHistory: UIMessage[]
       }>)
     | undefined
   readonly execute: <A, E>(effect: Effect.Effect<A, E>) => Promise<A>
@@ -70,21 +69,20 @@ interface ManagedChatStreamState {
   claim: ChatWriterClaim
   tools: ManagedChatStreamOptions["tools"]
   phaseStart: number
-  phaseCount: number
-  committed: boolean
-  finished: boolean
-  failed: boolean
+  phase: "pending" | "streaming" | "committed"
+  delivery: "streaming" | "waiting" | "saved" | "failed"
   version: number
   payload: ChatMessagePayload
-  usage: typeof Schema.JsonObject.Type | undefined
-  publicHistory: UIMessage[] | undefined
+  usage: Schema.JsonObject | undefined
+  publicHistory: UIMessage[]
   readonly fileCache: ChatFileCache
   readonly partIds: Map<string, string>
   readonly modelIds: Map<string, string>
   readonly messageIds: Map<string, string>
   readonly settledToolCalls: Set<string>
+  readonly providerProjection: StreamProcessor
   readonly ready: StreamChunk[]
-  readonly buffered: StreamChunk[]
+  buffered: StreamChunk[]
 }
 
 function managedPartId(ids: Map<string, string>, key: string): string {
@@ -98,7 +96,7 @@ function managedPartId(ids: Map<string, string>, key: string): string {
 function managedToolPart(
   options: ManagedChatStreamOptions,
   state: ManagedChatStreamState,
-  part: typeof Schema.JsonObject.Type,
+  part: Record<string, Schema.Json>,
 ) {
   const nativeId = Schema.decodeUnknownSync(Schema.String)(part.id)
   const tool = state.tools.find((candidate) => candidate.name === part.name)
@@ -148,12 +146,29 @@ function managedAssistantPayload(
   state: ManagedChatStreamState,
   messages: readonly ModelMessage[],
 ): ChatMessagePayload {
-  const models = messages.slice(state.phaseStart).filter((message) => message.role === "assistant")
-  const content = models
-    .map((model) => (typeof model.content === "string" ? model.content : ""))
-    .join("")
-  const web = options.web
-  let textOffset = 0
+  let models = messages.slice(state.phaseStart).filter((message) => message.role === "assistant")
+  // Restore omitted provider-only calls with their native text/thinking block order intact.
+  // https://tanstack.com/ai/latest/docs/tools/provider-tools#multi-turn-persistence
+  const projected = state.providerProjection
+    .toModelMessages()
+    .filter((message) => message.role === "assistant")
+  if (
+    projected.some((message) =>
+      message.toolCalls?.some(
+        (call) =>
+          isProviderExecutedToolCall(call) &&
+          !models.some((model) => model.toolCalls?.some((existing) => existing.id === call.id)),
+      ),
+    )
+  ) {
+    models = projected.map((message) => ({
+      ...message,
+      metadata: {
+        ...message.metadata,
+        ...models.find((model) => model.id === message.id)?.metadata,
+      },
+    }))
+  }
   const occurrences = new Map<string, number>()
   const occurrenceKey = (key: string) => {
     const count = occurrences.get(key) ?? 0
@@ -163,85 +178,28 @@ function managedAssistantPayload(
   const parts: ChatMessagePayload["parts"][number][] = models
     .flatMap((model) => modelMessagesToUIMessages([model]))
     .flatMap((message) =>
-      message.parts
-        .filter((part) => part.type !== "tool-call" || !isProviderExecutedToolCall(part))
-        .map((part) => {
-          const json = { ...chatStoredJson(part) }
-          if (part.type === "tool-call") return managedToolPart(options, state, json)
-          if (part.type === "text" && web?.active) {
-            const start = textOffset
-            textOffset += part.content.length
-            json.metadata = chatStoredJson({
-              web: {
-                sources: [],
-                citations: web.evidence.citations
-                  .filter(
-                    (citation) => citation.endIndex > start && citation.endIndex <= textOffset,
-                  )
-                  .map((citation) => ({
-                    ...citation,
-                    startIndex: citation.startIndex - start,
-                    endIndex: citation.endIndex - start,
-                  })),
-              },
-            })
+      message.parts.map((part) => {
+        const json = { ...chatStoredJson(part) }
+        if (part.type === "tool-call") {
+          if (!isProviderExecutedToolCall(part)) return managedToolPart(options, state, json)
+          return {
+            ...json,
+            id: managedPartId(state.partIds, `tool:${part.id}`),
+            type: "tool-call",
+            toolCallId: part.id,
+            executionLocation: "provider",
+            state: "complete",
+            targets: [],
           }
-          const key = `${message.id}:${part.type}:${"stepId" in part ? part.stepId : ""}`
-          return { ...json, type: part.type, id: managedPartId(state.partIds, occurrenceKey(key)) }
-        }),
-    )
-  if (web?.active) {
-    const id = managedPartId(state.partIds, "web")
-    const sources = [
-      ...new Map(
-        [...web.evidence.sources, ...web.evidence.citations].map((source) => [
-          source.url,
-          {
-            url: source.url,
-            title: source.title,
-            ...(source.excerpt ? { excerpt: source.excerpt.slice(0, 2000) } : {}),
-          },
-        ]),
-      ).values(),
-    ]
-    parts.push({
-      ...chatStoredJson({
-        id,
-        type: "tool-call",
-        name: "web_access",
-        toolCallId: id,
-        arguments: "{}",
-        executionLocation: "provider",
-        targets: [],
-        state: web.failed ? "error" : web.settled ? "complete" : "input-complete",
-        ...(web.settled || web.failed ? { output: { sources } } : {}),
-        metadata: { providerExecuted: true, web: { sources, citations: [] } },
+        }
+        const key = `${message.id}:${part.type}:${"stepId" in part ? part.stepId : ""}`
+        return { ...json, type: part.type, id: managedPartId(state.partIds, occurrenceKey(key)) }
       }),
-      id,
-      type: "tool-call",
-    })
-  }
-  const providerModels: readonly ModelMessage[] = web?.active
-    ? [
-        {
-          role: "assistant",
-          id: models[0]?.id ?? state.claim.assistantMessageId,
-          content,
-          metadata: {
-            webProviderContext: chatWebContext(
-              options.model,
-              web,
-              content,
-              models.flatMap((message) => message.toolCalls ?? []),
-            ),
-          },
-        },
-      ]
-    : models
+    )
   return {
     version: 1,
     parts,
-    modelMessages: providerModels.map((message) =>
+    modelMessages: models.map((message) =>
       chatStoredJson({
         ...message,
         id: managedPartId(
@@ -258,23 +216,7 @@ function managedAssistantPayload(
       providerType: options.model.providerType,
       protocol: options.model.api,
       modelId: options.model.modelId,
-      ...(state.usage
-        ? {
-            usage: {
-              ...state.usage,
-              ...(web?.usage.length
-                ? {
-                    providerUsageDetails: {
-                      ...Schema.decodeUnknownSync(Schema.JsonObject)(
-                        state.usage.providerUsageDetails ?? {},
-                      ),
-                      requests: web.usage,
-                    },
-                  }
-                : {}),
-            },
-          }
-        : {}),
+      ...(state.usage ? { usage: state.usage } : {}),
     },
   }
 }
@@ -285,7 +227,7 @@ async function saveManagedProjection(
   messages: readonly ModelMessage[],
   complete: boolean,
 ) {
-  if (state.committed) return
+  if (state.phase === "committed") return
   const payload = managedAssistantPayload(options, state, messages)
   if (payload.parts.length === 0 && !state.usage && !complete) return
   await options.execute(
@@ -297,7 +239,7 @@ async function saveManagedProjection(
     }),
   )
   state.payload = payload
-  if (complete) state.committed = true
+  if (complete) state.phase = "committed"
 }
 
 async function saveManagedToolResult(
@@ -309,14 +251,14 @@ async function saveManagedToolResult(
 ) {
   const part = state.payload.parts.find((candidate) => candidate.toolCallId === toolCallId)
   if (!part || !Array.isArray(part.targets)) throw new Error("Uncommitted tool decision")
-  const target = part.targets[0] as typeof Schema.JsonObject.Type
+  const target = part.targets[0] as Schema.JsonObject
   await options.execute(
     options.threads.appendToolResults({
       claim: state.claim,
       results: [
         {
           assistantMessageId: state.claim.assistantMessageId,
-          toolPartId: Schema.decodeUnknownSync(Schema.String)(part.id),
+          toolPartId: Schema.decodeSync(Schema.String)(part.id),
           responseTargetId: Schema.decodeUnknownSync(Schema.String)(target.id),
           payload: {
             version: 1,
@@ -343,21 +285,14 @@ function managedPublicChunk(state: ManagedChatStreamState, chunk: StreamChunk): 
   if (chunk.type === EventType.MESSAGES_SNAPSHOT) {
     return {
       ...chunk,
-      messages: (state.publicHistory
-        ? [
-            ...state.publicHistory.filter(
-              (message) => message.id !== state.claim.assistantMessageId,
-            ),
-            {
-              id: state.claim.assistantMessageId,
-              role: "assistant",
-              parts: chatPublicParts(state.payload.parts),
-            } as unknown as UIMessage,
-          ]
-        : chunk.messages.map((message) => ({
-            ...message,
-            id: state.messageIds.get(message.id) ?? message.id,
-          }))) as unknown as Extract<StreamChunk, { type: "MESSAGES_SNAPSHOT" }>["messages"],
+      messages: [
+        ...state.publicHistory.filter((message) => message.id !== state.claim.assistantMessageId),
+        {
+          id: state.claim.assistantMessageId,
+          role: "assistant",
+          parts: chatPublicParts(state.payload.parts),
+        },
+      ] as unknown as Extract<StreamChunk, { type: "MESSAGES_SNAPSHOT" }>["messages"],
     }
   }
   if (chunk.type === EventType.TEXT_MESSAGE_START)
@@ -379,10 +314,8 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
     claim: options.managed.claim,
     tools: options.tools,
     phaseStart: options.history.length,
-    phaseCount: 0,
-    committed: false,
-    finished: false,
-    failed: false,
+    phase: "pending",
+    delivery: "streaming",
     version: options.managed.threadVersion,
     payload: { version: 1, parts: [] },
     usage: undefined,
@@ -392,6 +325,7 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
     modelIds: new Map(),
     messageIds: new Map(),
     settledToolCalls: new Set(),
+    providerProjection: new StreamProcessor(),
     ready: [],
     buffered: [],
   }
@@ -430,7 +364,7 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
   const guardedToolCalls = new Set<string>()
   let completion: Promise<void> | undefined
   const checkpointInterrupted: NonNullable<ChatMiddleware["onAbort"]> = async (ctx) => {
-    state.failed = true
+    state.delivery = "failed"
     await saveManagedProjection(
       options,
       state,
@@ -461,18 +395,18 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
       return config
     },
     async onIteration(ctx, info) {
-      if (state.phaseCount > 0) {
+      if (state.phase !== "pending") {
         state.ready.push(...state.buffered.splice(0))
         state.claim = await options.execute(options.threads.nextDraft({ claim: state.claim }))
       }
-      state.phaseCount += 1
       state.phaseStart = ctx.messages.length
-      state.committed = false
+      state.phase = "streaming"
       state.payload = { version: 1, parts: [] }
       state.usage = undefined
       state.partIds.clear()
       state.modelIds.clear()
       state.settledToolCalls.clear()
+      state.providerProjection.clearMessages()
       guardedToolCalls.clear()
       state.messageIds.set(info.messageId, state.claim.assistantMessageId)
     },
@@ -509,7 +443,7 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
         info.ok ? (info.result ?? null) : { error: "Tool execution failed", outcome: "unknown" },
       )
       if (!info.ok) {
-        state.failed = true
+        state.delivery = "failed"
         throw new Error("The tool outcome is unconfirmed")
       }
     },
@@ -521,37 +455,19 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
         await saveManagedToolResult(options, state, result.toolCallId, "failed", result.result)
       }
     },
-    async onChunk(ctx, chunk) {
-      if (chunk.type === EventType.CUSTOM && chunk.name === CHAT_WEB_ACTIVITY_EVENT) {
-        await saveManagedProjection(
-          options,
-          state,
-          [
-            ...ctx.messages.slice(0, state.phaseStart),
-            {
-              id: ctx.currentMessageId ?? state.claim.assistantMessageId,
-              role: "assistant",
-              content: ctx.accumulatedContent,
-            },
-          ],
-          false,
-        )
-        return managedPublicChunk(state, { type: EventType.MESSAGES_SNAPSHOT, messages: [] })
-      }
+    onChunk(_ctx, chunk) {
+      if (chunk.type !== EventType.MESSAGES_SNAPSHOT) state.providerProjection.processChunk(chunk)
+      // The committed snapshot carries completed provider tools without reopening them as pending.
+      if (chunk.type.startsWith("TOOL_CALL_") && isProviderExecutedToolCall(chunk)) return null
+      // Native persistence waits for terminal completion, which a browser-tool pause never reaches.
       if (
-        options.web &&
-        chunk.type.startsWith("TOOL_CALL_") &&
-        (("metadata" in chunk && chunk.metadata?.providerExecuted === true) ||
-          ("toolCallName" in chunk &&
-            ["web_search", "web_fetch"].includes(String(chunk.toolCallName))))
+        chunk.type === EventType.RUN_FINISHED &&
+        chunk.outcome?.type === "interrupt" &&
+        state.delivery !== "failed"
       )
-        return null
-      // Native completion stays pending at a browser wait. The application commits
-      // that boundary and releases ownership without awaiting terminal completion.
-      if (chunk.type === EventType.RUN_FINISHED && chunk.outcome?.type === "interrupt")
-        completion = undefined
+        state.delivery = "waiting"
       const output = managedPublicChunk(state, chunk)
-      if (chunk.type === EventType.RUN_ERROR) state.failed = true
+      if (chunk.type === EventType.RUN_ERROR) state.delivery = "failed"
       if (
         chunk.type === EventType.MESSAGES_SNAPSHOT ||
         chunk.type === EventType.RUN_FINISHED ||
@@ -570,28 +486,22 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
     },
     async onFinish(ctx) {
       try {
-        if (state.failed) throw new Error("Generation did not complete")
-        await completion
+        if (state.delivery === "failed") throw new Error("Generation did not complete")
+        if (state.delivery !== "waiting") await completion
         await saveManagedProjection(options, state, ctx.messages, true)
-        if (options.web) {
-          state.buffered.splice(
-            0,
-            state.buffered.length,
-            ...state.buffered.filter((chunk) => chunk.type !== EventType.MESSAGES_SNAPSHOT),
-          )
-          state.buffered.unshift(
-            managedPublicChunk(state, { type: EventType.MESSAGES_SNAPSHOT, messages: [] }),
-          )
-        }
+        state.buffered = [
+          managedPublicChunk(state, { type: EventType.MESSAGES_SNAPSHOT, messages: [] }),
+          ...state.buffered.filter((chunk) => chunk.type !== EventType.MESSAGES_SNAPSHOT),
+        ]
         await options.execute(options.threads.finish({ claim: state.claim }))
         state.version = (
           await options.execute(
             options.threads.get({ scope: state.claim.scope, id: state.claim.threadId }),
           )
         ).lockVersion
-        state.finished = true
+        state.delivery = "saved"
       } catch (error) {
-        state.failed = true
+        state.delivery = "failed"
         throw error
       }
     },
@@ -601,41 +511,52 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
   return { state, middleware: [persistence, gates] }
 }
 
-export async function* managedChatDelivery(input: {
-  readonly source: AsyncIterable<StreamChunk>
+export function managedChatDelivery<E, R>(input: {
+  readonly source: Stream.Stream<StreamChunk, E, R>
   readonly managed: ManagedChatExecution
   readonly state: ReturnType<typeof managedChatMiddleware>["state"]
-}): AsyncGenerator<StreamChunk> {
-  yield {
-    type: EventType.CUSTOM,
-    name: CHAT_THREAD_EVENT,
-    value: {
-      threadId: input.managed.claim.threadId,
-      version: input.managed.threadVersion,
-      ...(input.managed.acceptedMessageId
-        ? { acceptedMessageId: input.managed.acceptedMessageId }
-        : {}),
-      ...(input.managed.acceptedMessage ? { acceptedMessage: input.managed.acceptedMessage } : {}),
-      saved: false,
-    },
-  }
-  for await (const chunk of input.source) {
-    for (const committed of input.state.ready.splice(0)) yield committed
-    yield chunk
-  }
-  if (!input.state.finished || input.state.failed)
-    throw new Error("Conversation could not be saved")
-  yield {
-    type: EventType.CUSTOM,
-    name: CHAT_THREAD_EVENT,
-    value: {
-      threadId: input.managed.claim.threadId,
-      version: input.state.version,
-      saved: true,
-      executableToolCallIds: input.state.payload.parts
-        .filter((part) => part.type === "tool-call" && part.executionLocation === "browser")
-        .map((part) => part.toolCallId),
-    },
-  }
-  for (const chunk of input.state.buffered) yield chunk
+}) {
+  return Stream.concat(
+    Stream.fromIterable<StreamChunk>([
+      {
+        type: EventType.CUSTOM,
+        name: CHAT_THREAD_EVENT,
+        value: {
+          threadId: input.managed.claim.threadId,
+          version: input.managed.threadVersion,
+          ...(input.managed.acceptedMessageId
+            ? { acceptedMessageId: input.managed.acceptedMessageId }
+            : {}),
+          ...(input.managed.acceptedMessage
+            ? { acceptedMessage: input.managed.acceptedMessage }
+            : {}),
+          saved: false,
+        },
+      },
+    ]),
+    Stream.concat(
+      input.source.pipe(
+        Stream.flatMap((chunk) => Stream.fromIterable([...input.state.ready.splice(0), chunk])),
+      ),
+      Stream.suspend(() => {
+        if (input.state.delivery !== "saved")
+          return Stream.die(new Error("Conversation could not be saved"))
+        return Stream.fromIterable<StreamChunk>([
+          {
+            type: EventType.CUSTOM,
+            name: CHAT_THREAD_EVENT,
+            value: {
+              threadId: input.managed.claim.threadId,
+              version: input.state.version,
+              saved: true,
+              executableToolCallIds: input.state.payload.parts
+                .filter((part) => part.type === "tool-call" && part.executionLocation === "browser")
+                .map((part) => part.toolCallId),
+            },
+          },
+          ...input.state.buffered,
+        ])
+      }),
+    ),
+  )
 }

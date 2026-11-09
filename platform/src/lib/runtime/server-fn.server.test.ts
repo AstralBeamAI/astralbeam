@@ -1,7 +1,10 @@
 import { AsyncLocalStorage } from "node:async_hooks"
 
+import { redirect } from "@tanstack/react-router"
 import {
   createServerEntry,
+  getCookie,
+  getRequest,
   getResponseHeaders,
   getResponseStatus,
   setCookie,
@@ -10,8 +13,8 @@ import { Effect } from "effect"
 import { describe, expect, it } from "vitest"
 
 import { AgentNameTaken } from "@/lib/agents/errors"
-import { exposeError, runEffect } from "./server-fn.server.ts"
-import { ServerRequest, tryPromiseInServerRequest } from "./server-request.server.ts"
+import { effectHandler, exposeError } from "./server-fn.server.ts"
+import { ServerRequest } from "./server-request.server.ts"
 
 // A database socket settles a query in the context that opened it, not the caller's.
 const outsideAnyRequest = AsyncLocalStorage.snapshot()
@@ -20,10 +23,11 @@ const resumeOutsideRequest = Effect.callback<void>((resume) => {
 })
 
 /** Answers one request through TanStack's event storage, as its server function handler does. */
-function serveServerFn(effect: Effect.Effect<unknown, unknown, ServerRequest>) {
+function serveServerFn<A, E>(evaluate: () => Effect.Effect<A, E, ServerRequest>) {
+  const handler = effectHandler(evaluate)
   return createServerEntry({
     fetch: async () => {
-      const outcome = await runEffect(effect, "testServerFn").then(
+      const outcome = await handler({ serverFnMeta: { name: "testServerFn" } }).then(
         () => "ok",
         (error: Error) => error.message,
       )
@@ -32,10 +36,12 @@ function serveServerFn(effect: Effect.Effect<unknown, unknown, ServerRequest>) {
         headers: [...getResponseHeaders()],
       })
     },
-  }).fetch(new Request("http://localhost/_serverFn/test"))
+  }).fetch(
+    new Request("http://localhost/_serverFn/test", { headers: { Cookie: "request_cookie=mine" } }),
+  )
 }
 
-describe("runEffect", () => {
+describe("Effect server functions", () => {
   it("preserves the request's abort reason after cancellation cleanup", async () => {
     const controller = new AbortController()
     const started = Promise.withResolvers<void>()
@@ -43,12 +49,11 @@ describe("runEffect", () => {
     let rejection: unknown
     const response = createServerEntry({
       fetch: async () => {
-        await runEffect(
+        await effectHandler(() =>
           Effect.callback<void>(() => started.resolve()).pipe(
             Effect.ensuring(Effect.sync(() => (finalized = true))),
           ),
-          "cancelledServerFn",
-        ).catch((error: unknown) => {
+        )({ serverFnMeta: { name: "cancelledServerFn" } }).catch((error: unknown) => {
           rejection = error
         })
         return new Response(null, { status: getResponseStatus() })
@@ -79,15 +84,18 @@ describe("runEffect", () => {
     const resumeInOther = Effect.callback<void>((resume) => {
       insideOther!(() => setTimeout(() => resume(Effect.void), 1))
     })
-    const response = await serveServerFn(
+    const response = await serveServerFn(() =>
       Effect.gen(function* () {
         yield* resumeOutsideRequest
         const server = yield* ServerRequest
+        expect(getRequest()).toBe(server.request)
         yield* server.setHeaders({ "Retry-After": "7" })
         yield* server.setCookie("operator_session", "token", { httpOnly: true, path: "/" })
         yield* resumeInOther
+        expect(getRequest()).toBe(server.request)
+        expect(getCookie("request_cookie")).toBe("mine")
         // Better Auth's cookie plugin calls TanStack helpers inside its Promise.
-        yield* tryPromiseInServerRequest(() => Promise.resolve(setCookie("session_token", "mine")))
+        yield* Effect.promise(() => Promise.resolve(setCookie("session_token", "mine")))
       }),
     )
     releaseOther()
@@ -101,20 +109,44 @@ describe("runEffect", () => {
   })
 
   it("throws an exposed failure as its tag and user-safe message with its status", async () => {
-    const response = await serveServerFn(
-      Effect.fail(new AgentNameTaken()).pipe(Effect.catchTag("AgentNameTaken", exposeError)),
+    const response = await serveServerFn(() =>
+      Effect.fail(new AgentNameTaken()).pipe(
+        Effect.catchTag("AgentNameTaken", (error) => exposeError(error)),
+      ),
     )
     expect(await response.text()).toBe("[AgentNameTaken] An agent with this name already exists")
     expect(response.status).toBe(409)
   })
 
   it("hides unexposed failures and defects behind a reference", async () => {
-    for (const effect of [Effect.fail(new AgentNameTaken()), Effect.die(new Error("boom"))]) {
-      const response = await serveServerFn(effect)
+    for (const evaluate of [
+      () => Effect.fail(new AgentNameTaken()),
+      () => Effect.die(new Error("boom")),
+      () => {
+        throw new Error("private construction failure")
+      },
+    ]) {
+      const response = await serveServerFn(evaluate)
       expect(await response.text()).toMatch(
         /^\[InternalError\] Something went wrong\. Reference: [0-9a-f]{8}$/,
       )
       expect(response.status).toBe(500)
     }
+  })
+
+  it("preserves typed redirects for Start to handle", async () => {
+    const response = createServerEntry({
+      fetch: async () => {
+        await effectHandler(() => Effect.fail(redirect({ href: "/configure", statusCode: 307 })))({
+          serverFnMeta: { name: "redirectServerFn" },
+        })
+        return new Response(null)
+      },
+    }).fetch(new Request("http://localhost/_serverFn/test"))
+
+    await expect(response).resolves.toMatchObject({
+      status: 307,
+      options: { href: "/configure", statusCode: 307 },
+    })
   })
 })

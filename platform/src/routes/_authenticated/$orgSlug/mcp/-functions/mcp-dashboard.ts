@@ -5,14 +5,14 @@ import { McpConnections } from "@/lib/mcp/mcp.server"
 import { McpServerWriteSchema } from "@/lib/mcp/schemas"
 import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
 import { OrganizationRouteInputSchema } from "@/lib/organizations/schemas"
-import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
+import { effectHandler, exposeError } from "@/lib/runtime/server-fn.server"
 import { toValidationSchema } from "@/lib/schemas"
 
 export const getMcpServersData = createServerFn({ method: "GET" })
   .middleware([organizationAccessMiddleware({ organizationConfiguration: ["read"] })])
   .validator(toValidationSchema(OrganizationRouteInputSchema))
-  .handler(({ context, serverFnMeta }) =>
-    runEffect(
+  .handler(
+    effectHandler(({ context }) =>
       Effect.gen(function* () {
         const servers = yield* (yield* McpConnections).listServers(context.organizationId)
         const baseUrl = yield* (yield* Config).get("app_base_url")
@@ -22,7 +22,6 @@ export const getMcpServersData = createServerFn({ method: "GET" })
           callbackUri: baseUrl ? new URL("/api/mcp/oauth/callback", baseUrl).href : null,
         }
       }),
-      serverFnMeta.name,
     ),
   )
 export const mutateMcpServer = createServerFn({ method: "POST" })
@@ -41,8 +40,8 @@ export const mutateMcpServer = createServerFn({ method: "POST" })
       }),
     ),
   )
-  .handler(({ context, data, serverFnMeta }) =>
-    runEffect(
+  .handler(
+    effectHandler(({ context, data }) =>
       Effect.gen(function* () {
         const service = yield* McpConnections
         return data.operation.action === "create_server"
@@ -51,6 +50,5 @@ export const mutateMcpServer = createServerFn({ method: "POST" })
       }).pipe(
         Effect.catchTag(["McpServerExists", "McpInvalidConfiguration", "McpNotFound"], exposeError),
       ),
-      serverFnMeta.name,
     ),
   )

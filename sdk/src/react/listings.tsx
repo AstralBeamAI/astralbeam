@@ -62,6 +62,7 @@ function useListingMount<
   const {
     apiUrl,
     cacheKey,
+    revalidateOnMount,
     fetchAstralBeamToken,
     scope,
     tenantId,
@@ -83,6 +84,7 @@ function useListingMount<
       ({
         apiUrl,
         cacheKey,
+        revalidateOnMount,
         fetchAstralBeamToken,
         scope,
         tenantId,
@@ -102,6 +104,7 @@ function useListingMount<
     [
       apiUrl,
       cacheKey,
+      revalidateOnMount,
       fetchAstralBeamToken,
       scope,
       tenantId,

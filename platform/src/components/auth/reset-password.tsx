@@ -1,5 +1,5 @@
 // Added from @better-auth-ui/auth
-// Local changes: Use Phosphor icons, the contextual Base UI Toast manager, standard browser globals, and domain-specific function names; preserve strict error-state typing; render a semantic page heading. Share password visibility controls. Wait for hydration before submission.
+// Local changes: Share native field validation. Use Phosphor icons, the contextual Base UI Toast manager, standard browser globals, and domain-specific function names; preserve strict error-state typing; render a semantic page heading. Share password visibility controls. Wait for hydration before submission.
 
 "use client"
 
@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { PasswordInput } from "@/components/auth/password-input"
 import { Spinner } from "@/components/ui/spinner"
+import { useAuthFieldErrors } from "./use-auth-field-errors"
 import { cn } from "cn"
 import { PasswordStrengthMeter } from "./password-strength-meter"
 import { useHydrated } from "@tanstack/react-router"
@@ -62,10 +63,7 @@ export function ResetPassword({ className }: ResetPasswordProps) {
 
   const [password, setPassword] = useState("")
 
-  const [fieldErrors, setFieldErrors] = useState<{
-    password: string | undefined
-    confirmPassword: string | undefined
-  }>({ password: undefined, confirmPassword: undefined })
+  const { fieldErrors, setFieldErrors, fieldValidation } = useAuthFieldErrors()
 
   useEffect(() => {
     const searchParams = new URLSearchParams(globalThis.location.search)
@@ -125,30 +123,10 @@ export function ResetPassword({ className }: ResetPasswordProps) {
                 minLength={emailAndPassword?.minPasswordLength}
                 maxLength={emailAndPassword?.maxPasswordLength}
                 disabled={isPending}
-                onChange={(e) => {
-                  setPassword(e.target.value)
-
-                  setFieldErrors((prev) => ({
-                    ...prev,
-                    password: undefined,
-                  }))
-                }}
-                onInvalid={(e) => {
-                  e.preventDefault()
-                  const el = e.target as HTMLInputElement
-                  const min = emailAndPassword?.minPasswordLength
-                  const max = emailAndPassword?.maxPasswordLength
-                  const msg = el.validity.valueMissing
-                    ? localization.auth.fieldRequired
-                    : el.validity.tooShort
-                      ? localization.auth.tooShort.replace("{{min}}", String(min))
-                      : localization.auth.tooLong.replace("{{max}}", String(max))
-
-                  setFieldErrors((prev) => ({
-                    ...prev,
-                    password: msg,
-                  }))
-                }}
+                {...fieldValidation({
+                  name: "password",
+                  onChange: (event) => setPassword(event.currentTarget.value),
+                })}
                 aria-invalid={!!fieldErrors.password}
               />
 
@@ -172,28 +150,7 @@ export function ResetPassword({ className }: ResetPasswordProps) {
                   minLength={emailAndPassword?.minPasswordLength}
                   maxLength={emailAndPassword?.maxPasswordLength}
                   disabled={isPending}
-                  onChange={() => {
-                    setFieldErrors((prev) => ({
-                      ...prev,
-                      confirmPassword: undefined,
-                    }))
-                  }}
-                  onInvalid={(e) => {
-                    e.preventDefault()
-                    const el = e.target as HTMLInputElement
-                    const min = emailAndPassword?.minPasswordLength
-                    const max = emailAndPassword?.maxPasswordLength
-                    const msg = el.validity.valueMissing
-                      ? localization.auth.fieldRequired
-                      : el.validity.tooShort
-                        ? localization.auth.tooShort.replace("{{min}}", String(min))
-                        : localization.auth.tooLong.replace("{{max}}", String(max))
-
-                    setFieldErrors((prev) => ({
-                      ...prev,
-                      confirmPassword: msg,
-                    }))
-                  }}
+                  {...fieldValidation({ name: "confirmPassword" })}
                   aria-invalid={!!fieldErrors.confirmPassword}
                 />
 
