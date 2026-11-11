@@ -75,6 +75,7 @@ export function chatCompactionKey(
 export function selectChatCompaction(
   state: ChatCompactionState,
   artifacts: ChatCompactionArtifact[],
+  native: boolean,
 ) {
   const positions = new Map(state.history.map((message, index) => [message.id, index]))
   const safe = chatCompactionBoundaries(state.history)
@@ -82,7 +83,8 @@ export function selectChatCompaction(
     .filter(
       (entry) =>
         safe.includes(positions.get(entry.coveredThroughMessageId) ?? -1) &&
-        (entry.payload.kind === "portable" || entry.compatibilityKey === state.compatibilityKey),
+        (entry.payload.kind === "portable" ||
+          (native && entry.compatibilityKey === state.compatibilityKey)),
     )
     .sort(
       (a, b) =>
@@ -195,13 +197,6 @@ export function createChatCompactionMiddleware(options: {
     const suffix = messages.slice(cut.offset)
     let head: ModelMessage[]
     if (native) {
-      // Retained Anthropic thinking requires a cut between different provider message roles.
-      // https://platform.claude.com/docs/en/build-with-claude/compaction-thinking-blocks
-      if (
-        adapter.api === "anthropic-messages" &&
-        (messages[cut.offset - 1]?.role === "assistant") === (suffix[0]?.role === "assistant")
-      )
-        throw new ChatCompactionError({ code: "compaction_context_full" })
       const input = {
         ...ctx,
         messages: messages.slice(0, cut.offset),

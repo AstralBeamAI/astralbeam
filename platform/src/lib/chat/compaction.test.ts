@@ -32,9 +32,15 @@ test("the persistence bridge retains native items and forwards TanStack request 
   const compact = vi.fn((_input: TextCompactOptions) => Promise.resolve(output))
   Object.assign(fixture.adapter, { compact })
   await fixture.run(true)
-  expect(compact).toHaveBeenCalledWith(expect.objectContaining({ systemPrompts, wrapFetch }))
   expect(fixture.state.artifact?.coveredThroughMessageId).toBe("a1")
   expect(fixture.requests[0]!.slice(0, 2)).toEqual(output)
+  selectChatCompaction(fixture.state, [fixture.state.artifact!], false)
+  expect(fixture.state.artifact).toBeUndefined()
+  await fixture.run()
+  expect(compact).toHaveBeenCalledExactlyOnceWith(
+    expect.objectContaining({ systemPrompts, wrapFetch }),
+  )
+  expect(fixture.state.artifact?.payload.kind).toBe("portable")
 })
 
 const compactionTestLimits: ModelConfiguration = {
@@ -318,16 +324,20 @@ test("compaction persists across model phases and reloads without repeating comm
   const artifact = fixture.state.artifact!
   const original = structuredClone(fixture.state.history)
   fixture.state.artifact = undefined
-  selectChatCompaction(fixture.state, [
-    { ...artifact, coveredThroughMessageId: "sibling" },
-    {
-      ...artifact,
-      coveredThroughMessageId: "result-2",
-      compatibilityKey: "other",
-      payload: { ...artifact.payload, kind: "native" },
-    },
-    artifact,
-  ])
+  selectChatCompaction(
+    fixture.state,
+    [
+      { ...artifact, coveredThroughMessageId: "sibling" },
+      {
+        ...artifact,
+        coveredThroughMessageId: "result-2",
+        compatibilityKey: "other",
+        payload: { ...artifact.payload, kind: "native" },
+      },
+      artifact,
+    ],
+    true,
+  )
   fixture.adapter.appendResponses([{ text: "Reopened." }])
   expect((await fixture.run()).text).toBe("Reopened.")
   expect(fixture.summaryAdapter.state.callCount).toBe(3)

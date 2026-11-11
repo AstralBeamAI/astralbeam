@@ -437,20 +437,18 @@ export class Chat extends Context.Service<
               model,
               agent.compactionEnabled ? recordCompactionUsage : undefined,
             )
+            const nativeCompaction =
+              !agent.webAccessEnabled &&
+              model.providerType === "openai" &&
+              model.api === "responses" &&
+              new URL(model.baseUrl).origin === "https://api.openai.com"
             const compaction =
               agent.compactionEnabled && pricing
                 ? createChatCompactionMiddleware({
                     state: compactionState,
                     adapter,
                     summaryAdapter: createChatAdapter(model),
-                    native:
-                      !agent.webAccessEnabled &&
-                      ((model.providerType === "openai" &&
-                        model.api === "responses" &&
-                        new URL(model.baseUrl).origin === "https://api.openai.com") ||
-                        (model.providerType === "anthropic" &&
-                          model.api === "anthropic-messages" &&
-                          new URL(model.baseUrl).origin === "https://api.anthropic.com")),
+                    native: nativeCompaction,
                     configuration: pricing,
                     summaryOptions: chatCompactionOutputOptions(
                       model,
@@ -521,6 +519,7 @@ export class Chat extends Context.Service<
                           scope: claim.scope,
                           id: claim.threadId,
                         }),
+                        nativeCompaction,
                       )
                     if (agent.compactionEnabled) {
                       normalized = yield* prepareChatHistory({

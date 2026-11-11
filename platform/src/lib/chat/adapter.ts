@@ -1,4 +1,5 @@
 import { createModel, extendAdapter, type TokenUsage } from "@tanstack/ai"
+import { createAnthropicChat } from "@tanstack/ai-anthropic"
 import { createGeminiChat } from "@tanstack/ai-gemini"
 import { createGrokText } from "@tanstack/ai-grok"
 import { createOpenaiChat } from "@tanstack/ai-openai"
@@ -7,7 +8,6 @@ import { HTTPClient } from "@openrouter/sdk/lib/http"
 import { openaiCompatibleText } from "@tanstack/ai-openai/compatible"
 
 import { fetchChatCompactionUsage } from "./compaction-usage"
-import { createChatAnthropicCompactionAdapter } from "./anthropic-compaction"
 
 import type { ChatModelConfiguration } from "@/lib/model-providers/model-providers.server"
 
@@ -35,7 +35,11 @@ export function createChatAdapter(
     })
   }
   if (configuration.api === "anthropic-messages") {
-    return createChatAnthropicCompactionAdapter(configuration, onCompactionUsage)
+    return extendAdapter(createAnthropicChat, models)(configuration.modelId, configuration.apiKey, {
+      auth: "api-key",
+      baseURL: configuration.baseUrl,
+      fetch: configuration.fetch,
+    })
   }
   if (configuration.api === "gemini-generate-content") {
     const createGeminiModel = extendAdapter(createGeminiChat, models)

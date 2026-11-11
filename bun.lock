@@ -114,7 +114,6 @@
       "name": "@astralbeam/platform",
       "version": "0.30.4",
       "dependencies": {
-        "@anthropic-ai/sdk": "0.135.0",
         "@astralbeam/sandbox": "workspace:*",
         "@astralbeam/sdk": "workspace:*",
         "@aws-sdk/client-s3": "^3.1151.0",
