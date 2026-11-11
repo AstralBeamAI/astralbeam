@@ -33,7 +33,6 @@ const chatRunTest = vi.hoisted(() => ({
     debug: DebugOption
     middleware: ChatMiddleware[]
   }>,
-  hydrated: undefined as unknown,
   hydrationCalls: [] as Parameters<typeof ChatFiles.Service.hydrate>[0][],
   started: Promise.withResolvers<void>(),
   closed: Promise.withResolvers<void>(),
@@ -158,7 +157,6 @@ function chatTestLayer(options: {
         store: ({ payload }) => Effect.succeed(payload),
         read: () => Effect.die("unused"),
         hydrate: (input) => {
-          chatRunTest.hydrated = input.messages
           chatRunTest.hydrationCalls.push(input)
           return options.hydrate?.(input) ?? Effect.succeed([...input.messages])
         },
@@ -216,7 +214,6 @@ const runChat = (body?: Record<string, unknown>) =>
   })
 
 beforeEach(() => {
-  chatRunTest.hydrated = undefined
   chatRunTest.hydrationCalls = []
   chatRunTest.started = Promise.withResolvers<void>()
   chatRunTest.closed = Promise.withResolvers<void>()
@@ -533,7 +530,7 @@ describe("Chat.run", () => {
       assert.include(JSON.stringify(refreshed?.providerMessages), "[Attached: sales.tsv")
       assert.include(JSON.stringify(refreshed?.providerMessages), "iVBORw0KGgo=")
       assert.notInclude(JSON.stringify(refreshed?.providerMessages), `"type":"${APP_HANDLE}"`)
-      assert.notInclude(JSON.stringify(chatRunTest.hydrated), CHAT_TEST_SAVED_FILE_ID)
+      assert.notInclude(JSON.stringify(chatRunTest.hydrationCalls), CHAT_TEST_SAVED_FILE_ID)
       const reader = refreshed?.tools?.find(
         (tool) => tool.name === "read_attachment",
       ) as AnyServerTool
