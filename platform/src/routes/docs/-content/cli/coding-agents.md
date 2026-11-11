@@ -4,7 +4,7 @@
 
 Ask your coding agent to use the [AstralBeam skill](/agent-skills/astralbeam/SKILL.md) in your app's repository. The CLI is not required.
 
-First, [connect a model and create an API key](/docs/start/quickstart#1-prepare-your-agent). Keep the key in your backend's environment, never in the prompt.
+First, [connect a model and create an API key](/docs/start/quickstart#1-create-an-api-key). Keep the key in your backend's environment, never in the prompt.
 
 ## Use the CLI
 

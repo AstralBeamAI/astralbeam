@@ -88,6 +88,55 @@ Restore files to the directory or bucket recorded in the restored configuration,
 
 Start the application with the restored `DATABASE_URL` and matching encryption keyring. Apply any pending migrations at `/configure`. Verify that stored secrets are readable and that an existing attachment can be downloaded. Test this restore procedure before relying on a backup.
 
+### Scheduled online database backups to S3
+
+The [backup script](https://github.com/AstralBeamAI/astralbeam/blob/main/scripts/backup-postgres.sh) uploads compressed, AES-256-encrypted online snapshots to UTC paths such as `s3://bucket/prefix/20261110/20261110143025123.dump.gpg`.
+
+1. Install Bash, Python 3, GnuPG, AWS CLI v2, and PostgreSQL clients matching the server's major version with Zstandard support. Put the script at `/usr/local/bin/backup-postgres`, mode `0755`, with disk space for compressed and encrypted copies.
+
+2. Create `/etc/postgres-backup.env`, owned by the cron user with mode `0600`. Use URL-encoded database credentials with full dump access and a private bucket with upload permission:
+
+   ```sh
+   export DATABASE_URL='postgresql://astralbeam:your-password@127.0.0.1:5432/astralbeam'
+   export DATABASE_ENCRYPTION_KEY='your-existing-encryption-key'
+   export S3_URI=s3://your-private-bucket/postgres/astralbeam
+   export AWS_ACCESS_KEY_ID='your-access-key-id'
+   export AWS_SECRET_ACCESS_KEY='your-secret-access-key'
+   export AWS_REGION=your-bucket-region
+   # Temporary credentials: export AWS_SESSION_TOKEN='your-session-token'
+   # Without Zstandard support: export BACKUP_COMPRESSION=gzip
+   ```
+
+   Preserve the exact, nonempty, single-line encryption keyring and its historical values in your secret manager.
+
+3. Let's test one backup: `/bin/bash -c '. /etc/postgres-backup.env && exec /usr/local/bin/backup-postgres'`.
+
+4. Schedule daily at 02:00 host time in root's crontab. Linux `flock -n` skips overlapping runs:
+
+   ```cron
+   PATH=/usr/local/bin:/usr/bin:/bin
+   0 2 * * * /usr/bin/flock -n /var/lock/postgres-backup.lock /bin/bash -c '. /etc/postgres-backup.env && exec /usr/local/bin/backup-postgres' >> /var/log/postgres-backup.log 2>&1
+   ```
+
+   Use one scheduler per prefix. Rotate logs, monitor missing backups, and configure bucket retention and incomplete-multipart cleanup.
+
+[ACCESS SHARE locks](https://www.postgresql.org/docs/18/explicit-locking.html#LOCKING-TABLES) allow ordinary reads and writes. The five-second timeout limits acquisition, not duration. Avoid concurrent migrations, `TRUNCATE`, and `VACUUM FULL`. Locks release before encryption and upload.
+
+To test recovery, set `RESTORE_DATABASE_URL` to an empty database with the required extensions, roles, and tablespaces. Use the original encryption key, AWS read credentials, and the exact S3 key. Run in Bash:
+
+```sh
+set -euo pipefail
+umask 077
+aws s3 cp s3://your-private-bucket/postgres/astralbeam/YYYYMMDD/EXACT_TIMESTAMP.dump.gpg ./restore.dump.gpg
+gpg --batch --pinentry-mode loopback --no-symkey-cache --passphrase-fd 0 \
+  --decrypt ./restore.dump.gpg <<< "$DATABASE_ENCRYPTION_KEY" > ./restore.dump
+pg_restore --no-password --exit-on-error --dbname="$RESTORE_DATABASE_URL" ./restore.dump
+```
+
+Discard partial plaintext after decryption failure. Do not pipe decryption into `pg_restore`.
+
+**NOTE**: This excludes cluster roles, tablespaces, and point-in-time recovery. For complete AstralBeam recovery or embedded PostgreSQL, follow the coordinated database, files, and keyring procedure above.
+
 ## Health checks
 
 | Endpoint | Behavior |

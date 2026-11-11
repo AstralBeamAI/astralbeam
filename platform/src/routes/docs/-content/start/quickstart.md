@@ -1,25 +1,29 @@
 # Quickstart
 
-Add a chat assistant to your React app using your existing login. You'll create an API key, add a token endpoint, and send your first message.
-
-Using another stack? Follow the same model and backend setup below, then [mount with JavaScript](/docs/sdk/getting-started) or a [script tag](/docs/sdk/script-tag). For help from Cursor, Claude Code, or Codex, start with the [coding-agent guide](/docs/cli/coding-agents#integrate-your-app).
+Let's add a chat assistant to your app. We'll create an API key, install the SDK, add a token endpoint, mount the chat widget, and send a first message. Your dashboard's home page walks through the same steps, marks each one done, and shows when your first reply arrives.
 
 [![Acme Assistant beside a sample app, showing a greeting and reply.](/docs/quickstart-preview.png)](/docs/quickstart-preview.png)
 
-You'll need a React app with an authenticated backend. For self-hosting, complete [Deploy](/docs/self-hosting/deploy) first.
+You'll need an app with a backend. For self-hosting, complete [Deploy](/docs/self-hosting/deploy) first.
 
-**TIP**: Your dashboard's home page walks through these steps with code for Next.js, TanStack Start, Express, and Rails, and shows when your first reply arrives.
+**TIP**: Using Cursor, Claude Code, or Codex? Choose **Copy setup prompt** on your dashboard's home page and paste it into your coding agent, or follow the [coding-agent guide](/docs/cli/coding-agents#integrate-your-app).
 
 ## 1. Create an API key
 
-Use your existing organization, [join your team's](/docs/dashboard/members#accepting-an-invitation), or [sign up](/auth/sign-up) and create one. New organizations come with an agent that is ready to reply, so we only need a key for our server.
+Your server signs chat tokens with this key. [Sign up](/auth/sign-up) and create an organization, or [join your team's](/docs/dashboard/members#accepting-an-invitation). New organizations come with an agent that is ready to reply.
 
-1. Open **[API keys](/docs/dashboard/api-keys)** and choose **Create API key**.
+1. Choose **Create API key** on your dashboard's home page, or open **[API keys](/docs/dashboard/api-keys)**.
 2. Copy the full key now. You won't see it again.
 
-## 2. Install and configure
+Add the key to your server's environment, then restart your server:
 
-Install the SDK in your React app:
+```env title=".env"
+ASTRALBEAM_API_KEY=your_api_key
+```
+
+**NOTE**: Keep the key out of browser code and version control. Anyone with it can impersonate your organization's tenant users.
+
+## 2. Install the SDK
 
 <!-- ::start:tabs variant="files" -->
 
@@ -41,118 +45,175 @@ bun add @astralbeam/sdk
 
 <!-- ::end:tabs -->
 
-Set the key in your backend's environment and restart the server:
+Using Rails or a backend without a bundler? Skip this step and use the **Script tag** option in step 4.
 
-```sh title="Server environment"
-ASTRALBEAM_API_KEY=your_organization_api_key
-```
+## 3. Create the token endpoint
 
-**NOTE**: Keep the key out of browser code and version control. Anyone with it can impersonate your organization's tenant users.
-
-## 3. Connect your backend
-
-Add `POST /api/astralbeam/token` to your backend. It verifies the signed-in user and returns a short-lived `{ token }` for chat. Use stable IDs from the authenticated session for the user and their customer account, called a Tenant in AstralBeam.
-
-Choose the example for your backend, or use the [token format](/docs/sdk/authentication#mint-tokens-without-javascript) in another language. Keep your backend's session and CSRF protections. Return an authentication error when the user has no valid session or account membership.
+The widget calls `POST /api/astralbeam/token` to get a short-lived token for the signed-in user. Choose your backend:
 
 <!-- ::start:tabs -->
 
 ### Next.js
 
-This App Router example uses an existing Better Auth instance at `@/lib/auth` with the organization plugin and an active organization.
-
-```ts title="src/app/api/astralbeam/token/route.ts"
+```ts title="app/api/astralbeam/token/route.ts"
 import { createAstralBeamToken } from "@astralbeam/sdk/server"
-import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
 
-export async function POST(request: Request) {
-  const membership = await auth.api.getActiveMember({
-    headers: request.headers,
-    asResponse: true,
-  })
-  if (!membership.ok) return membership
-  const member = await membership.json()
+export async function POST() {
+  // The test IDs below are not authenticated, so this refuses production until you replace them
+  if (process.env.NODE_ENV === "production") return new Response(null, { status: 401 })
   const token = await createAstralBeamToken({
     apiKey: process.env.ASTRALBEAM_API_KEY!,
-    user: { id: member.userId },
-    tenant: { id: member.organizationId },
+    user: { id: "test-user" }, // Replace with the signed-in user's ID
+    tenant: { id: "test-org" }, // Replace with the user's account or organization ID
   })
-  return NextResponse.json({ token }, { headers: { "Cache-Control": "no-store" } })
+  return Response.json({ token }, { headers: { "Cache-Control": "no-store" } })
 }
 ```
 
+### TanStack Start
+
+```ts title="src/routes/api/astralbeam/token.ts"
+import { createAstralBeamToken } from "@astralbeam/sdk/server"
+import { createFileRoute } from "@tanstack/react-router"
+
+export const Route = createFileRoute("/api/astralbeam/token")({
+  server: {
+    handlers: {
+      POST: async () => {
+        // The test IDs below are not authenticated, so this refuses production until you replace them
+        if (process.env.NODE_ENV === "production") return new Response(null, { status: 401 })
+        const token = await createAstralBeamToken({
+          apiKey: process.env.ASTRALBEAM_API_KEY!,
+          user: { id: "test-user" }, // Replace with the signed-in user's ID
+          tenant: { id: "test-org" }, // Replace with the user's account or organization ID
+        })
+        return Response.json({ token }, { headers: { "Cache-Control": "no-store" } })
+      },
+    },
+  },
+})
+```
+
+### Express
+
+```ts title="server.ts"
+import { createAstralBeamToken } from "@astralbeam/sdk/server"
+
+// Add this route to your existing Express app
+app.post("/api/astralbeam/token", async (req, res) => {
+  // The test IDs below are not authenticated, so this refuses production until you replace them
+  if (process.env.NODE_ENV === "production") return res.sendStatus(401)
+  const token = await createAstralBeamToken({
+    apiKey: process.env.ASTRALBEAM_API_KEY!,
+    user: { id: "test-user" }, // Replace with the signed-in user's ID
+    tenant: { id: "test-org" }, // Replace with the user's account or organization ID
+  })
+  res.set("Cache-Control", "no-store").json({ token })
+})
+```
+
 ### Rails
-
-Add the `jwt` gem. This example uses Rails' authentication generator and assumes each user belongs to an account.
-
-Add a route:
 
 ```ruby title="config/routes.rb"
 post "/api/astralbeam/token", to: "astralbeam_tokens#create"
 ```
 
 ```ruby title="app/controllers/astralbeam_tokens_controller.rb"
+# Add gem "jwt" to your Gemfile
 require "jwt"
 require "digest"
 require "base64"
 
 class AstralbeamTokensController < ApplicationController
-  before_action :require_authentication
-
   def create
-    key_id, issuer, signing_secret = get_signing_secret
+    # The test IDs below are not authenticated, so this refuses production until you replace them
+    return head :unauthorized if Rails.env.production?
+
+    key_id, _, secret = ENV.fetch("ASTRALBEAM_API_KEY").rpartition("_abo_")
+    signing_key = Base64.urlsafe_encode64(Digest::SHA256.digest("abo_#{secret}"), padding: false)
     claims = {
-      ver: 4, iss: issuer, aud: "astralbeam",
+      ver: 4, iss: key_id.split("_")[1], aud: "astralbeam",
       iat: Time.current.to_i, exp: 5.minutes.from_now.to_i,
-      user: { id: Current.user.id.to_s },
-      tenant: { id: Current.user.account_id.to_s }
+      user: { id: "test-user" }, # Replace with the signed-in user's ID
+      tenant: { id: "test-org" } # Replace with the user's account or organization ID
     }
-    token = JWT.encode(
-      claims, signing_secret, "HS256", { typ: "astralbeam+jwt", kid: key_id }
-    )
+    token = JWT.encode(claims, signing_key, "HS256", { typ: "astralbeam+jwt", kid: key_id })
     response.headers["Cache-Control"] = "no-store"
     render json: { token: token }
-  end
-
-  private
-
-  def get_signing_secret
-    key_id, _, secret = ENV.fetch("ASTRALBEAM_API_KEY").rpartition("_abo_")
-    digest = Digest::SHA256.digest("abo_#{secret}")
-    [key_id, key_id.split("_")[1], Base64.urlsafe_encode64(digest, padding: false)]
   end
 end
 ```
 
-Keep `csrf_meta_tags` in your Rails layout and include the CSRF header shown in the [Rails integration](/docs/sdk/script-tag#ruby-on-rails).
-
 <!-- ::end:tabs -->
 
-## 4. Mount and test
+Don't use test IDs in production. Set `user.id` and `tenant.id` from your session, never the request body, as described in [Identify your real users](./customize.md#identify-your-real-users). For other languages, use the [token format](/docs/sdk/authentication#mint-tokens-without-javascript).
 
-The SDK calls `/api/astralbeam/token` automatically. Add the chat to a container with a defined height:
+## 4. Mount the chat widget
 
-```tsx title="src/Assistant.tsx"
+Render the widget in a container with a set height:
+
+<!-- ::start:tabs -->
+
+### React
+
+```tsx title="src/components/sidebar.tsx"
 "use client"
 
 import { AstralBeamChat } from "@astralbeam/sdk/react"
 
-export function Assistant() {
+export function Sidebar() {
   return (
     <aside style={{ height: "100dvh" }}>
-      <AstralBeamChat />
+      <AstralBeamChat apiUrl="https://astralbeam.ai/api" />
     </aside>
   )
 }
 ```
 
-Mount `<Assistant />` in your app, sign in, and send **"Say hello in one sentence."** You should see a reply stream into the chat.
+### TypeScript
 
-For self-hosting, pass `apiUrl="https://your-deployment.example/api"` on `<AstralBeamChat>`, using the deployment that issued your API key.
+```ts title="src/sidebar.ts"
+import { mountAstralBeamChat } from "@astralbeam/sdk/client"
+
+const container = document.getElementById("sidebar")!
+container.style.height = "100dvh"
+mountAstralBeamChat(container, { apiUrl: "https://astralbeam.ai/api" })
+```
+
+### Script tag
+
+```html title="index.html"
+<div id="sidebar" style="height: 100dvh"></div>
+<script type="module">
+  import { mountAstralBeamChat } from "https://cdn.jsdelivr.net/npm/@astralbeam/sdk@0.30.6/dist/client.js"
+
+  mountAstralBeamChat(document.getElementById("sidebar"), { apiUrl: "https://astralbeam.ai/api" })
+</script>
+```
+
+<!-- ::end:tabs -->
+
+For self-hosting, replace `https://astralbeam.ai/api` with your deployment's API URL, such as `https://your-deployment.example/api`. Your dashboard's guide fills it in for you.
+
+Does your endpoint use another URL or headers, such as Rails' CSRF token? Pass `fetchAstralBeamToken`, as shown in [Customize token requests](/docs/sdk/authentication#where-the-token-comes-from).
+
+## 5. Send your first message
+
+Open your app and send **"Say hello in one sentence."** A reply should stream into the chat, and your dashboard's guide shows that your app is connected.
 
 If chat cannot connect, check the token endpoint in your browser's Network panel and follow [authentication troubleshooting](/docs/sdk/authentication#troubleshooting).
 
-## Next
+## Customize your setup
 
-[Customize your setup](./customize.md) to shape your agent, control spend, and match your brand. [Add tools and widgets](/docs/sdk/tools-and-widgets) to let the assistant work with your app's data, or follow the [Todos tutorial](./todos-tutorial.md). Read the [security model](/docs/sdk/security) before connecting production actions.
+With chat working, let's tune it for your app:
+
+- [Match your brand](/docs/sdk/theming) by setting the widget's title, colors, and theme.
+- [Add tools and widgets](/docs/sdk/tools-and-widgets) to let the assistant read and change your app's data.
+- [Shape your agent](/docs/dashboard/agents) by editing its instructions, model, and tools.
+- [Connect model providers](/docs/dashboard/models) to add provider keys and choose the models your agents use.
+- [Add a sandbox](/docs/dashboard/sandboxes) to let agents run code and work with files.
+- [Connect MCP servers](/docs/dashboard/connections) to give agents tools from external services.
+- [Review usage limits](/docs/dashboard/usage-limits) to cap tokens or spend for your organization, customers, and users.
+- [Invite teammates](/docs/dashboard/members) to add developers and viewers to your organization.
+
+See [every way to customize your setup](./customize.md), or follow the [Todos tutorial](./todos-tutorial.md) to connect tools and live widgets. Read the [security model](/docs/sdk/security) before connecting production actions.

@@ -71,7 +71,7 @@ export function PlatformVersionStatus() {
       } else if (restart === "failed") {
         setMessage({
           error: true,
-          text: `${installed} Restarting ${serviceName} failed, so run \`sudo systemctl restart ${serviceName}\`.`,
+          text: `${installed} Restarting ${serviceName} failed, so run \`systemctl restart ${serviceName}\`.`,
         })
       } else {
         setMessage({ error: false, text: `${installed} Restart the server to finish.` })

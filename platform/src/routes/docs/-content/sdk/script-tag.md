@@ -9,7 +9,7 @@ Mount the widget into an HTML element:
 ```html
 <div id="astralbeam-chat" style="height: 100vh"></div>
 <script type="module">
-  import { mountAstralBeamChat } from "https://cdn.jsdelivr.net/npm/@astralbeam/sdk@0.30.4/dist/client.js"
+  import { mountAstralBeamChat } from "https://cdn.jsdelivr.net/npm/@astralbeam/sdk@0.30.6/dist/client.js"
 
   mountAstralBeamChat(document.getElementById("astralbeam-chat"), {
     title: "Acme Assistant",
@@ -23,7 +23,7 @@ Pin the exact version and keep the full `/dist/client.js` path so the widget and
 
 ## Add the token endpoint
 
-Add the [Quickstart's backend handler](/docs/start/quickstart#3-connect-your-backend) at `/api/astralbeam/token`. Any backend language works. Keep your framework's CSRF protection. The Rails example below sends its CSRF header.
+Add the [Quickstart's backend handler](/docs/start/quickstart#3-create-the-token-endpoint) at `/api/astralbeam/token`. Any backend language works. Keep your framework's CSRF protection. The Rails example below sends its CSRF header.
 
 ## Ruby on Rails
 
@@ -33,7 +33,7 @@ To embed chat in a Rails 8 app using import maps:
 
    ```ruby
    pin "assistant"
-   pin "@astralbeam/sdk/client", to: "https://cdn.jsdelivr.net/npm/@astralbeam/sdk@0.30.4/dist/client.js"
+   pin "@astralbeam/sdk/client", to: "https://cdn.jsdelivr.net/npm/@astralbeam/sdk@0.30.6/dist/client.js"
    ```
 
 2. Mount the widget from that module in `app/javascript/assistant.js`:
@@ -53,7 +53,7 @@ To embed chat in a Rails 8 app using import maps:
    <div id="astralbeam-chat" style="height: 100vh"></div>
    ```
 
-4. Add the route and controller from the [Rails token example](/docs/start/quickstart#3-connect-your-backend).
+4. Add the route and controller from the [Rails token example](/docs/start/quickstart#3-create-the-token-endpoint).
 
 Sign in and send **"Say hello in one sentence."** Check that a reply streams into the widget.
 
