@@ -1,5 +1,5 @@
 // Added from @better-auth-ui/auth
-// Local changes: Use Phosphor icons and semantic shadcn colors, and route OAuth signup-disabled results to signup while preserving the return path, and parse the result during render once hydrated. Use TanStack hydration readiness.
+// Local changes: Use Phosphor icons and semantic shadcn colors, and route OAuth signup-disabled results to signup while preserving the return path, and parse the result during render once hydrated. Use TanStack hydration readiness. Distinguish account-link failures without losing the ownership-conflict explanation.
 
 "use client"
 
@@ -35,6 +35,19 @@ function AuthResultView({ className, fallbackIntent }: AuthResultProps) {
   )
 
   const message = getAuthResultMessage(result, localization)
+  if (
+    result.reason === "accountLinkConflict" &&
+    result.code !== "account_already_linked_to_different_user"
+  ) {
+    message.title =
+      result.code === "email_does_not_match"
+        ? "The email addresses don’t match"
+        : result.code === "account_not_linked"
+          ? "This sign-in method isn’t connected"
+          : "Couldn’t connect this sign-in method"
+    message.description =
+      "Sign in with your existing method, then connect Google or GitHub in Account → Security using the same email address."
+  }
   const action = (() => {
     if (result.reason === "signupDisabled") {
       return {

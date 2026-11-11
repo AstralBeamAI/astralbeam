@@ -25,8 +25,8 @@ Fields supplied by an environment variable show an **Environment** badge and are
 | `app_base_url` | Yes | `http://localhost:<port>` | Public origin the deployment is served from. Used for OAuth callbacks and links in email |
 | `trust_proxy` | No | `false` | Use an explicit proxy IP/CIDR allowlist when enabling forwarded client IPs. An empty list trusts all proxies. See [Reverse proxy trust](./security.md#reverse-proxy-trust) |
 | `client_ip_headers` | No | `x-forwarded-for` | Ordered client-IP headers, used only when proxy trust is enabled |
-| `privacy_policy_url` | No | none | Public HTTP or HTTPS link shown during sign-in and sign-up |
-| `terms_of_service_url` | No | none | Public HTTP or HTTPS link shown during sign-in and sign-up |
+| `privacy_policy_url` | No | none | Public HTTP or HTTPS link shown during sign-up |
+| `terms_of_service_url` | No | none | Public HTTP or HTTPS link shown during sign-up |
 | `support_email_address` | No | none | Copied on welcome and support request emails, so replies and **Contact Support** requests reach your team. Unset hides **Contact Support** |
 | `website_url` | No | none | Origin of a separately hosted website to serve under this deployment's origin |
 | `allow_private_model_endpoints` | No | `false` | `true` lets model provider connections use HTTP and private network hosts |

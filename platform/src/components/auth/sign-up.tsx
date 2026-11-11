@@ -1,15 +1,21 @@
 // Added from @better-auth-ui/auth
-// Local changes: Share native field validation. Show invitation context and prefill the invited email. Assert legal acceptance for email/OAuth signup under a "By continuing" notice, add configured CAPTCHA, preserve the verification return path when browser storage is unavailable, remove generic additional fields and unconfigured plugin buttons, send only a boolean assertion, use Phosphor/Base UI Toast and domain-specific function names, repair strict typing, and read legal URLs from the runtime public config instead of build-time constants. Share password visibility controls. Wait for hydration, prevent duplicate submissions, and trim and require visible names. Use TanStack hydration readiness. Improve onboarding copy, layout, and form guidance. Remove the password-length helper text.
+// Local changes: Share native field validation. Show invitation context and prefill the invited email. Assert legal acceptance for email/OAuth signup under a "By continuing" notice below the signup button, add configured CAPTCHA, preserve the verification return path when browser storage is unavailable, remove generic additional fields and unconfigured plugin buttons, send only a boolean assertion, use Phosphor/Base UI Toast and domain-specific function names, repair strict typing, and read legal URLs from the runtime public config instead of build-time constants. Share password visibility controls. Wait for hydration, prevent duplicate submissions, and trim and require visible names. Use TanStack hydration readiness. Improve onboarding copy, layout, and form guidance. Remove the password-length helper text. Explain OAuth signup redirects.
 
 "use client"
 
-import { authMutationKeys, getAuthLinkURL, isPasswordCompromisedError } from "@better-auth-ui/core"
+import {
+  authMutationKeys,
+  getAuthLinkURL,
+  isPasswordCompromisedError,
+  parseAuthResult,
+} from "@better-auth-ui/core"
 import { AuthPrompts, useAuth, useFetchOptions, useSignUpEmail } from "@better-auth-ui/react"
 import { useIsMutating } from "@tanstack/react-query"
 import { type SyntheticEvent, useRef, useState } from "react"
 import { toast } from "@/components/ui/toast"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   Field,
   FieldDescription,
@@ -28,7 +34,7 @@ import { getInvitationContext } from "@/lib/auth/redirect"
 import { cn } from "cn"
 import { PasswordStrengthMeter } from "./password-strength-meter"
 import { ProviderButtons, type SocialLayout } from "./provider-buttons"
-import { useHydrated } from "@tanstack/react-router"
+import { useHydrated, useLocation } from "@tanstack/react-router"
 
 export type SignUpProps = {
   className?: string
@@ -78,6 +84,8 @@ export function SignUp({
   const { privacyPolicyUrl, termsOfServiceUrl } = usePublicConfig()
   // Continuing past the shown legal notice accepts it, which the server records at signup.
   const legalAcceptanceRequired = Boolean(privacyPolicyUrl || termsOfServiceUrl)
+  const search = useLocation({ select: (location) => location.searchStr })
+  const signupRequired = parseAuthResult(search, "danger").reason === "signupDisabled"
 
   const invitation = getInvitationContext(redirectTo)
 
@@ -189,6 +197,14 @@ export function SignUp({
 
       <CardContent>
         <div className="flex flex-col gap-6">
+          {signupRequired && (
+            <Alert>
+              <AlertDescription>
+                Create an account below to continue. If you already have one, sign in with the
+                method you used before.
+              </AlertDescription>
+            </Alert>
+          )}
           {!hydrated && <p role="status">Loading sign-up form…</p>}
           {socialPosition === "top" && (
             <>
@@ -313,6 +329,7 @@ export function SignUp({
 
                     {localization.auth.signUp}
                   </Button>
+                  <LegalNotice />
                 </div>
               </FieldGroup>
             </form>
@@ -329,8 +346,7 @@ export function SignUp({
               {providerButtons}
             </>
           )}
-
-          <LegalNotice />
+          {!emailAndPassword?.enabled && <LegalNotice />}
         </div>
 
         {emailAndPassword?.enabled && (
