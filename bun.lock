@@ -12,7 +12,7 @@
     },
     "cli": {
       "name": "@astralbeam/cli",
-      "version": "0.30.5",
+      "version": "0.30.6",
       "bin": {
         "astralbeam": "dist/astralbeam.js",
       },
@@ -112,7 +112,7 @@
     },
     "platform": {
       "name": "@astralbeam/platform",
-      "version": "0.30.5",
+      "version": "0.30.6",
       "dependencies": {
         "@astralbeam/sandbox": "workspace:*",
         "@astralbeam/sdk": "workspace:*",
@@ -241,7 +241,7 @@
     },
     "sdk": {
       "name": "@astralbeam/sdk",
-      "version": "0.30.5",
+      "version": "0.30.6",
       "devDependencies": {
         "@base-ui/react": "^1.7.0",
         "@effect/tsgo": "0.67.5",
