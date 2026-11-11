@@ -49,7 +49,7 @@ export const seedTarget = SEED_TODOS_TARGET
 /** Agent specs spend real model credits, so they only run when a key is actually configured. */
 export const agentSpecsEnabled = Boolean(platformEnv.OPENAI_API_KEY)
 
-pinDockerHost()
+if (process.env.E2E_SANDBOX === "docker") pinDockerHost()
 
 /**
  * `E2E_CAPTURE=all` records video, a trace, and an end-of-test screenshot for every spec, passing
@@ -74,6 +74,7 @@ function forwardedPlatformEnv(): Record<string, string> {
   return {
     PORT: String(platformPort),
     APP_BASE_URL: platformUrl,
+    DOCKERSANDBOX_DISABLED: process.env.E2E_SANDBOX === "docker" ? "false" : "true",
     // Explicit, so the server's sandbox client uses the same daemon the specs probed.
     ...(process.env.DOCKER_HOST ? { DOCKER_HOST: process.env.DOCKER_HOST } : {}),
   }

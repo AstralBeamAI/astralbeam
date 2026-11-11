@@ -71,7 +71,7 @@ export const e2eDatabaseUrl = deriveE2eDatabaseUrl()
  */
 export const captureEverything = process.env.E2E_CAPTURE === "all" || seededMode
 
-pinDockerHost()
+if (process.env.E2E_SANDBOX === "docker") pinDockerHost()
 
 /**
  * Saving a sandbox provider runs the product's real connection test, which creates, uses, and
@@ -155,6 +155,7 @@ export function e2eWebServers() {
         // Better Auth would otherwise take its base URL from stored configuration and reject
         // requests arriving on the suite's port.
         APP_BASE_URL: platformUrl,
+        DOCKERSANDBOX_DISABLED: sandboxSpecsEnabled ? "false" : "true",
         // Explicit, so the server's sandbox client uses the same daemon the spec probed.
         ...(process.env.DOCKER_HOST ? { DOCKER_HOST: process.env.DOCKER_HOST } : {}),
       },

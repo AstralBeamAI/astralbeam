@@ -230,9 +230,8 @@ export function normalizeChatAttachments(
       return { entry: textEntry(shape, refusalText(filename, mimeType, reason)) }
     }
     const deferred = options.deferFile?.(entry)
-    if (!deferred && (!Predicate.isString(entry.source.value) || entry.source.value.length === 0)) {
-      return refuse("its contents were missing.")
-    }
+    const value = Predicate.isString(entry.source.value) ? entry.source.value : ""
+    if (!deferred && !value) return refuse("its contents were missing.")
     // Execution uses transiently hydrated bytes. Never let a provider fetch a caller-chosen URL
     // using this deployment's API key.
     if (!deferred && entry.source.type !== "data") {
@@ -247,7 +246,7 @@ export function normalizeChatAttachments(
     if (position > CHAT_ATTACHMENT_MAX_COUNT) {
       return refuse(`the message went over the limit of ${CHAT_ATTACHMENT_MAX_COUNT} attachments.`)
     }
-    const size = deferred ? entry.source.byteSize : base64ByteLength(entry.source.value as string)
+    const size = deferred ? entry.source.byteSize : base64ByteLength(value)
     if (typeof size !== "number" || !Number.isSafeInteger(size) || size < 0)
       return refuse("its size was missing.")
     const limit = CHAT_ATTACHMENT_MAX_BYTES_BY_KIND[kind]
@@ -261,10 +260,10 @@ export function normalizeChatAttachments(
         )} attachment limit.`,
       )
     }
-    if (!deferred && !hasDeclaredFileSignature(entry.source.value as string, mimeType)) {
+    if (!deferred && !hasDeclaredFileSignature(value, mimeType)) {
       return refuse(`its contents are not a ${mimeType} file.`)
     }
-    const bytes = deferred ? undefined : decodeAttachmentBytes(entry.source.value as string)
+    const bytes = deferred ? undefined : decodeAttachmentBytes(value)
     if (!deferred && bytes === undefined) return refuse("its contents could not be decoded.")
     const nativeEntry =
       kind === "image" || kind === "pdf"

@@ -31,7 +31,7 @@ export const Route = createFileRoute("/(authentication)/auth/$path")({
         INERT_REDIRECT_ORIGIN,
         AUTH_ALLOWED_RETURN_PATHS,
       )
-      const search = new URLSearchParams({ redirectTo })
+      const search = new URLSearchParams({ error: "signup_disabled", redirectTo })
       throw redirect({
         href: `/auth/sign-up?${search}`,
         replace: true,

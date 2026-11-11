@@ -24,6 +24,10 @@ services:
       ALLOW_INSECURE: ${ALLOW_INSECURE:-false}
       STORAGE_PROVIDER: filesystem
       ASTRALBEAM_DATA_DIR: /var/lib/astralbeam
+      DOCKERSANDBOX_DISABLED: ${DOCKERSANDBOX_DISABLED:-}
+      MICROSANDBOX_DISABLED: ${MICROSANDBOX_DISABLED:-}
+      LOCAL_SANDBOX_IMAGE: ${LOCAL_SANDBOX_IMAGE:-ghcr.io/astralbeamai/sandbox:latest}
+      DOCKER_HOST: ${DOCKER_HOST:-}
     volumes:
       - file-storage:/var/lib/astralbeam
 

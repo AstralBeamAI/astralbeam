@@ -17,7 +17,7 @@ const SANDBOX_PROVIDER_DESCRIPTORS = {
   docker: {
     id: "docker",
     label: "Docker",
-    setupUrl: "https://docs.docker.com/engine/install/",
+    setupUrl: "/docs/dashboard/sandboxes#docker",
     credentialLabel: null,
   },
   e2b: {
