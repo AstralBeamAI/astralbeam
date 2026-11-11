@@ -13,7 +13,7 @@ import { makeChatSandboxLeases } from "./leases"
 import { chatSandboxCall, logChatSandboxFailure } from "./operations"
 import { ChatSandboxConfigurationUnreadable, ChatSandboxUnavailable } from "./errors.ts"
 import { chatPrincipalScope } from "../identity"
-import type { ChatAttachmentFile } from "../attachments/types"
+import type { ChatAttachmentSource } from "../attachments/types"
 import type { ChatPrincipal } from "../types"
 
 /** CUSTOM events show provisioning progress before a tool can return its result. */
@@ -27,14 +27,14 @@ export interface ChatSandboxSession {
   ) => Effect.Effect<SandboxHandle, ChatSandboxUnavailable>
   /** Refreshes uploads before a model phase without provisioning an unused sandbox. */
   readonly prepareUploads: (
-    files: readonly ChatAttachmentFile[],
+    files: readonly ChatAttachmentSource[],
   ) => Effect.Effect<void, ChatSandboxUnavailable>
 }
 
 /** Upload failures fail startup so the agent never receives a workspace missing its attachments. */
 const writeChatSandboxUploads = Effect.fn("writeChatSandboxUploads")(function* (
   handle: SandboxHandle,
-  uploads: readonly ChatAttachmentFile[],
+  uploads: readonly ChatAttachmentSource[],
 ) {
   if (uploads.length === 0) return
   const directory = `${resolveHarnessCwd(handle)}/${CHAT_ATTACHMENT_UPLOAD_DIRECTORY}`
@@ -46,10 +46,10 @@ const writeChatSandboxUploads = Effect.fn("writeChatSandboxUploads")(function* (
   yield* Effect.forEach(
     uploads,
     (upload) =>
-      chatSandboxCall(
-        (signal) => handle.fs.write(`${directory}/${upload.handle}`, upload.bytes, { signal }),
-        CHAT_SANDBOX_FILE_TIMEOUT_MS,
-      ),
+      chatSandboxCall(async (signal) => {
+        const file = "load" in upload ? await upload.load(signal) : upload
+        return handle.fs.write(`${directory}/${file.handle}`, file.bytes, { signal })
+      }, CHAT_SANDBOX_FILE_TIMEOUT_MS),
     { concurrency: "unbounded", discard: true },
   )
 })
@@ -60,7 +60,7 @@ interface ChatSandboxSessionInput {
   readonly principal: ChatPrincipal
   readonly threadId: string
   readonly runId: string
-  readonly uploads: readonly ChatAttachmentFile[]
+  readonly uploads: readonly ChatAttachmentSource[]
 }
 
 export class ChatSandboxes extends Context.Service<

@@ -9,6 +9,18 @@ import { openaiCompatibleText } from "@tanstack/ai-openai/compatible"
 
 import type { ChatModelConfiguration } from "@/lib/model-providers/model-providers.server"
 
+export function chatModelOutputOptions(
+  model: Pick<ChatModelConfiguration, "api" | "providerType">,
+  maxTokens: number,
+) {
+  if (model.providerType === "openrouter") return { maxCompletionTokens: maxTokens }
+  if (model.api === "responses") return { max_output_tokens: maxTokens }
+  if (model.api === "gemini-generate-content") return { maxOutputTokens: maxTokens }
+  return model.api === "chat-completions" && model.providerType === "openai"
+    ? { max_completion_tokens: maxTokens }
+    : { max_tokens: maxTokens }
+}
+
 export function createChatAdapter(configuration: ChatModelConfiguration) {
   const models = [createModel(configuration.modelId, ["text", "image", "document"])]
   if (configuration.providerType === "openai" && configuration.api === "responses") {

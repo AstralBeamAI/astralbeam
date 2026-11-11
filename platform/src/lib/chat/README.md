@@ -256,6 +256,8 @@ The input's current `metadata.invocationId`, assistant provenance, turn state, a
 
 Concurrent sends serialize database appends briefly. Another running turn does not cause a conversation-wide busy rejection. The SDK still limits overlapping sends within one local session while its own request is active.
 
+Saved attachment metadata supplies stable handles and cumulative limits without reading original bytes. Each model phase hydrates native images and PDFs. Text, data, and Office files load through the existing attachment or sandbox tools when needed. Admission still validates new file contents before saving them, and transcript downloads retain their authorized storage path.
+
 ### Tool decisions and responses
 
 1. Commit the complete tool decision, stable part identity, execution location, and expected-response slots before execution.
