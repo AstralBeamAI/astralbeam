@@ -234,19 +234,32 @@ function Simulation({ example }: { example: Example }) {
       <div className="cost-window" key={run}>
         <div className="cost-heading">
           <strong>{example.name}</strong>
-          <span>{better ? "Better pattern" : "Expensive approach"}</span>
+          <ReservedText
+            texts={["Expensive approach", "Better pattern"]}
+            visible={better ? "Better pattern" : "Expensive approach"}
+          />
         </div>
         <p className="cost-question">{example.prompt}</p>
         <div className="cost-flow">
           <div className="cost-payload">
-            <span className="cost-label">{better ? "Selected work" : "Original work"}</span>
-            {pattern.packets.map((packet, index) => (
+            {[example.expensive, example.better].map((item, index) => (
               <div
-                className={`cost-packet${step >= 0 ? " is-visible" : ""}`}
-                key={packet}
-                style={{ animationDelay: `${index * 140}ms` }}
+                className="cost-packets"
+                key={index === 1 ? "better" : "expensive"}
+                aria-hidden={better !== (index === 1)}
               >
-                {packet}
+                <span className="cost-label">
+                  {index === 1 ? "Selected work" : "Original work"}
+                </span>
+                {item.packets.map((packet, packetIndex) => (
+                  <div
+                    className={`cost-packet${step >= 0 ? " is-visible" : ""}`}
+                    key={packet}
+                    style={{ animationDelay: `${packetIndex * 140}ms` }}
+                  >
+                    {packet}
+                  </div>
+                ))}
               </div>
             ))}
           </div>
@@ -258,16 +271,41 @@ function Simulation({ example }: { example: Example }) {
           <div className={`cost-processor${step >= 1 ? " is-active" : ""}`}>
             <span className="cost-label">Processing</span>
             <strong>{step < 1 ? "Waiting" : step === 1 ? "Working…" : "Outcome"}</strong>
-            <p>{step < 1 ? "The work starts when you play this simulation." : pattern.action}</p>
+            <p>
+              <ReservedText
+                texts={[
+                  "The work starts when you play this simulation.",
+                  example.expensive.action,
+                  example.better.action,
+                ]}
+                visible={
+                  step < 1 ? "The work starts when you play this simulation." : pattern.action
+                }
+              />
+            </p>
           </div>
         </div>
         <div className={`cost-outcome${step === 2 ? " is-visible" : ""}`}>
           <span aria-hidden="true">{better ? "✓" : "!"}</span>
-          <p>{step === 2 ? pattern.result : "Watch the work move through the system."}</p>
+          <p>
+            <ReservedText
+              texts={[
+                "Watch the work move through the system.",
+                example.expensive.result,
+                example.better.result,
+              ]}
+              visible={step === 2 ? pattern.result : "Watch the work move through the system."}
+            />
+          </p>
         </div>
         <div className="cost-driver">
           <span className="cost-label">Cost driver</span>
-          <strong>{step === 2 ? pattern.costDriver : "Awaiting outcome"}</strong>
+          <strong>
+            <ReservedText
+              texts={["Awaiting outcome", example.expensive.costDriver, example.better.costDriver]}
+              visible={step === 2 ? pattern.costDriver : "Awaiting outcome"}
+            />
+          </strong>
         </div>
       </div>
       <div className="cost-controls">
@@ -295,11 +333,38 @@ function Simulation({ example }: { example: Example }) {
             {step < 0 ? "▶ Start" : "↺ Replay"}
           </button>
         </div>
-        <p role="status">{status}</p>
+        <p role="status">
+          <ReservedText
+            texts={[
+              "Press Start to watch the better pattern.",
+              "Press Start to watch the expensive approach, followed by the better pattern.",
+              "Now, the better pattern. Prepare the work.",
+              "Prepare the work for the expensive approach.",
+              example.expensive.action,
+              example.better.action,
+              example.expensive.result,
+              example.better.result,
+            ]}
+            visible={status}
+          />
+        </p>
       </div>
       <p className="cost-disclaimer">
         Illustrative simulation. Compare actual usage, quality, and total cost for your workload.
       </p>
     </section>
+  )
+}
+
+function ReservedText({ texts, visible }: { texts: readonly string[]; visible: string }) {
+  return (
+    <span className="cost-copy">
+      {texts.map((text) => (
+        <span key={text} aria-hidden="true">
+          {text}
+        </span>
+      ))}
+      <span>{visible}</span>
+    </span>
   )
 }
