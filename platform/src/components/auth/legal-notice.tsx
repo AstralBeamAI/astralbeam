@@ -2,7 +2,7 @@ import { Fragment } from "react"
 
 import { usePublicConfig } from "@/components/public-config-provider"
 
-/** Continuing past sign-in or sign-up accepts the configured policies. */
+/** Continuing past sign-up accepts the configured policies. */
 export function LegalNotice() {
   const { privacyPolicyUrl, termsOfServiceUrl } = usePublicConfig()
   const links = [

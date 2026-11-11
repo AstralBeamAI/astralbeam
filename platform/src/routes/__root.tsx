@@ -233,8 +233,7 @@ function AppProviders({ children }: { children: ReactNode }) {
         localization={{
           auth: {
             callbackAccountLinkConflictTitle: "This provider is linked to another account",
-            callbackAccountLinkConflictDescription:
-              "Sign in to the account that owns this provider, add another sign-in method if needed, unlink it in Security, then return and link it here.",
+            callbackAccountLinkConflictDescription: `The Google or GitHub account you chose is connected to another ${APP_NAME} account. Sign in to that account first. To move this connection, add another sign-in method there, then disconnect Google or GitHub in Account → Security and try again.`,
           },
         }}
         multipleAccountsPerProvider={false}
