@@ -35,7 +35,16 @@ export function documentationHandlers(api: typeof ApiV1) {
       "searchDocumentation",
       Effect.fn("searchDocumentation")(function* ({ query }) {
         const { searchDocs } = yield* Effect.promise(() => import("@/routes/docs/-lib/search"))
-        return yield* Effect.promise(() => searchDocs(query.q))
+        const { results } = yield* Effect.promise(() => searchDocs(query.q))
+        return {
+          results: results.map(({ path, url, page, heading, text }) => ({
+            path,
+            url,
+            page,
+            heading,
+            text,
+          })),
+        }
       }),
     ),
   )

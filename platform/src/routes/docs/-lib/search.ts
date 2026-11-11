@@ -1,4 +1,4 @@
-import MiniSearch from "minisearch"
+import MiniSearch, { type SearchResult } from "minisearch"
 import { parseMarkdown, type BlockNode, type InlineNode } from "@tanstack/markdown"
 import { docsMarkdownExtensions } from "@tanstack/markdown/extensions/docs"
 
@@ -17,6 +17,10 @@ export interface DocsChunk {
   page: string
   heading: string
   text: string
+}
+
+export interface DocsSearchResult extends DocsChunk {
+  snippet: string
 }
 
 const docsPages = Object.entries(docsMarkdownByPath).flatMap(([file, load]) => {
@@ -85,6 +89,27 @@ function tokenizeDocsSearch(raw: string): string[] {
   })
 }
 
+function tokenizeDocsQuery(raw: string): string[] {
+  const terms = tokenizeDocsSearch(raw)
+  // Keep a lone identifier specific, including when wrapped in backticks or parentheses.
+  return raw.match(/[\p{L}\p{N}_]+/gu)?.length === 1 ? terms.slice(0, 1) : terms
+}
+
+function docsSearchSnippet(text: string, match: SearchResult["match"]): string {
+  const terms = new Set(Object.keys(match).filter((term) => match[term]!.includes("text")))
+  const word = [...text.matchAll(/[\p{L}\p{N}_]+/gu)].find(([value]) =>
+    tokenizeDocsSearch(value).some((term) => terms.has(term)),
+  )
+  const index = word?.index ?? 0
+  const offset = Math.max(0, index - 50)
+  const nextSpace = text.indexOf(" ", offset)
+  const start = offset && nextSpace >= 0 && nextSpace < index ? nextSpace + 1 : offset
+  const limit = Math.min(text.length, start + 180)
+  const boundary = text.lastIndexOf(" ", limit)
+  const end = limit < text.length && boundary > index + (word?.[0].length ?? 0) ? boundary : limit
+  return `${start ? "…" : ""}${text.slice(start, end)}${end < text.length ? "…" : ""}`
+}
+
 let docsIndex: Promise<{ search: MiniSearch; chunks: DocsChunk[] }> | undefined
 
 export function loadDocsIndex() {
@@ -94,10 +119,11 @@ export function loadDocsIndex() {
     (pages) => {
       const chunks: DocsChunk[] = pages.flat()
       const search = new MiniSearch({
-        fields: ["page", "heading", "text"],
+        fields: ["page", "heading", "text", "path"],
         tokenize: tokenizeDocsSearch,
         searchOptions: {
-          boost: { page: 2, heading: 3 },
+          tokenize: tokenizeDocsQuery,
+          boost: { page: 2, heading: 3, path: 2 },
           prefix: true,
           fuzzy: 0.3,
           maxFuzzy: 2,
@@ -115,15 +141,42 @@ export function loadDocsIndex() {
   return docsIndex
 }
 
+function searchDocsMatches(search: MiniSearch, term: string): SearchResult[] {
+  const matches = search.search(term)
+  if (tokenizeDocsSearch(term).length > tokenizeDocsQuery(term).length) {
+    // Keep whole-identifier matches ahead of related words, without expanding those words further.
+    matches.push(
+      ...search.search(term, { tokenize: tokenizeDocsSearch, fuzzy: false, prefix: false }),
+    )
+    return matches
+  }
+  const identifiers = (term.match(/[\p{L}\p{N}_]+/gu) ?? []).flatMap((word) => {
+    const terms = tokenizeDocsSearch(word)
+    return terms.length > 1 ? terms.slice(0, 1) : []
+  })
+  if (!identifiers.length) return matches
+  const identifierMatches = new Map(
+    search
+      .search(identifiers.join(" "), { tokenize: () => identifiers })
+      .map((result) => [result.id, result.match]),
+  )
+  const preferred = matches.flatMap((result) => {
+    const match = identifierMatches.get(result.id)
+    // Preserve context scores, but center preferred previews on the matching identifier.
+    return match ? [{ ...result, match }] : []
+  })
+  return [...preferred, ...matches]
+}
+
 export async function searchDocs(query: string) {
   const term = query.trim().slice(0, 255)
-  if (!term) return { results: [] as DocsChunk[] }
+  if (!term) return { results: [] as DocsSearchResult[] }
   const { search, chunks } = await loadDocsIndex()
-  const results: DocsChunk[] = []
-  for (const result of search.search(term)) {
+  const results: DocsSearchResult[] = []
+  for (const result of searchDocsMatches(search, term)) {
     const chunk = chunks[result.id as number]!
     if (results.some((each) => each.path === chunk.path)) continue
-    results.push(chunk)
+    results.push({ ...chunk, snippet: docsSearchSnippet(chunk.text, result.match) })
     if (results.length === 5) break
   }
   return { results }
