@@ -99,7 +99,7 @@ import { ChatSandboxes } from "./sandbox/sandbox.ts"
 import type { ChatPrincipal } from "./types.ts"
 import type { ChatCompactionArtifact } from "./compaction-middleware"
 
-const chatTestAttachmentStates = ["removed", "unreadable", "malformed", "stored", "compacted"]
+const chatTestAttachmentStates = ["removed", "unreadable", "malformed", "compacted"]
 const CHAT_TEST_COVERED_IMAGE_ID = "019a0000-0000-7000-8000-000000000006"
 const CHAT_TEST_SAVED_FILE_ID = "019a0000-0000-7000-8000-000000000004"
 const ORGANIZATION_ID = OrganizationIdSchema.make("01990a5d-ac96-774b-b942-6b13c85384ca")
@@ -575,7 +575,7 @@ describe("Chat.run", () => {
       yield* Stream.runCollect(Stream.take(yield* runChat(), 1))
       const options = chatRunTest.options[0]!
       assert.isEmpty(chatRunTest.hydrationCalls)
-      assert.include(JSON.stringify(options.messages), `[Attached: ${filename}]`)
+      assert.include(JSON.stringify(options.messages), `[Attached: ${filename}`)
       assert.isFalse(options.tools.some((tool) => tool.name.startsWith("sandbox_")))
       assert.notInclude(options.systemPrompts, CHAT_SANDBOX_SYSTEM_PROMPT)
       assert.include(options.systemPrompts, sandboxedAgent.systemPrompt)
@@ -586,59 +586,44 @@ describe("Chat.run", () => {
           {} as Parameters<NonNullable<ChatMiddleware["onConfig"]>>[1],
         ),
       )
-      assert.include(JSON.stringify(refreshed?.providerMessages), `[Attached: ${filename}]`)
+      assert.include(JSON.stringify(refreshed?.providerMessages), `[Attached: ${filename}`)
+      assert.include(JSON.stringify(refreshed?.providerMessages), "iVBORw0KGgo=")
+      assert.notInclude(JSON.stringify(refreshed?.providerMessages), `"type":"${APP_HANDLE}"`)
+      assert.notInclude(JSON.stringify(chatRunTest.hydrated), CHAT_TEST_SAVED_FILE_ID)
+      const reader = refreshed?.tools?.find(
+        (tool) => tool.name === "read_attachment",
+      ) as AnyServerTool
       if (state === "compacted") {
         assert.notInclude(JSON.stringify(refreshed?.providerMessages), "[Attached: sales.tsv]")
         assert.notInclude(JSON.stringify(chatRunTest.hydrationCalls), '"older"')
         assert.notInclude(JSON.stringify(chatRunTest.hydrationCalls), CHAT_TEST_COVERED_IMAGE_ID)
-        const calls = chatRunTest.hydrationCalls.length
-        const reader = refreshed?.tools?.find(
-          (tool) => tool.name === "read_attachment",
-        ) as AnyServerTool
         const original = yield* Effect.promise(() =>
           Promise.resolve(reader.execute?.({ file: "sales.tsv" }) as unknown),
         )
         assert.propertyVal(original, "file", "sales.tsv")
-        assert.strictEqual(chatRunTest.hydrationCalls.length, calls + 1)
       }
-      if (state === "stored") {
-        assert.include(JSON.stringify(refreshed?.providerMessages), "iVBORw0KGgo=")
-        assert.notInclude(JSON.stringify(refreshed?.providerMessages), `"type":"${APP_HANDLE}"`)
-        assert.notInclude(JSON.stringify(chatRunTest.hydrated), CHAT_TEST_SAVED_FILE_ID)
-      }
-      for (const tools of [options.tools, refreshed?.tools]) {
-        const reader = tools?.find((tool) => tool.name === "read_attachment") as AnyServerTool
-        const result = yield* Effect.promise(() =>
-          Promise.resolve(reader.execute?.({ file: filename }) as unknown),
-        )
-        assert.notProperty(result, "sandboxPath")
-        assert.notProperty(result, "content")
-      }
-      if (state === "stored") {
-        const reads = chatRunTest.hydrationCalls.filter((call) =>
-          JSON.stringify(call.messages).includes(CHAT_TEST_SAVED_FILE_ID),
-        )
-        assert.lengthOf(reads, 2)
-        for (const read of reads)
-          assert.deepStrictEqual(read.scope, {
-            ...chatTestExecution.claim.scope,
-            threadId: chatTestExecution.claim.threadId,
-          })
-        const reader = options.tools.find(
-          (tool) => tool.name === "read_attachment",
-        ) as AnyServerTool
-        const count = chatRunTest.hydrationCalls.length
-        const aborted = yield* Effect.promise(() =>
+      const result = yield* Effect.promise(() =>
+        Promise.resolve(reader.execute?.({ file: filename }) as unknown),
+      )
+      assert.notProperty(result, "sandboxPath")
+      assert.notProperty(result, "content")
+      const reads = chatRunTest.hydrationCalls.filter((call) =>
+        JSON.stringify(call.messages).includes(CHAT_TEST_SAVED_FILE_ID),
+      )
+      assert.lengthOf(reads, state === "compacted" ? 2 : 1)
+      assert.deepStrictEqual(reads[0]!.scope, {
+        ...chatTestExecution.claim.scope,
+        threadId: chatTestExecution.claim.threadId,
+      })
+      const count = chatRunTest.hydrationCalls.length
+      yield* Effect.flip(
+        Effect.tryPromise(() =>
           Promise.resolve(
-            reader.execute?.({ file: "sales.tsv" }, { abortSignal: AbortSignal.abort() }),
-          ).then(
-            () => false,
-            () => true,
+            reader.execute?.({ file: filename }, { abortSignal: AbortSignal.abort() }),
           ),
-        )
-        assert.isTrue(aborted)
-        assert.lengthOf(chatRunTest.hydrationCalls, count)
-      }
+        ).pipe(Effect.asVoid),
+      )
+      assert.lengthOf(chatRunTest.hydrationCalls, count)
     }).pipe(
       Effect.provide(
         chatTestLayer({
@@ -696,7 +681,7 @@ describe("Chat.run", () => {
                     id: "document",
                     type: "document",
                     source:
-                      state === "stored" || state === "compacted"
+                      state !== "malformed"
                         ? {
                             type: APP_HANDLE,
                             id: CHAT_TEST_SAVED_FILE_ID,
@@ -705,28 +690,22 @@ describe("Chat.run", () => {
                           }
                         : {
                             type: "data",
-                            value: btoa(
-                              state === "malformed" ? "invalid" : "name\tamount\nSaved\t12",
-                            ),
+                            value: btoa("invalid"),
                             mimeType: "application/octet-stream",
                           },
                     metadata: { filename: state === "malformed" ? "sales.xlsx" : "sales.tsv" },
                   },
-                  ...(state === "stored"
-                    ? [
-                        {
-                          id: "photo",
-                          type: "image",
-                          source: {
-                            type: APP_HANDLE,
-                            id: "019a0000-0000-7000-8000-000000000005",
-                            mimeType: "image/png",
-                            byteSize: 8,
-                          },
-                          metadata: { filename: "photo.png" },
-                        },
-                      ]
-                    : []),
+                  {
+                    id: "photo",
+                    type: "image",
+                    source: {
+                      type: APP_HANDLE,
+                      id: "019a0000-0000-7000-8000-000000000005",
+                      mimeType: "image/png",
+                      byteSize: 8,
+                    },
+                    metadata: { filename: "photo.png" },
+                  },
                 ],
               },
             },

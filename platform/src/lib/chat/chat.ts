@@ -37,10 +37,9 @@ import {
   chatCompactionKey,
   selectChatCompaction,
   createChatCompactionMiddleware,
-  chatCompactionOutputOptions,
   type ChatCompactionState,
 } from "./compaction-middleware"
-import { createChatAdapter } from "./adapter"
+import { chatModelOutputOptions, createChatAdapter } from "./adapter"
 import { chatWebTools } from "./web"
 import { createChatAttachmentTools } from "./attachments/tools"
 import {
@@ -148,17 +147,13 @@ const prepareChatHistory = Effect.fnUntraced(function* ({
                   scope,
                   messages: [{ role: "user", content: [entry] } as (typeof executable)[number]],
                 })
-                const result = normalizeChatAttachments(hydrated, {
+                const {
+                  files: [file],
+                } = normalizeChatAttachments(hydrated, {
                   contentShape: "model",
                   includeNativeFiles: true,
                 })
-                const file = result.files[0]
-                if (
-                  !file ||
-                  "load" in file ||
-                  result.attachments.some((a) => a.result === "rejected")
-                )
-                  return yield* new ChatThreadInvalid()
+                if (!file || "load" in file) return yield* new ChatThreadInvalid()
                 return file
               }),
               { signal },
@@ -436,7 +431,7 @@ export class Chat extends Context.Service<
                     summaryAdapter: createChatAdapter(model),
                     native: nativeCompaction,
                     configuration: pricing,
-                    summaryOptions: chatCompactionOutputOptions(
+                    summaryOptions: chatModelOutputOptions(
                       model,
                       Math.min(pricing.outputCap, 4096),
                     ),
@@ -558,7 +553,7 @@ export class Chat extends Context.Service<
             const source = chat({
               adapter,
               ...(agent.compactionEnabled && pricing
-                ? { modelOptions: chatCompactionOutputOptions(model, pricing.outputCap) }
+                ? { modelOptions: chatModelOutputOptions(model, pricing.outputCap) }
                 : {}),
               // Undefined still enables TanStack's default error logger.
               debug: log ? { logger: chatDebugLogger({ runId: params.runId }) } : false,

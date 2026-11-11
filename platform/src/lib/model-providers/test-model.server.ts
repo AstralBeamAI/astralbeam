@@ -2,7 +2,7 @@ import { EventType, maxIterations } from "@tanstack/ai"
 import { chat } from "@tanstack/ai-effect"
 import { Effect, Stream } from "effect"
 
-import { createChatAdapter } from "@/lib/chat/adapter"
+import { chatModelOutputOptions, createChatAdapter } from "@/lib/chat/adapter"
 import { ModelProviderTestFailed } from "./errors.ts"
 import type { ChatModelConfiguration } from "./model-providers.server.ts"
 
@@ -53,16 +53,7 @@ export const testProviderModel = Effect.fn("testProviderModel")(
       adapter: createChatAdapter({ ...configuration, fetch: guardedFetch }),
       messages: [{ role: "user", content: "Reply with OK." }],
       agentLoopStrategy: maxIterations(1),
-      modelOptions:
-        configuration.providerType === "openrouter"
-          ? { maxTokens: 1024 }
-          : configuration.api === "responses"
-            ? { max_output_tokens: 1024 }
-            : configuration.api === "gemini-generate-content"
-              ? { maxOutputTokens: 1024 }
-              : configuration.api === "chat-completions" && configuration.providerType === "openai"
-                ? { max_completion_tokens: 1024 }
-                : { max_tokens: 1024 },
+      modelOptions: chatModelOutputOptions(configuration, 1024),
     }).pipe(
       Stream.runForEach((chunk) =>
         Effect.suspend(() => {

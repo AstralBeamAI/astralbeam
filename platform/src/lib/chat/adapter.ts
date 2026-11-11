@@ -11,6 +11,18 @@ import { fetchChatCompactionUsage } from "./compaction-usage"
 
 import type { ChatModelConfiguration } from "@/lib/model-providers/model-providers.server"
 
+export function chatModelOutputOptions(
+  model: Pick<ChatModelConfiguration, "api" | "providerType">,
+  maxTokens: number,
+) {
+  if (model.providerType === "openrouter") return { maxCompletionTokens: maxTokens }
+  if (model.api === "responses") return { max_output_tokens: maxTokens }
+  if (model.api === "gemini-generate-content") return { maxOutputTokens: maxTokens }
+  return model.api === "chat-completions" && model.providerType === "openai"
+    ? { max_completion_tokens: maxTokens }
+    : { max_tokens: maxTokens }
+}
+
 export function createChatAdapter(
   configuration: ChatModelConfiguration,
   onCompactionUsage?: (usage: TokenUsage) => Promise<void>,
@@ -35,10 +47,12 @@ export function createChatAdapter(
     })
   }
   if (configuration.api === "anthropic-messages") {
-    return extendAdapter(createAnthropicChat, models)(configuration.modelId, configuration.apiKey, {
-      auth: "api-key",
+    const createAnthropicModel = extendAdapter(createAnthropicChat, models)
+    // Explicit auth keeps deployment tokens out of this Organization's connection.
+    return createAnthropicModel(configuration.modelId, configuration.apiKey, {
       baseURL: configuration.baseUrl,
       fetch: configuration.fetch,
+      auth: "api-key",
     })
   }
   if (configuration.api === "gemini-generate-content") {

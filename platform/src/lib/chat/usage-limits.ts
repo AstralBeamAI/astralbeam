@@ -1,5 +1,5 @@
 import { EventType, type ChatMiddleware, type StreamChunk, type TokenUsage } from "@tanstack/ai"
-import { Effect, Exit, Stream } from "effect"
+import { Effect, Exit, Result, Stream } from "effect"
 
 import { APP_HANDLE } from "@/lib/constants"
 import type { ModelConfiguration } from "@/lib/model-providers/schemas"
@@ -36,11 +36,11 @@ export function chatUsageLimitGuard(options: {
     )
   }
   async function check() {
-    const exit = await options.execute(Effect.exit(usageLimits.check({ limits, subject })))
-    if (Exit.isSuccess(exit)) return true
-    const failure = exit.cause.reasons.find((reason) => reason._tag === "Fail")
-    if (!failure) return true
-    reached = failure.error
+    const failure = Exit.findError(
+      await options.execute(Effect.exit(usageLimits.check({ limits, subject }))),
+    )
+    if (Result.isFailure(failure)) return true
+    reached = failure.success
     return false
   }
   const middleware: ChatMiddleware = {

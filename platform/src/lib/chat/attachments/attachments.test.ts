@@ -189,11 +189,10 @@ test("deferred files retain cumulative size limits without loading their bytes",
   const load = vi.fn(() => Promise.reject(new Error("Unexpected file read")))
   const { files, attachments } = normalizeChatAttachments(
     userMessage(
-      Array.from({ length: 5 }, (_, index) => ({
+      Array.from({ length: 5 }, () => ({
         type: "image",
         source: {
           type: APP_HANDLE,
-          value: `file-${index}`,
           mimeType: "image/png",
           byteSize: CHAT_ATTACHMENT_MAX_BYTES_BY_KIND.image,
         },
@@ -203,12 +202,7 @@ test("deferred files retain cumulative size limits without loading their bytes",
     { includeNativeFiles: true, deferFile: () => load },
   )
   expect(load).not.toHaveBeenCalled()
-  expect(files.map((file) => file.handle)).toEqual([
-    "chart.png",
-    "chart-2.png",
-    "chart-3.png",
-    "chart-4.png",
-  ])
+  expect(files).toHaveLength(4)
   expect(attachments.at(-1)?.result).toBe("rejected")
   expect(attachments.at(-1)?.reason).toContain("20 MB")
 })

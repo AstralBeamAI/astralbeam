@@ -328,15 +328,3 @@ export function createChatCompactionMiddleware(options: {
     },
   }
 }
-
-export function chatCompactionOutputOptions(
-  model: Pick<ChatModelConfiguration, "api" | "providerType">,
-  maxTokens: number,
-) {
-  if (model.providerType === "openrouter") return { maxCompletionTokens: maxTokens }
-  if (model.api === "responses") return { max_output_tokens: maxTokens }
-  if (model.api === "gemini-generate-content") return { maxOutputTokens: maxTokens }
-  return model.api === "chat-completions" && model.providerType === "openai"
-    ? { max_completion_tokens: maxTokens }
-    : { max_tokens: maxTokens }
-}
