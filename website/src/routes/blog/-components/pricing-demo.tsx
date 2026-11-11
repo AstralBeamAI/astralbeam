@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { type ReactNode, useEffect, useState } from "react"
 
 type Step = readonly [event: string, calculation: string, total: string, note: string]
 interface Example {
@@ -462,6 +462,7 @@ function Demo({ example }: { example: Example }) {
   const [step, setStep] = useState(-1)
   const [run, setRun] = useState(0)
   const steps = better ? example.better : example.failure
+  const allSteps = [...example.failure, ...example.better]
   const finished = step === steps.length - 1
 
   useEffect(() => {
@@ -484,33 +485,71 @@ function Demo({ example }: { example: Example }) {
   }
 
   const current = steps[step]
-  const note = current?.[3] ?? "Press Start to watch the failure, followed by a better pattern."
+  const failurePrompt = "Press Start to watch the failure, followed by a better pattern."
+  const betterPrompt = "Press Start to watch the better pattern."
+  const note = current?.[3] ?? (better ? betterPrompt : failurePrompt)
 
   return (
     <section className="failure-demo pricing-demo" aria-label={`Simulation: ${example.name}`}>
       <div className="demo-window">
         <div className={`demo-window-bar ${better ? "is-better" : "is-failure"}`}>
           <strong>{example.name}</strong>
+          <span className="pricing-reserve" aria-hidden="true">
+            Better pattern
+          </span>
           <span>{better ? "Better pattern" : "Failure"}</span>
         </div>
         <div className="pricing-scene">
-          <p className="pricing-rule">{example.rules[better ? 1 : 0]}</p>
+          <p className="pricing-rule">
+            <StableText variants={example.rules}>{example.rules[better ? 1 : 0]}</StableText>
+          </p>
           <ol className="pricing-ledger">
-            {steps.slice(0, step + 1).map(([event, calculation], index) => (
-              <li
-                key={`${run}-${better}-${event}`}
-                aria-current={index === step ? "step" : undefined}
-              >
-                <strong>{event}</strong>
-                <span>{calculation}</span>
-              </li>
-            ))}
+            {Array.from(
+              { length: Math.max(example.failure.length, example.better.length) },
+              (_, index) => {
+                const item = steps[index]
+                const visible = item !== undefined && index <= step
+                return (
+                  <li
+                    key={`${run}-${better}-${index}`}
+                    className={visible ? undefined : "is-pending"}
+                    aria-hidden={!visible}
+                    aria-current={index === step ? "step" : undefined}
+                  >
+                    <strong>
+                      <StableText
+                        variants={[
+                          example.failure[index]?.[0] ?? "",
+                          example.better[index]?.[0] ?? "",
+                        ]}
+                      >
+                        {item?.[0]}
+                      </StableText>
+                    </strong>
+                    <span>
+                      <StableText
+                        variants={[
+                          example.failure[index]?.[1] ?? "",
+                          example.better[index]?.[1] ?? "",
+                        ]}
+                      >
+                        {item?.[1]}
+                      </StableText>
+                    </span>
+                  </li>
+                )
+              },
+            )}
           </ol>
           <div
             className={`pricing-total${finished ? (better ? " demo-success" : " demo-error") : ""}`}
           >
             <span>{example.totalLabel}</span>
-            <strong key={`${run}-${better}-${step}`}>{current?.[2] ?? "—"}</strong>
+            <strong key={`${run}-${better}-${step}`}>
+              <StableText variants={["—", ...allSteps.map((item) => item[2])]}>
+                {current?.[2] ?? "—"}
+              </StableText>
+            </strong>
           </div>
           <p className="demo-detail">Fictional example · prices before tax</p>
         </div>
@@ -525,7 +564,9 @@ function Demo({ example }: { example: Example }) {
           </button>
         </div>
         <p role="status">
-          {step < 0 && better ? "Press Start to watch the better pattern." : note}
+          <StableText variants={[failurePrompt, betterPrompt, ...allSteps.map((item) => item[3])]}>
+            {note}
+          </StableText>
         </p>
         <button
           className="demo-action"
@@ -535,9 +576,24 @@ function Demo({ example }: { example: Example }) {
             setRun(run + 1)
           }}
         >
-          {step < 0 ? "▶ Start" : "↺ Replay"}
+          <StableText variants={["▶ Start", "↺ Replay"]}>
+            {step < 0 ? "▶ Start" : "↺ Replay"}
+          </StableText>
         </button>
       </div>
     </section>
+  )
+}
+
+function StableText({ variants, children }: { variants: readonly string[]; children: ReactNode }) {
+  return (
+    <span className="pricing-stable">
+      {variants.map((text, index) => (
+        <span className="pricing-reserve" aria-hidden="true" key={index}>
+          {text}
+        </span>
+      ))}
+      <span>{children}</span>
+    </span>
   )
 }
