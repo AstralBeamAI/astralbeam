@@ -33,15 +33,15 @@ seats
 
 ### Usage: tokens, compute, or tool calls
 
-Can your customer estimate a month's token usage? The rates at [Anthropic](https://platform.claude.com/docs/en/about-claude/pricing) and [GitHub's billing explanation](https://github.blog/news-insights/company-news/github-copilot-is-moving-to-usage-based-billing/) help explain the costs. A sample invoice may help them decide. [One founder](https://www.reddit.com/r/SaaS/comments/1r1k8sx/seat_vs_usage_based_pricing/) said usage pricing helped rollout, but prospects worried about spending. Established customers later asked for seats.
+What would a normal month cost? Take a customer's workload and sketch a bill. [Anthropic](https://platform.claude.com/docs/en/about-claude/pricing) and [GitHub](https://github.blog/news-insights/company-news/github-copilot-is-moving-to-usage-based-billing/) explain their usage rates. [One founder](https://www.reddit.com/r/SaaS/comments/1r1k8sx/seat_vs_usage_based_pricing/) found usage pricing helped rollout, but prospects worried about spending and established customers asked for seats.
 
-Alerts don't enforce budgets. Reserve money before concurrent jobs can spend it twice, then record actual usage and release anything unused. Limit each run too, since provider reports can arrive late.
+An alert won't stop a job. Reserve money before concurrent jobs can spend it twice, record actual usage, and release anything unused. Limit each run too, since provider reports can arrive late.
 
 ```pricing
 usage
 ```
 
-You could bill for actions, as [Salesforce](https://www.salesforce.com/agentforce/pricing/) offers alongside conversations and user licenses. But does an attempted call count? What about a retry? [Zapier's task rules](https://help.zapier.com/hc/en-us/articles/8496196837261-How-is-task-usage-measured-in-Zapier) get into those details. In our example, four successful tools leave the issue open. A two-action allowance stops at $0.20 and asks before doing more.
+We've set the allowance to two actions here. They cost $0.20, after which the agent asks to continue. The failure example ran four successful tools and left the issue open. For your own action rates, compare [Salesforce](https://www.salesforce.com/agentforce/pricing/) and decide how failures and retries count, as [Zapier](https://help.zapier.com/hc/en-us/articles/8496196837261-How-is-task-usage-measured-in-Zapier) does.
 
 ```pricing
 tool
@@ -87,7 +87,7 @@ markup
 
 Customers with provider contracts may prefer their own keys. But connecting your provider key is different from asking each customer to create and fund an account. A [local dictation-app builder](https://www.reddit.com/r/SaaS/comments/1vuzeva/byok_sounded_fair_the_api_key_setup_is_where/) found setup difficult for nontechnical users. [Provider payment, permissions, and rate limits](https://www.reddit.com/r/SaaS/comments/1vuzeva/comment/p5672ua/) can also create support work.
 
-Your app fee and the model bill need explaining separately. [OpenRouter's terms](https://openrouter.ai/pricing) are one example of those billing rules. Our simulation shows $29 charged while a $10 job is only authorized. Completing it brings combined spending to $39. Protect the key, show whose account a limit applies to, and ask before using a different paying account. Storage, tools, and support still come out of your fee.
+[OpenRouter's terms](https://openrouter.ai/pricing) are a reminder to show both bills. In the example, the provider hasn't charged the authorized $10 yet. Keep that separate from the $29 app fee. Protect keys, label each account's limits, and ask before falling back to another paying account. Your fee still covers storage, tools, and support.
 
 ```pricing
 byok
@@ -125,9 +125,9 @@ Show customers two pilot invoices for the same work. Count failures, retries, to
 
 ## Put the limits where the work happens
 
-Before starting a job, the customer needs to see the estimate, rate, and who pays. During the run, **spent** means already used, **reserved** is held for work in progress, and **remaining** is available for new work. Agree on what happens at zero, including calls already running. Track the customer's account too. A conversation limit is easy to bypass by opening another chat.
+Put the estimate beside the action that starts the job, along with the rate and who pays. Keep **spent**, **reserved**, and **remaining** separate. Agree on what happens at zero and to calls already running. A conversation cap won't protect the account if users can open another chat.
 
-Keep a receipt so customers can question a charge: job ID, billable event, quantity, rate version, allowance, and adjustments. Before calling a limit hard, read what it covers. [Vercel](https://vercel.com/docs/spend-management) documents timing restrictions, while [Snowflake's warehouse monitors](https://docs.snowflake.com/en/user-guide/resource-monitors) leave some serverless and AI usage outside their scope. Test it with concurrent jobs, late reports, a failed cancellation, and an empty balance.
+Keep a receipt with the job ID, billable event, quantity, rate version, allowance, and adjustments. Check what a limit covers before calling it hard. [Vercel](https://vercel.com/docs/spend-management) documents timing restrictions. [Snowflake's warehouse monitors](https://docs.snowflake.com/en/user-guide/resource-monitors) leave some serverless and AI usage outside their scope. Test concurrent jobs, late reports, failed cancellation, and an empty balance.
 
 ## Try it in your app
 
