@@ -104,7 +104,7 @@ export default defineConfig(({ mode }) => ({
               .map((path) => `${path}\n  Cache-Control: public, no-cache\n`)
             const sourceHeaders = blogRoutes.map(
               (path) =>
-                `${path}.md\n  Content-Type: text/plain; charset=utf-8\n  Content-Disposition: inline\n  Cache-Control: no-cache\n`,
+                `${path}.md\n  Content-Type: text/plain; charset=utf-8\n  Content-Disposition: inline\n  Cache-Control: no-cache\n  Link: <${siteUrl(path)}>; rel="canonical"\n`,
             )
             writeFileSync(
               join(output, "_headers"),

@@ -1,13 +1,9 @@
 "use client"
 
 import type { Organization } from "better-auth/client"
-import { useState } from "react"
 
-import { CreateOrganizationDialog } from "@/components/auth/organization/create-organization-dialog"
+import { CreateOrganizationForm } from "@/components/auth/organization/create-organization-dialog"
 import { UserInvitations } from "@/components/auth/organization/user-invitations"
-import { useHydrated } from "@tanstack/react-router"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { suggestOrganizationNameFromEmail } from "../-lib/utils"
 
 export type OrganizationOnboardingProps = {
@@ -24,8 +20,6 @@ export function OrganizationOnboarding({
   onInvitationAction,
   onOrganizationCreated,
 }: OrganizationOnboardingProps) {
-  const [createOpen, setCreateOpen] = useState(false)
-  const hydrated = useHydrated()
   const suggestedName = suggestOrganizationNameFromEmail(email)
 
   return (
@@ -53,29 +47,15 @@ export function OrganizationOnboarding({
         onInvitationAction={onInvitationAction}
       />
 
-      <Card>
-        <CardContent className="flex flex-col items-stretch gap-4 sm:items-start">
-          <div className="space-y-2">
-            {hasInvitations && (
-              <h2 className="font-sans text-sm font-semibold">Create your own organization</h2>
-            )}
-            <p className="text-sm text-muted-foreground">
-              We’ll create your first agent. Connect a model, then add the agent to your app.
-            </p>
-          </div>
-          <Button
-            className="text-sm"
-            type="button"
-            disabled={!hydrated}
-            onClick={() => setCreateOpen(true)}
-          >
-            Create organization
-          </Button>
-          <p className="text-sm text-muted-foreground">
-            You’ll be the owner and can invite teammates anytime.
-          </p>
-        </CardContent>
-      </Card>
+      <CreateOrganizationForm
+        onOrganizationCreated={onOrganizationCreated}
+        {...(suggestedName ? { initialName: suggestedName } : {})}
+        header={
+          hasInvitations && (
+            <h2 className="font-sans text-sm font-semibold">Create your own organization</h2>
+          )
+        }
+      />
 
       {!hasInvitations && (
         <p className="text-sm text-muted-foreground wrap-anywhere">
@@ -83,13 +63,6 @@ export function OrganizationOnboarding({
           <span className="font-medium text-foreground">{email}</span>.
         </p>
       )}
-
-      <CreateOrganizationDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        onOrganizationCreated={onOrganizationCreated}
-        {...(suggestedName ? { initialName: suggestedName } : {})}
-      />
     </section>
   )
 }

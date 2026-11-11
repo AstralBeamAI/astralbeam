@@ -252,14 +252,9 @@ export function normalizeChatAttachments(
     if (position > CHAT_ATTACHMENT_MAX_COUNT) {
       return refuse(`the message went over the limit of ${CHAT_ATTACHMENT_MAX_COUNT} attachments.`)
     }
-    const size = deferred
-      ? typeof entry.source.byteSize === "number"
-        ? entry.source.byteSize
-        : Predicate.isString(entry.source.value)
-          ? base64ByteLength(entry.source.value)
-          : Number.NaN
-      : base64ByteLength(entry.source.value as string)
-    if (!Number.isSafeInteger(size) || size < 0) return refuse("its size was missing.")
+    const size = deferred ? entry.source.byteSize : base64ByteLength(entry.source.value as string)
+    if (typeof size !== "number" || !Number.isSafeInteger(size) || size < 0)
+      return refuse("its size was missing.")
     const limit = CHAT_ATTACHMENT_MAX_BYTES_BY_KIND[kind]
     if (size > limit) {
       return refuse(`it is larger than the ${formatBytes(limit)} limit for that file type.`)

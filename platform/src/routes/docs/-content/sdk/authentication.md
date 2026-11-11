@@ -6,7 +6,7 @@ Connect your application's authenticated users to chat with short-lived tenant J
 
 Expose `POST /api/astralbeam/token` on your backend. Authenticate the request, derive user and customer-account IDs from the session, and return `{ token }` with `Cache-Control: no-store`. Keep your framework's session and CSRF protections.
 
-The [Quickstart](/docs/start/quickstart#3-connect-your-backend) has TypeScript and Rails handlers. With the JavaScript SDK, sign the session identity like this:
+The [Quickstart](/docs/start/quickstart#3-create-the-token-endpoint) has TypeScript and Rails handlers. With the JavaScript SDK, sign the session identity like this:
 
 ```ts
 import { createAstralBeamToken } from "@astralbeam/sdk/server"
@@ -105,7 +105,7 @@ SDK options use camelCase. The signing helper sets AstralBeam's wire claims, iss
 
 ## Mint tokens without JavaScript
 
-Use an HS256 JWT library in your backend language. The [Quickstart's Rails example](/docs/start/quickstart#3-connect-your-backend) shows a token endpoint. To implement the signing yourself:
+Use an HS256 JWT library in your backend language. The [Quickstart's Rails example](/docs/start/quickstart#3-create-the-token-endpoint) shows a token endpoint. To implement the signing yourself:
 
 1. Split the API key at its last `_abo_`. The part before it, `key_<organizationId>_<id>`, is the key ID. The rest, starting with `abo_`, is the secret.
 2. Hash the whole secret, including `abo_`, with SHA-256 and encode the digest as unpadded base64url. The bytes of that ASCII string are the HMAC key, because AstralBeam stores only this digest.

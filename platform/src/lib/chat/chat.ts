@@ -13,6 +13,7 @@ import { Context, Effect, Layer, Option, Stream } from "effect"
 
 import { McpTools } from "@/lib/mcp/tools.server"
 import { redactSensitiveValue } from "@/lib/redaction"
+import { APP_HANDLE } from "@/lib/constants"
 import { ChatThreads, type MessageRecord } from "./threads/threads"
 import { ChatThreadInvalid, type ChatThreadError } from "./threads/errors"
 import {
@@ -106,8 +107,6 @@ const prepareChatHistory = Effect.fnUntraced(function* ({
   webAccessEnabled,
   sandboxEnabled,
   contextKey,
-  coveredThroughMessageId,
-  deferAll = false,
 }: {
   readonly history: readonly MessageRecord[]
   readonly model: ChatModelConfiguration
@@ -115,8 +114,6 @@ const prepareChatHistory = Effect.fnUntraced(function* ({
   readonly webAccessEnabled: boolean
   readonly sandboxEnabled: boolean
   readonly contextKey?: string | undefined
-  readonly coveredThroughMessageId?: string | undefined
-  readonly deferAll?: boolean
   readonly scope: Pick<ChatFileScope, "organizationId" | "tenantId" | "threadId">
 }) {
   const stored = yield* Effect.try({
@@ -137,39 +134,19 @@ const prepareChatHistory = Effect.fnUntraced(function* ({
     )
     return content.length ? [{ ...message, content }] : []
   })
-  const covered = new Set(
-    history
-      .slice(0, history.findIndex((message) => message.id === coveredThroughMessageId) + 1)
-      .map(({ id }) => id),
-  )
-  const deferred = (message: (typeof executable)[number]) =>
-    deferAll || covered.has(message.id?.split(":")[0] ?? "")
-  const hydrated = yield* files.hydrate({
-    scope,
-    messages: executable.filter((message) => !deferred(message)),
-  })
-  let index = 0
-  const projected = executable.map((message) => (deferred(message) ? message : hydrated[index++]!))
-  const deferredParts = new Set<unknown>(
-    executable.flatMap((message) =>
-      deferred(message) && message.role === "user" && Array.isArray(message.content)
-        ? message.content
-        : [],
-    ),
-  )
   const execute = Effect.runPromiseWith(yield* Effect.context<never>())
-  const normalized = normalizeChatAttachments(projected, {
+  const normalized = normalizeChatAttachments(executable, {
     contentShape: "model",
     includeNativeFiles: sandboxEnabled,
     deferFile: (entry) =>
-      deferredParts.has(entry)
-        ? (signal) =>
-            execute(
+      entry.source.type === APP_HANDLE
+        ? (signal) => {
+            signal?.throwIfAborted()
+            return execute(
               Effect.gen(function* () {
-                const message = { role: "user" as const, content: [entry] }
                 const hydrated = yield* files.hydrate({
                   scope,
-                  messages: [message as (typeof executable)[number]],
+                  messages: [{ role: "user", content: [entry] } as (typeof executable)[number]],
                 })
                 const result = normalizeChatAttachments(hydrated, {
                   contentShape: "model",
@@ -186,12 +163,13 @@ const prepareChatHistory = Effect.fnUntraced(function* ({
               }),
               { signal },
             )
+          }
         : undefined,
   })
   if (normalized.attachments.some((attachment) => attachment.result === "rejected"))
     return yield* new ChatThreadInvalid()
   // Admission checks permission for new uploads. Saved uploads remain usable after it changes.
-  return { projected, ...normalized }
+  return { projected: executable, ...normalized }
 })
 
 export class Chat extends Context.Service<
@@ -280,7 +258,6 @@ export class Chat extends Context.Service<
           model,
           webAccessEnabled: agent.webAccessEnabled,
           sandboxEnabled: agent.sandboxProviderId !== null,
-          deferAll: agent.compactionEnabled,
           scope: { ...input.managed.claim.scope, threadId: input.managed.claim.threadId },
         })
         const unknownOutcome = history.some(
@@ -410,27 +387,36 @@ export class Chat extends Context.Service<
                 compactionState.history.findIndex(
                   (message) => message.id === compactionState.artifact?.coveredThroughMessageId,
                 ) + 1
-              const normalized = prepared
-                ? { messages: prepared }
-                : await execute(
+              const messages =
+                prepared ??
+                (
+                  await execute(
                     prepareChatHistory({
                       history: compactionState.history,
                       files: storedFiles,
                       model,
                       contextKey: chatCompactionContextKey(compactionState),
-                      coveredThroughMessageId: compactionState.artifact?.coveredThroughMessageId,
                       sandboxEnabled: agent.sandboxProviderId !== null,
                       webAccessEnabled: agent.webAccessEnabled,
                       scope: {
-                        ...input.managed.claim.scope,
-                        threadId: input.managed.claim.threadId,
+                        ...compactionState.claim.scope,
+                        threadId: compactionState.claim.threadId,
                       },
                     }),
                   )
+                ).messages
               // Metadata from the prefix reserves names without reading compacted file bytes.
               const suffix = new Set(compactionState.history.slice(start).map(({ id }) => id))
-              return convertMessagesToModelMessages(normalized.messages).filter((message) =>
-                suffix.has(message.id?.split(":")[0] ?? ""),
+              return execute(
+                storedFiles.hydrate({
+                  scope: {
+                    ...compactionState.claim.scope,
+                    threadId: compactionState.claim.threadId,
+                  },
+                  messages: convertMessagesToModelMessages(messages).filter((message) =>
+                    suffix.has(message.id?.split(":")[0] ?? ""),
+                  ),
+                }),
               )
             }
             const adapter = createChatAdapter(
@@ -501,7 +487,6 @@ export class Chat extends Context.Service<
                       model,
                       webAccessEnabled: agent.webAccessEnabled,
                       sandboxEnabled: agent.sandboxProviderId !== null,
-                      deferAll: agent.compactionEnabled,
                     })
                     files.splice(0, files.length, ...normalized.files)
                     tools.splice(0, tools.length, ...collectTools())
@@ -521,7 +506,8 @@ export class Chat extends Context.Service<
                         }),
                         nativeCompaction,
                       )
-                    if (agent.compactionEnabled) {
+                    const contextKey = chatCompactionContextKey(compactionState)
+                    if (contextKey) {
                       normalized = yield* prepareChatHistory({
                         history: saved,
                         files: storedFiles,
@@ -529,22 +515,21 @@ export class Chat extends Context.Service<
                         model,
                         webAccessEnabled: agent.webAccessEnabled,
                         sandboxEnabled: agent.sandboxProviderId !== null,
-                        coveredThroughMessageId: compactionState.artifact?.coveredThroughMessageId,
-                        contextKey: chatCompactionContextKey(compactionState),
+                        contextKey,
                       })
                       files.splice(0, files.length, ...normalized.files)
                       tools.splice(0, tools.length, ...collectTools())
                     }
                     inputMessages.splice(0, inputMessages.length, ...normalized.projected)
                     if (session) yield* session.prepareUploads(files)
-                    const providerMessages = compactionState.artifact
-                      ? [
-                          ...chatCompactionMessages(compactionState.artifact.payload),
-                          ...(yield* Effect.promise(() =>
-                            projectCompactionSuffix(normalized.messages),
-                          )),
-                        ]
-                      : convertMessagesToModelMessages(normalized.messages)
+                    const providerMessages = [
+                      ...(compactionState.artifact
+                        ? chatCompactionMessages(compactionState.artifact.payload)
+                        : []),
+                      ...(yield* Effect.promise(() =>
+                        projectCompactionSuffix(normalized.messages),
+                      )),
+                    ]
                     return {
                       providerMessages,
                       publicHistory: projectChatPublicHistory(saved),

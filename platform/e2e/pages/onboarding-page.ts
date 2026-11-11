@@ -1,6 +1,7 @@
 import { expect, type Locator, type Page } from "@playwright/test"
 
 import { waitForHydration } from "../hydration.ts"
+import { submitCreateOrganizationForm } from "./create-organization-dialog.ts"
 
 /** `/onboarding`, the only page a signed-in user without an organization can reach. */
 export function onboardingPage(page: Page) {
@@ -19,10 +20,10 @@ export function onboardingPage(page: Page) {
       return page.getByRole("heading", { name: /invitations/i })
     },
 
-    async openCreateOrganization(): Promise<void> {
-      const button = page.getByRole("button", { name: "Create organization", exact: true })
-      await waitForHydration(button)
-      await button.click()
+    async createOrganization(name: string, slug: string): Promise<void> {
+      // React would replace values typed into the server-rendered inputs while hydrating.
+      await waitForHydration(page.locator("#create-organization-name"))
+      await submitCreateOrganizationForm(page.locator("main"), name, slug)
     },
   }
 }

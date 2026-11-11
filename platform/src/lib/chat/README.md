@@ -256,6 +256,8 @@ The input's current `metadata.invocationId`, assistant provenance, turn state, a
 
 Concurrent sends serialize database appends briefly. Another running turn does not cause a conversation-wide busy rejection. The SDK still limits overlapping sends within one local session while its own request is active.
 
+Saved attachment metadata supplies stable handles and cumulative limits without reading original bytes. Each model phase hydrates native images and PDFs. Text, data, and Office files load through the existing attachment or sandbox tools when needed. Admission still validates new file contents before saving them, and transcript downloads retain their authorized storage path.
+
 ### Tool decisions and responses
 
 1. Commit the complete tool decision, stable part identity, execution location, and expected-response slots before execution.
@@ -531,6 +533,6 @@ Portable summaries use the library’s tools-disabled conversation summarizer. O
 
 Budgets reserve the model’s configured output cap and estimate fixed instructions, tool schemas, message text, and media. Reported input usage adjusts the unchanged provider prefix within a run, while new messages remain estimated. TanStack’s usage counter currently tracks canonical messages, so it cannot directly count this projected view. Estimates remain approximate, including a per-media allowance. The default trigger is 80 percent of available input. Unknown model limits prevent enabling compaction, oversized fixed inputs fail safely, and oversized archives can require another attempt after a valid intermediate artifact was saved. A failed summary can continue only when the original request fits. Publication, authorization, usage recording, and cancellation failures still stop the run. Summary usage is recorded separately from assistant-phase usage and consumes the same limits. Context logs compare estimated and reported input sizes and record preparation duration.
 
-Compacted attachments retain metadata for cumulative caps and stable handles. Execution hydrates only retained suffix attachments. Existing attachment and sandbox tools load compacted originals on demand, while transcript downloads keep using their authorized storage path. Canonical history rows are still loaded to validate boundaries and retain transcript behavior.
+Context preparation filters normalized messages to the selected suffix before hydrating native attachments. Canonical history rows remain loaded to validate safe boundaries.
 
 The SDK consumes TanStack’s `compaction:started` and `compaction:ended` through AG-UI’s existing `CUSTOM` event. The server strips context previews and error details before delivery. Full saved messages and uploads remain visible. Retrieval tools, diagnostics endpoints, unfinished-turn recovery, manual controls, and durable background execution remain separate work.

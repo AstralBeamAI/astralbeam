@@ -24,7 +24,7 @@ export interface ChatAttachmentFile {
   readonly bytes: Uint8Array
 }
 
-/** Compacted files keep their handles without reading original bytes until a tool needs them. */
+/** Saved files keep their handles without reading original bytes until a tool needs them. */
 export type ChatAttachmentSource =
   | ChatAttachmentFile
   | (Pick<ChatAttachmentFile, "handle" | "filename" | "mimeType"> & {
