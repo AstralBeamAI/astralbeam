@@ -130,15 +130,10 @@ export function base64ByteLength(value: string): number {
   return Math.max(0, Math.floor((payload.length * 3) / 4) - padding)
 }
 
-// A preallocated loop avoids a callback per byte on the shared request thread.
 export function decodeAttachmentBytes(value: string): Uint8Array | undefined {
-  const binary = Result.try(() => atob(base64Payload(value).replace(/\s/g, "")))
-  if (Result.isFailure(binary)) return undefined
-  const bytes = new Uint8Array(binary.success.length)
-  for (let index = 0; index < binary.success.length; index += 1) {
-    bytes[index] = binary.success.charCodeAt(index)
-  }
-  return bytes
+  return Result.getOrUndefined(
+    Result.try(() => Uint8Array.fromBase64(base64Payload(value).replace(/\s/g, ""))),
+  )
 }
 
 // Reject mismatched signatures before decoding the whole payload.
@@ -146,7 +141,7 @@ function hasDeclaredFileSignature(value: string, mimeType: string): boolean {
   const signatures = CHAT_ATTACHMENT_MAGIC_BYTES[mimeType]
   if (!signatures) return true
   const payload = base64Payload(value).replace(/\s/g, "")
-  // atob needs whole 4-character groups, and 24 of them cover the deepest signature offset.
+  // Inspect complete base64 groups, covering the deepest signature offset.
   const head = payload.slice(0, 24)
   const aligned = head.slice(0, head.length - (head.length % 4))
   const bytes = decodeAttachmentBytes(aligned)

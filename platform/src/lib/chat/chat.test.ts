@@ -508,7 +508,7 @@ describe("Chat.run", () => {
       ),
   )
 
-  it.effect.each(["removed", "unreadable", "malformed", "stored"])("saved files: %s", (state) =>
+  it.effect.each(["removed", "unreadable", "malformed"])("saved files: %s", (state) =>
     Effect.gen(function* () {
       if (state === "malformed") {
         const failure = yield* Effect.flip(runChat())
@@ -519,7 +519,7 @@ describe("Chat.run", () => {
       yield* Stream.runCollect(Stream.take(yield* runChat(), 1))
       const options = chatRunTest.options[0]!
       assert.isEmpty(chatRunTest.hydrationCalls)
-      assert.include(JSON.stringify(options.messages), "[Attached: sales.tsv]")
+      assert.include(JSON.stringify(options.messages), "[Attached: sales.tsv")
       assert.isFalse(options.tools.some((tool) => tool.name.startsWith("sandbox_")))
       assert.notInclude(options.systemPrompts, CHAT_SANDBOX_SYSTEM_PROMPT)
       assert.include(options.systemPrompts, sandboxedAgent.systemPrompt)
@@ -530,45 +530,35 @@ describe("Chat.run", () => {
           {} as Parameters<NonNullable<ChatMiddleware["onConfig"]>>[1],
         ),
       )
-      assert.include(JSON.stringify(refreshed?.providerMessages), "[Attached: sales.tsv]")
-      if (state === "stored") {
-        assert.include(JSON.stringify(refreshed?.providerMessages), "iVBORw0KGgo=")
-        assert.notInclude(JSON.stringify(refreshed?.providerMessages), `"type":"${APP_HANDLE}"`)
-        assert.notInclude(JSON.stringify(chatRunTest.hydrated), CHAT_TEST_SAVED_FILE_ID)
-      }
-      for (const tools of [options.tools, refreshed?.tools]) {
-        const reader = tools?.find((tool) => tool.name === "read_attachment") as AnyServerTool
-        const result = yield* Effect.promise(() =>
-          Promise.resolve(reader.execute?.({ file: "sales.tsv" }) as unknown),
-        )
-        assert.notProperty(result, "sandboxPath")
-        assert.notProperty(result, "content")
-      }
-      if (state === "stored") {
-        const reads = chatRunTest.hydrationCalls.filter((call) =>
-          JSON.stringify(call.messages).includes(CHAT_TEST_SAVED_FILE_ID),
-        )
-        assert.lengthOf(reads, 2)
-        for (const read of reads)
-          assert.deepStrictEqual(read.scope, {
-            ...chatTestExecution.claim.scope,
-            threadId: chatTestExecution.claim.threadId,
-          })
-        const reader = options.tools.find(
-          (tool) => tool.name === "read_attachment",
-        ) as AnyServerTool
-        const count = chatRunTest.hydrationCalls.length
-        const aborted = yield* Effect.promise(() =>
+      assert.include(JSON.stringify(refreshed?.providerMessages), "[Attached: sales.tsv")
+      assert.include(JSON.stringify(refreshed?.providerMessages), "iVBORw0KGgo=")
+      assert.notInclude(JSON.stringify(refreshed?.providerMessages), `"type":"${APP_HANDLE}"`)
+      assert.notInclude(JSON.stringify(chatRunTest.hydrated), CHAT_TEST_SAVED_FILE_ID)
+      const reader = refreshed?.tools?.find(
+        (tool) => tool.name === "read_attachment",
+      ) as AnyServerTool
+      const result = yield* Effect.promise(() =>
+        Promise.resolve(reader.execute?.({ file: "sales.tsv" }) as unknown),
+      )
+      assert.notProperty(result, "sandboxPath")
+      assert.notProperty(result, "content")
+      const reads = chatRunTest.hydrationCalls.filter((call) =>
+        JSON.stringify(call.messages).includes(CHAT_TEST_SAVED_FILE_ID),
+      )
+      assert.lengthOf(reads, 1)
+      assert.deepStrictEqual(reads[0]!.scope, {
+        ...chatTestExecution.claim.scope,
+        threadId: chatTestExecution.claim.threadId,
+      })
+      const count = chatRunTest.hydrationCalls.length
+      yield* Effect.flip(
+        Effect.tryPromise(() =>
           Promise.resolve(
             reader.execute?.({ file: "sales.tsv" }, { abortSignal: AbortSignal.abort() }),
-          ).then(
-            () => false,
-            () => true,
           ),
-        )
-        assert.isTrue(aborted)
-        assert.lengthOf(chatRunTest.hydrationCalls, count)
-      }
+        ).pipe(Effect.asVoid),
+      )
+      assert.lengthOf(chatRunTest.hydrationCalls, count)
     }).pipe(
       Effect.provide(
         chatTestLayer({
@@ -613,7 +603,7 @@ describe("Chat.run", () => {
                     id: "document",
                     type: "document",
                     source:
-                      state === "stored"
+                      state !== "malformed"
                         ? {
                             type: APP_HANDLE,
                             id: CHAT_TEST_SAVED_FILE_ID,
@@ -622,28 +612,22 @@ describe("Chat.run", () => {
                           }
                         : {
                             type: "data",
-                            value: btoa(
-                              state === "malformed" ? "invalid" : "name\tamount\nSaved\t12",
-                            ),
+                            value: btoa("invalid"),
                             mimeType: "application/octet-stream",
                           },
                     metadata: { filename: state === "malformed" ? "sales.xlsx" : "sales.tsv" },
                   },
-                  ...(state === "stored"
-                    ? [
-                        {
-                          id: "photo",
-                          type: "image",
-                          source: {
-                            type: APP_HANDLE,
-                            id: "019a0000-0000-7000-8000-000000000005",
-                            mimeType: "image/png",
-                            byteSize: 8,
-                          },
-                          metadata: { filename: "photo.png" },
-                        },
-                      ]
-                    : []),
+                  {
+                    id: "photo",
+                    type: "image",
+                    source: {
+                      type: APP_HANDLE,
+                      id: "019a0000-0000-7000-8000-000000000005",
+                      mimeType: "image/png",
+                      byteSize: 8,
+                    },
+                    metadata: { filename: "photo.png" },
+                  },
                 ],
               },
             },

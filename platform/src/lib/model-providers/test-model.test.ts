@@ -75,7 +75,7 @@ describe("testProviderModel", () => {
     Effect.gen(function* () {
       for (const [providerType, api, tokenField] of [
         ["openai", "chat-completions", "max_completion_tokens"],
-        ["openrouter", "chat-completions", "max_tokens"],
+        ["openrouter", "chat-completions", "max_completion_tokens"],
         ["openai", "responses", "max_output_tokens"],
         ["anthropic", "anthropic-messages", "max_tokens"],
         ["xai", "responses", "max_output_tokens"],

@@ -121,17 +121,13 @@ const prepareChatHistory = Effect.fnUntraced(function* ({
                   scope,
                   messages: [{ role: "user", content: [entry] } as (typeof executable)[number]],
                 })
-                const result = normalizeChatAttachments(hydrated, {
+                const {
+                  files: [file],
+                } = normalizeChatAttachments(hydrated, {
                   contentShape: "model",
                   includeNativeFiles: true,
                 })
-                const file = result.files[0]
-                if (
-                  !file ||
-                  "load" in file ||
-                  result.attachments.some((a) => a.result === "rejected")
-                )
-                  return yield* new ChatThreadInvalid()
+                if (!file || "load" in file) return yield* new ChatThreadInvalid()
                 return file
               }),
               { signal },
