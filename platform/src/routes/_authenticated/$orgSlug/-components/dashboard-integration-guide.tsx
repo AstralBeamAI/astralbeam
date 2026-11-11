@@ -204,8 +204,6 @@ function CustomizeLinks({
       ]
     : []
   const items = [
-    ...configurationItems,
-    ...inviteItems,
     {
       title: "Match your brand",
       description: "Set the widget's title, colors, and theme.",
@@ -216,6 +214,8 @@ function CustomizeLinks({
       description: "Let the assistant read and change your app's data.",
       link: { href: "/docs/sdk/tools-and-widgets" },
     },
+    ...configurationItems,
+    ...inviteItems,
   ]
   return (
     <div className="space-y-3">

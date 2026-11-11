@@ -1,5 +1,5 @@
 // Added from @better-auth-ui/auth
-// Local changes: Share native field validation. Show invitation context and prefill the invited email. Add the legal gate for email/OAuth signup and configured CAPTCHA, preserve the verification return path when browser storage is unavailable, remove generic additional fields and unconfigured plugin buttons, send only a boolean assertion, use Phosphor/Base UI Toast and domain-specific function names, repair strict typing, and read legal URLs from the runtime public config instead of build-time constants. Share password visibility controls. Wait for hydration, prevent duplicate submissions, and trim and require visible names. Use TanStack hydration readiness. Improve onboarding copy, layout, and form guidance. Remove the password-length helper text.
+// Local changes: Share native field validation. Show invitation context and prefill the invited email. Assert legal acceptance for email/OAuth signup under a "By continuing" notice, add configured CAPTCHA, preserve the verification return path when browser storage is unavailable, remove generic additional fields and unconfigured plugin buttons, send only a boolean assertion, use Phosphor/Base UI Toast and domain-specific function names, repair strict typing, and read legal URLs from the runtime public config instead of build-time constants. Share password visibility controls. Wait for hydration, prevent duplicate submissions, and trim and require visible names. Use TanStack hydration readiness. Improve onboarding copy, layout, and form guidance. Remove the password-length helper text.
 
 "use client"
 
@@ -10,7 +10,6 @@ import { type SyntheticEvent, useRef, useState } from "react"
 import { toast } from "@/components/ui/toast"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Checkbox } from "@/components/ui/checkbox"
 import {
   Field,
   FieldDescription,
@@ -24,6 +23,7 @@ import { PasswordInput } from "@/components/auth/password-input"
 import { Spinner } from "@/components/ui/spinner"
 import { useAuthFieldErrors } from "./use-auth-field-errors"
 import { usePublicConfig } from "@/components/public-config-provider"
+import { LegalNotice } from "./legal-notice"
 import { getInvitationContext } from "@/lib/auth/redirect"
 import { cn } from "cn"
 import { PasswordStrengthMeter } from "./password-strength-meter"
@@ -76,11 +76,8 @@ export function SignUp({
     Link,
   } = useAuth()
   const { privacyPolicyUrl, termsOfServiceUrl } = usePublicConfig()
-  const legalLinks = [
-    termsOfServiceUrl ? { href: termsOfServiceUrl, label: "Terms of Service" } : null,
-    privacyPolicyUrl ? { href: privacyPolicyUrl, label: "Privacy Policy" } : null,
-  ].filter((link) => link !== null)
-  const legalAcceptanceRequired = legalLinks.length > 0
+  // Continuing past the shown legal notice accepts it, which the server records at signup.
+  const legalAcceptanceRequired = Boolean(privacyPolicyUrl || termsOfServiceUrl)
 
   const invitation = getInvitationContext(redirectTo)
 
@@ -90,8 +87,6 @@ export function SignUp({
 
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
-  const [termsAccepted, setTermsAccepted] = useState(false)
-  const legalAccepted = !legalAcceptanceRequired || termsAccepted
 
   const { mutate: signUpEmail, isPending: signUpEmailPending } = useSignUpEmail(authClient, {
     onError: (error) => {
@@ -141,11 +136,6 @@ export function SignUp({
 
     if (isPending || signUpSubmitting.current) return
 
-    if (!legalAccepted) {
-      globalThis.document.querySelector<HTMLElement>("#accept-legal")?.focus()
-      return
-    }
-
     const formData = new FormData(e.currentTarget)
     // `emailAndPassword.name === false` hides the name field and submits "".
     const name = ((formData.get("name") as string | null) ?? "").trim()
@@ -174,9 +164,9 @@ export function SignUp({
   const captchaReady = !captchaComponent || Boolean(fetchOptions?.headers?.["x-captcha-response"])
   const providerButtons = socialProviders?.length ? (
     <ProviderButtons
-      disabled={isPending || !legalAccepted}
+      disabled={isPending}
       {...(socialLayout === undefined ? {} : { socialLayout })}
-      {...(legalAcceptanceRequired ? { termsAccepted } : {})}
+      {...(legalAcceptanceRequired ? { termsAccepted: true } : {})}
       view="signUp"
     />
   ) : null
@@ -315,42 +305,10 @@ export function SignUp({
                   </Field>
                 )}
 
-                {legalAcceptanceRequired && (
-                  <Field orientation="horizontal">
-                    <Checkbox
-                      id="accept-legal"
-                      checked={termsAccepted}
-                      onCheckedChange={(checked) => setTermsAccepted(checked)}
-                      aria-labelledby="accept-legal-copy"
-                      required
-                      disabled={isPending}
-                    />
-                    <p id="accept-legal-copy" className="text-sm text-muted-foreground">
-                      <label htmlFor="accept-legal" className="cursor-pointer">
-                        I accept the{" "}
-                      </label>
-                      {legalLinks.map((link, index) => (
-                        <span key={link.label}>
-                          {index > 0 && " and "}
-                          <a
-                            href={link.href}
-                            className="font-medium text-foreground underline underline-offset-4"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            {link.label}
-                          </a>
-                        </span>
-                      ))}
-                      .
-                    </p>
-                  </Field>
-                )}
-
                 {captchaComponent}
 
                 <div className="flex flex-col gap-3">
-                  <Button type="submit" disabled={isPending || !legalAccepted || !captchaReady}>
+                  <Button type="submit" disabled={isPending || !captchaReady}>
                     {signUpEmailPending && <Spinner />}
 
                     {localization.auth.signUp}
@@ -371,6 +329,8 @@ export function SignUp({
               {providerButtons}
             </>
           )}
+
+          <LegalNotice />
         </div>
 
         {emailAndPassword?.enabled && (

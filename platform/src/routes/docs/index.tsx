@@ -35,7 +35,7 @@ function DocsHomePage() {
           href="/docs/start/quickstart"
           className="mt-4 inline-flex min-h-11 items-center bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
-          Start the quickstart
+          View Quickstart guide
         </a>
         <p className="mt-4 text-sm leading-6 text-muted-foreground">
           Have chat working?{" "}
