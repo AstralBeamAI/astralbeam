@@ -13,7 +13,8 @@ export function LegalNotice() {
 
   return (
     <p className="text-center text-xs text-muted-foreground">
-      By continuing, you agree to the{" "}
+      By continuing, you agree to the
+      <br />
       {links.map((link, index) => (
         <Fragment key={link.label}>
           {index > 0 && " and "}
