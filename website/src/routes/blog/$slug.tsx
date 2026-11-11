@@ -8,6 +8,7 @@ import { siteMetadata, siteUrl } from "@/lib/site"
 
 import { BlogShell } from "./-components/blog-shell"
 import { FailureDemo } from "./-components/failure-demo"
+import { PricingDemo } from "./-components/pricing-demo"
 
 export const Route = createFileRoute("/blog/$slug")({
   codeSplitGroupings: [["loader", "component"]],
@@ -79,10 +80,17 @@ const markdownComponents: Components = {
     if (
       code?.type === "element" &&
       Array.isArray(code.properties.className) &&
-      code.properties.className.includes("language-demo")
+      (code.properties.className.includes("language-demo") ||
+        code.properties.className.includes("language-pricing"))
     ) {
       const text = code.children[0]
-      if (text?.type === "text") return <FailureDemo kind={text.value.trim()} />
+      if (text?.type === "text") {
+        return code.properties.className.includes("language-pricing") ? (
+          <PricingDemo kind={text.value.trim()} />
+        ) : (
+          <FailureDemo kind={text.value.trim()} />
+        )
+      }
     }
     return <pre>{children}</pre>
   },

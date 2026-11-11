@@ -168,6 +168,13 @@
   margin-block: 64px 20px;
   text-wrap: balance;
 }
+.blog-prose > h3 {
+  font-size: 22px;
+  line-height: 1.4;
+  font-weight: 600;
+  margin-block: 36px 16px;
+  text-wrap: balance;
+}
 .blog-prose > p a {
   color: var(--blog-accent);
   text-decoration: underline;
@@ -740,4 +747,49 @@
     animation: none !important;
     transition: none !important;
   }
+}
+
+.pricing-scene {
+  padding: 20px;
+}
+.pricing-rule {
+  font-weight: 600;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--blog-line);
+}
+.pricing-ledger {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  min-height: 220px;
+  margin-block: 18px;
+  padding: 0;
+  list-style: none;
+}
+.pricing-ledger li {
+  display: grid;
+  gap: 2px;
+  padding-left: 12px;
+  border-left: 2px solid var(--blog-line);
+  animation: demo-in 0.35s ease both;
+}
+.pricing-ledger li[aria-current="step"] {
+  border-left-color: var(--blog-accent);
+}
+.pricing-ledger span {
+  color: var(--blog-muted);
+  font-size: 13px;
+}
+.pricing-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-block: 14px;
+  border-top: 1px solid var(--blog-line);
+}
+.pricing-total strong {
+  font-size: 28px;
+  font-variant-numeric: tabular-nums;
+  animation: demo-in 0.35s ease both;
 }
