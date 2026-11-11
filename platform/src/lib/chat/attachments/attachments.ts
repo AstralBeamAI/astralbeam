@@ -32,7 +32,12 @@ import {
   CHAT_ATTACHMENT_PDF_MIME_TYPE,
   CHAT_ATTACHMENT_TEXT_MIME_TYPES,
 } from "./constants"
-import type { ChatAttachmentFile, ChatAttachmentKind, ChatAttachmentOutcome } from "./types"
+import type {
+  ChatAttachmentFile,
+  ChatAttachmentKind,
+  ChatAttachmentOutcome,
+  ChatAttachmentSource,
+} from "./types"
 import type { ChatMessages } from "../types"
 
 // Normalize both AG-UI `content` and UIMessage `parts` so neither can bypass attachment checks.
@@ -40,7 +45,7 @@ type ContentShape = "agui" | "model"
 
 interface MediaEntry {
   type: "image" | "audio" | "video" | "document"
-  source: { type?: unknown; value?: unknown; mimeType?: unknown }
+  source: { type?: unknown; value?: unknown; mimeType?: unknown; byteSize?: unknown }
   metadata?: unknown
 }
 
@@ -189,14 +194,20 @@ function attachmentHandle(filename: string, taken: Set<string>): string {
 
 export function normalizeChatAttachments(
   messages: ChatMessages,
-  options: { readonly contentShape?: ContentShape; readonly includeNativeFiles?: boolean } = {},
+  options: {
+    readonly contentShape?: ContentShape
+    readonly includeNativeFiles?: boolean
+    readonly deferFile?: (
+      entry: MediaEntry,
+    ) => ((signal?: AbortSignal) => Promise<ChatAttachmentFile>) | undefined
+  } = {},
 ): {
   messages: ChatMessages
   attachments: ChatAttachmentOutcome[]
-  files: ChatAttachmentFile[]
+  files: ChatAttachmentSource[]
 } {
   const attachments: ChatAttachmentOutcome[] = []
-  const files: ChatAttachmentFile[] = []
+  const files: ChatAttachmentSource[] = []
   const handles = new Set<string>()
   let totalBytes = 0
 
@@ -205,7 +216,7 @@ export function normalizeChatAttachments(
     entry: MediaEntry,
     shape: ContentShape,
     position: number,
-  ): { entry: unknown; file?: ChatAttachmentFile } | { file: ChatAttachmentFile } => {
+  ): { entry: unknown; file?: ChatAttachmentSource } | { file: ChatAttachmentSource } => {
     const declared = normalizeMimeType(entry.source.mimeType)
     const filename = sanitizeAttachmentFilename(
       mediaEntryFilename(entry),
@@ -223,12 +234,13 @@ export function normalizeChatAttachments(
       attachments.push({ filename, mimeType, bytes: 0, result: "rejected", reason })
       return { entry: textEntry(shape, refusalText(filename, mimeType, reason)) }
     }
-    if (!Predicate.isString(entry.source.value) || entry.source.value.length === 0) {
+    const deferred = options.deferFile?.(entry)
+    if (!deferred && (!Predicate.isString(entry.source.value) || entry.source.value.length === 0)) {
       return refuse("its contents were missing.")
     }
     // Execution uses transiently hydrated bytes. Never let a provider fetch a caller-chosen URL
     // using this deployment's API key.
-    if (entry.source.type !== "data") {
+    if (!deferred && entry.source.type !== "data") {
       return refuse("this assistant accepts only files uploaded with the message.")
     }
     if (!kind) {
@@ -240,7 +252,9 @@ export function normalizeChatAttachments(
     if (position > CHAT_ATTACHMENT_MAX_COUNT) {
       return refuse(`the message went over the limit of ${CHAT_ATTACHMENT_MAX_COUNT} attachments.`)
     }
-    const size = base64ByteLength(entry.source.value)
+    const size = deferred ? entry.source.byteSize : base64ByteLength(entry.source.value as string)
+    if (typeof size !== "number" || !Number.isSafeInteger(size) || size < 0)
+      return refuse("its size was missing.")
     const limit = CHAT_ATTACHMENT_MAX_BYTES_BY_KIND[kind]
     if (size > limit) {
       return refuse(`it is larger than the ${formatBytes(limit)} limit for that file type.`)
@@ -252,11 +266,11 @@ export function normalizeChatAttachments(
         )} attachment limit.`,
       )
     }
-    if (!hasDeclaredFileSignature(entry.source.value, mimeType)) {
+    if (!deferred && !hasDeclaredFileSignature(entry.source.value as string, mimeType)) {
       return refuse(`its contents are not a ${mimeType} file.`)
     }
-    const bytes = decodeAttachmentBytes(entry.source.value)
-    if (bytes === undefined) return refuse("its contents could not be decoded.")
+    const bytes = deferred ? undefined : decodeAttachmentBytes(entry.source.value as string)
+    if (!deferred && bytes === undefined) return refuse("its contents could not be decoded.")
     const nativeEntry =
       kind === "image" || kind === "pdf"
         ? {
@@ -272,17 +286,19 @@ export function normalizeChatAttachments(
       // trusted to travel; images keep it for symmetry.
       return { entry: nativeEntry }
     }
-    const text = kind === "text" ? decodeUtf8(bytes) : undefined
-    if (kind === "text" && text === undefined) return refuse("it is not valid UTF-8 text.")
+    const text = kind === "text" && bytes ? decodeUtf8(bytes) : undefined
+    if (!deferred && kind === "text" && text === undefined)
+      return refuse("it is not valid UTF-8 text.")
     totalBytes += size
     const handle = attachmentHandle(filename, handles)
-    const file: ChatAttachmentFile = {
+    const metadata = {
       handle,
       filename,
       mimeType,
-      bytes,
-      ...(text === undefined ? {} : { text }),
     }
+    const file: ChatAttachmentSource = deferred
+      ? { ...metadata, load: (signal) => deferred(signal).then((file) => ({ ...file, handle })) }
+      : { ...metadata, bytes: bytes!, ...(text === undefined ? {} : { text }) }
     files.push(file)
     attachments.push({ filename, mimeType, bytes: size, result: kind, handle })
     return nativeEntry ? { entry: nativeEntry, file } : { file }

@@ -3,7 +3,7 @@ import * as Schema from "effect/Schema"
 import { NonEmptyStringSchema } from "@/lib/schemas.ts"
 
 import { CHAT_ATTACHMENT_READ_MAX_CHARACTERS, CHAT_ATTACHMENT_UPLOAD_DIRECTORY } from "./constants"
-import type { ChatAttachmentFile } from "./types"
+import type { ChatAttachmentSource } from "./types"
 import { toolSchema } from "@tanstack/ai-effect"
 
 const ReadAttachmentInputSchema = toolSchema(
@@ -25,7 +25,7 @@ const ReadAttachmentInputSchema = toolSchema(
 )
 
 export function createChatAttachmentTools(
-  files: readonly ChatAttachmentFile[],
+  files: readonly ChatAttachmentSource[],
   options: { readonly sandbox: boolean },
 ): AnyServerTool[] {
   if (files.length === 0) return []
@@ -39,15 +39,17 @@ export function createChatAttachmentTools(
       "must be opened with code in the sandbox. Long files come back a page at a time: read on from " +
       "`nextOffset` until `end` is true.",
     inputSchema: ReadAttachmentInputSchema,
-  }).server(({ file: handle, offset = 0, limit = CHAT_ATTACHMENT_READ_MAX_CHARACTERS }) => {
-    const file = byHandle.get(handle)
-    if (!file) {
+  }).server(async (input, context) => {
+    const { file: handle, offset = 0, limit = CHAT_ATTACHMENT_READ_MAX_CHARACTERS } = input
+    const source = byHandle.get(handle)
+    if (!source) {
       return {
         refusal: `There is no attached file with the handle "${handle}". The attached files are: ${files
           .map((candidate) => `"${candidate.handle}"`)
           .join(", ")}.`,
       }
     }
+    const file = "load" in source ? await source.load(context?.abortSignal) : source
     const metadata = {
       file: handle,
       filename: file.filename,

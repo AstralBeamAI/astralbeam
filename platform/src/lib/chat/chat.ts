@@ -12,6 +12,7 @@ import { Context, Effect, Layer, Option, Stream } from "effect"
 
 import { McpTools } from "@/lib/mcp/tools.server"
 import { redactSensitiveValue } from "@/lib/redaction"
+import { APP_HANDLE } from "@/lib/constants"
 import { ChatThreads, type MessageRecord } from "./threads/threads"
 import { ChatThreadInvalid, type ChatThreadError } from "./threads/errors"
 import { projectChatModelHistory, projectChatPublicHistory } from "./threads/projection"
@@ -106,15 +107,42 @@ const prepareChatHistory = Effect.fnUntraced(function* ({
     )
     return content.length ? [{ ...message, content }] : []
   })
-  const projected = yield* files.hydrate({ scope, messages: executable })
-  const normalized = normalizeChatAttachments(projected, {
+  const execute = Effect.runPromiseWith(yield* Effect.context<never>())
+  const normalized = normalizeChatAttachments(executable, {
     contentShape: "model",
     includeNativeFiles: sandboxEnabled,
+    deferFile: (entry) =>
+      entry.source.type === APP_HANDLE
+        ? (signal) => {
+            signal?.throwIfAborted()
+            return execute(
+              Effect.gen(function* () {
+                const hydrated = yield* files.hydrate({
+                  scope,
+                  messages: [{ role: "user", content: [entry] } as (typeof executable)[number]],
+                })
+                const result = normalizeChatAttachments(hydrated, {
+                  contentShape: "model",
+                  includeNativeFiles: true,
+                })
+                const file = result.files[0]
+                if (
+                  !file ||
+                  "load" in file ||
+                  result.attachments.some((a) => a.result === "rejected")
+                )
+                  return yield* new ChatThreadInvalid()
+                return file
+              }),
+              { signal },
+            )
+          }
+        : undefined,
   })
   if (normalized.attachments.some((attachment) => attachment.result === "rejected"))
     return yield* new ChatThreadInvalid()
   // Admission checks permission for new uploads. Saved uploads remain usable after it changes.
-  return { projected, ...normalized }
+  return { projected: executable, ...normalized }
 })
 
 export class Chat extends Context.Service<
@@ -330,7 +358,10 @@ export class Chat extends Context.Service<
                     if (files.length && !systemPrompts.includes(CHAT_ATTACHMENT_SYSTEM_PROMPT))
                       systemPrompts.splice(1, 0, CHAT_ATTACHMENT_SYSTEM_PROMPT)
                     return {
-                      providerMessages: convertMessagesToModelMessages(normalized.messages),
+                      providerMessages: yield* storedFiles.hydrate({
+                        scope: { ...claim.scope, threadId: claim.threadId },
+                        messages: convertMessagesToModelMessages(normalized.messages),
+                      }),
                       publicHistory: projectChatPublicHistory(saved),
                       tools,
                       systemPrompts,

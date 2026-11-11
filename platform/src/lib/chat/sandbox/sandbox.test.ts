@@ -149,18 +149,23 @@ describe("ChatSandboxes", () => {
       const upload = Promise.withResolvers<void>()
       sandboxTest.uploadGate = upload.promise
       sandboxTest.uploadStarted = yield* Deferred.make<void>()
+      let reads = 0
+      const file = { handle: "file", filename: "data.csv", mimeType: "text/csv" }
       const session = yield* sessionFor(yield* ChatSandboxes, {
         uploads: [
           {
-            handle: "file",
-            filename: "data.csv",
-            mimeType: "text/csv",
-            bytes: new Uint8Array([1]),
+            ...file,
+            load: () => {
+              reads += 1
+              return Promise.resolve({ ...file, bytes: new Uint8Array([1]) })
+            },
           },
         ],
       })
+      assert.strictEqual(reads, 0)
       const fiber = yield* session.acquire(noStatus).pipe(Effect.forkChild)
       yield* Deferred.await(sandboxTest.uploadStarted)
+      assert.strictEqual(reads, 1)
       yield* Fiber.interrupt(fiber)
       assert.isTrue(sandboxTest.uploadSignal?.aborted)
       upload.resolve()

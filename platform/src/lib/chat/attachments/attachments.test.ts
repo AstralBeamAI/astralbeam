@@ -4,14 +4,14 @@ import {
   type ChatMiddlewareContext,
   type StreamChunk,
 } from "@tanstack/ai"
-import { expect, test } from "vitest"
+import { expect, test, vi } from "vitest"
 
 import {
   createChatAttachmentSnapshotMiddleware,
   normalizeChatAttachments,
   redactChatAttachmentData,
 } from "./attachments"
-import { CHAT_ATTACHMENT_MAX_COUNT } from "./constants"
+import { CHAT_ATTACHMENT_MAX_COUNT, CHAT_ATTACHMENT_MAX_BYTES_BY_KIND } from "./constants"
 import type { ChatMessages } from "../types"
 
 /** A real 64x64 PNG, so the signature check is proven against genuine bytes. */
@@ -183,6 +183,34 @@ test("refuses attachments past the per-message count limit", () => {
   const rejected = attachments.filter((attachment) => attachment.result === "rejected")
   expect(rejected).toHaveLength(2)
   expect(rejected[0]?.reason).toContain(`limit of ${CHAT_ATTACHMENT_MAX_COUNT} attachments`)
+})
+
+test("deferred files retain cumulative size limits without loading their bytes", () => {
+  const load = vi.fn(() => Promise.reject(new Error("Unexpected file read")))
+  const { files, attachments } = normalizeChatAttachments(
+    userMessage(
+      Array.from({ length: 5 }, (_, index) => ({
+        type: "image",
+        source: {
+          type: APP_HANDLE,
+          value: `file-${index}`,
+          mimeType: "image/png",
+          byteSize: CHAT_ATTACHMENT_MAX_BYTES_BY_KIND.image,
+        },
+        metadata: { filename: "chart.png" },
+      })),
+    ),
+    { includeNativeFiles: true, deferFile: () => load },
+  )
+  expect(load).not.toHaveBeenCalled()
+  expect(files.map((file) => file.handle)).toEqual([
+    "chart.png",
+    "chart-2.png",
+    "chart-3.png",
+    "chart-4.png",
+  ])
+  expect(attachments.at(-1)?.result).toBe("rejected")
+  expect(attachments.at(-1)?.reason).toContain("20 MB")
 })
 
 test("names files in the message by handle, not by their original name", () => {
