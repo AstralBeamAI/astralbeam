@@ -103,17 +103,6 @@ function estimateChatContext(message: ModelMessage) {
   return estimateMessageTokens({ ...message, content }) + media
 }
 
-function boundChatCompactionToolResult(message: ModelMessage): ModelMessage {
-  return message.role === "tool" &&
-    typeof message.content === "string" &&
-    message.content.length > 16000
-    ? {
-        ...message,
-        content: `${message.content.slice(0, 16000)}\n[Truncated. Original saved in message ${message.id?.split(":")[0]}.]`,
-      }
-    : message
-}
-
 function chatCompactionCut(
   state: ChatCompactionState,
   messages: readonly ModelMessage[],
@@ -191,7 +180,7 @@ export function createChatCompactionMiddleware(options: {
     state.usage = undefined
     if (!native && state.artifact?.payload.kind === "native") {
       state.artifact = undefined
-      messages = (await options.projectSuffix()).map(boundChatCompactionToolResult)
+      messages = await options.projectSuffix()
     }
     const cut = chatCompactionCut(state, messages, budget)
     const suffix = messages.slice(cut.offset)
@@ -264,9 +253,7 @@ export function createChatCompactionMiddleware(options: {
       const fixed = Math.ceil(key.length / 3)
       budget = modelInputAllowance(options.configuration) - fixed
       if (budget <= 0) throw new ChatCompactionError({ code: "compaction_instructions" })
-      const working = (config.providerMessages ?? config.messages).map(
-        boundChatCompactionToolResult,
-      )
+      const working = config.providerMessages ?? config.messages
       const serialized = working.map((message) => JSON.stringify(message))
       measuredTokens = new Map()
       // TanStack's usage counter currently keys canonical messages, not our provider projection.
@@ -300,7 +287,6 @@ export function createChatCompactionMiddleware(options: {
           ...(await options.projectSuffix()),
         ]
       } else state.artifact = original
-      messages = messages.map(boundChatCompactionToolResult)
       if (messages.reduce((sum, message) => sum + estimate(message), 0) > budget)
         throw new ChatCompactionError({ code: "compaction_context_full" })
       await options.beforeCall()

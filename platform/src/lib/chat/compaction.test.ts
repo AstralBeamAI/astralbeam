@@ -20,6 +20,7 @@ import {
   type ChatCompactionState,
 } from "./compaction-middleware"
 import { ChatCompactionError, chatCompactionBoundaries, chatCompactionMessages } from "./compaction"
+import { createChatAttachmentTools } from "./attachments/tools"
 
 test("the persistence bridge retains native items and forwards TanStack request options", async () => {
   const output: ModelMessage[] = [
@@ -77,7 +78,10 @@ function compactionTestHistory(): MessageRecord[] {
   })) as unknown as MessageRecord[]
 }
 
-function compactionTestSetup(middleware: ChatMiddleware[] = []) {
+function compactionTestSetup(
+  middleware: ChatMiddleware[] = [],
+  configuration = compactionTestLimits,
+) {
   const state = {
     history: compactionTestHistory(),
     compatibilityKey: "provider-config",
@@ -115,7 +119,7 @@ function compactionTestSetup(middleware: ChatMiddleware[] = []) {
       adapter,
       summaryAdapter,
       native,
-      configuration: compactionTestLimits,
+      configuration,
       summaryOptions: {},
       onUsage: async () => {},
       onMetrics: metrics,
@@ -156,6 +160,49 @@ function compactionTestSetup(middleware: ChatMiddleware[] = []) {
     beforeCall,
   }
 }
+
+test("compaction preserves bounded attachment pages and their continuation metadata", async () => {
+  const fixture = compactionTestSetup([], { ...compactionTestLimits, contextWindowTokens: 20000 })
+  const text = "x".repeat(40010)
+  const tools = createChatAttachmentTools(
+    [
+      {
+        handle: "notes.txt",
+        filename: "notes.txt",
+        mimeType: "text/plain",
+        text,
+        bytes: new TextEncoder().encode(text),
+      },
+    ],
+    { sandbox: false },
+  )
+  let page: unknown
+  fixture.adapter.setResponses([
+    { toolCalls: [{ name: "read_attachment", input: { file: "notes.txt" } }] },
+    ({ request }) => {
+      const content = request.messages.find((message) => message.role === "tool")?.content
+      if (typeof content !== "string") throw new Error("Expected a serialized tool result")
+      page = JSON.parse(content)
+      return { text: "Read." }
+    },
+  ])
+  await chat({
+    threadId: "thread",
+    adapter: fixture.adapter,
+    messages: [{ role: "user", content: "Read notes.txt" }],
+    tools,
+    stream: false,
+    debug: false,
+    middleware: [fixture.compaction()],
+  })
+  expect(page).toMatchObject({
+    content: text.slice(0, 40000),
+    end: false,
+    nextOffset: 40000,
+    totalCharacters: text.length,
+  })
+  expect(fixture.save).not.toHaveBeenCalled()
+})
 
 test.each([false, true])(
   "failed summarization continues only when original context fits: %s",
