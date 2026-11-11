@@ -145,6 +145,7 @@ export function createChatCompactionMiddleware(options: {
   configuration: ModelConfiguration
   summaryOptions: Record<string, unknown>
   onUsage: (usage: TokenUsage) => Promise<void>
+  onMetrics: (metrics: Schema.JsonObject) => Promise<void>
   beforeCall: () => Promise<void>
   save: (
     anchor: string,
@@ -155,6 +156,15 @@ export function createChatCompactionMiddleware(options: {
   const { state, adapter } = options
   let budget = modelInputAllowance(options.configuration)
   let tools: Tool[] = []
+  let preparation: {
+    attempts: number
+    candidate?: { anchor: string; payload: ChatCompactionArtifact["payload"] }
+  } = { attempts: 0 }
+  let request: { key: string; messages: string[]; estimated: number; fixed: number } | undefined
+  let measured: { key: string; messages: string[]; tokens: number } | undefined
+  let measuredTokens = new Map<string, number>()
+  const estimate = (message: ModelMessage) =>
+    measuredTokens.get(JSON.stringify(message)) ?? estimateChatContext(message)
   const summarize = conversationSummarizer({
     adapter: options.summaryAdapter,
     modelOptions: options.summaryOptions,
@@ -175,6 +185,7 @@ export function createChatCompactionMiddleware(options: {
   ) => {
     const native = "model" in ctx
     await options.beforeCall()
+    preparation.attempts += 1
     state.usage = undefined
     if (!native && state.artifact?.payload.kind === "native") {
       state.artifact = undefined
@@ -202,7 +213,7 @@ export function createChatCompactionMiddleware(options: {
       const strategy = summarizeOldest({
         summarize,
         summaryRole: "user",
-        keepRecentTokens: suffix.reduce((sum, message) => sum + estimateChatContext(message), 0),
+        keepRecentTokens: suffix.reduce((sum, message) => sum + ctx.estimate(message), 0),
       })
       const next = await strategy(messages, ctx)
       if (!next) throw new ChatCompactionError({ code: "compaction_context_full" })
@@ -217,12 +228,15 @@ export function createChatCompactionMiddleware(options: {
     )
       throw new ChatCompactionError({ code: "compaction_failed" })
     ctx.signal?.throwIfAborted()
-    state.artifact = await options.save(cut.anchor, {
-      version: 1,
-      kind: native ? "native" : "portable",
-      messages: head.map(chatStoredJson),
-    })
-    return [...chatCompactionMessages(state.artifact.payload), ...(await options.projectSuffix())]
+    preparation.candidate = {
+      anchor: cut.anchor,
+      payload: {
+        version: 1,
+        kind: native ? "native" : "portable",
+        messages: head.map(chatStoredJson),
+      },
+    }
+    return [...head, ...suffix]
   }
   const middleware = withCompaction({
     maxTokens: () => {
@@ -232,7 +246,8 @@ export function createChatCompactionMiddleware(options: {
       )
       return Math.floor(budget * (settled > covered ? 0.8 : 1))
     },
-    estimateTokens: estimateChatContext,
+    estimateTokens: estimate,
+    continueOnError: true,
     strategy: compact,
     ...(options.native && adapter.compact
       ? {
@@ -247,17 +262,32 @@ export function createChatCompactionMiddleware(options: {
     async onConfig(ctx, config) {
       if (ctx.phase === "init") return
       tools = config.tools
-      const fixed = Math.ceil(
-        JSON.stringify({
-          systemPrompts: config.systemPrompts,
-          tools: chatCompactionTools(config.tools),
-        }).length / 3,
-      )
+      const key = JSON.stringify({
+        systemPrompts: config.systemPrompts,
+        tools: chatCompactionTools(config.tools),
+      })
+      const fixed = Math.ceil(key.length / 3)
       budget = modelInputAllowance(options.configuration) - fixed
       if (budget <= 0) throw new ChatCompactionError({ code: "compaction_instructions" })
       const working = (config.providerMessages ?? config.messages).map(
         boundChatCompactionToolResult,
       )
+      const serialized = working.map((message) => JSON.stringify(message))
+      measuredTokens = new Map()
+      // TanStack's usage counter currently keys canonical messages, not our provider projection.
+      if (measured?.key === key && measured.messages.every((value, i) => value === serialized[i])) {
+        const prefix = working.slice(0, measured.messages.length)
+        const estimated = prefix.reduce((sum, message) => sum + estimateChatContext(message), 0)
+        if (estimated > 0)
+          for (const message of prefix)
+            measuredTokens.set(
+              JSON.stringify(message),
+              Math.ceil((estimateChatContext(message) * measured.tokens) / estimated),
+            )
+      }
+      const original = state.artifact
+      preparation = { attempts: 0 }
+      const started = Date.now()
       let prepared
       try {
         prepared = await middleware.onConfig?.(ctx, { ...config, providerMessages: working })
@@ -265,11 +295,48 @@ export function createChatCompactionMiddleware(options: {
         if (ctx.signal?.aborted || error instanceof ChatCompactionError) throw error
         throw new ChatCompactionError({ code: "compaction_failed" })
       }
-      const messages = (prepared?.providerMessages ?? working).map(boundChatCompactionToolResult)
-      if (messages.reduce((sum, message) => sum + estimateChatContext(message), 0) > budget)
+      const candidate = preparation.candidate
+      let messages = prepared?.providerMessages ?? working
+      if (candidate) {
+        // Publication failures must remain fatal, outside TanStack's recoverable summary failure path.
+        state.artifact = await options.save(candidate.anchor, candidate.payload)
+        messages = [
+          ...chatCompactionMessages(state.artifact.payload),
+          ...(await options.projectSuffix()),
+        ]
+      } else state.artifact = original
+      messages = messages.map(boundChatCompactionToolResult)
+      if (messages.reduce((sum, message) => sum + estimate(message), 0) > budget)
         throw new ChatCompactionError({ code: "compaction_context_full" })
       await options.beforeCall()
+      request = {
+        key,
+        messages: messages.map((message) => JSON.stringify(message)),
+        estimated: messages.reduce((sum, message) => sum + estimateChatContext(message), 0),
+        fixed,
+      }
+      await options.onMetrics({
+        beforeInputTokens: working.reduce((sum, message) => sum + estimate(message), fixed),
+        inputTokens: messages.reduce((sum, message) => sum + estimate(message), fixed),
+        countKind: measuredTokens.size && !candidate ? "usage_adjusted" : "estimated",
+        compacted: Boolean(candidate),
+        compactionAttempts: preparation.attempts,
+        portableFallback: options.native && candidate?.payload.kind === "portable",
+        durationMs: Date.now() - started,
+      })
       return { ...prepared, providerMessages: messages }
+    },
+    async onUsage(_ctx, usage) {
+      if (!request || usage.promptTokens <= request.fixed) return
+      measured = {
+        key: request.key,
+        messages: request.messages,
+        tokens: usage.promptTokens - request.fixed,
+      }
+      await options.onMetrics({
+        estimatedInputTokens: request.estimated + request.fixed,
+        actualInputTokens: usage.promptTokens,
+      })
     },
     onChunk(_ctx, chunk) {
       if (chunk.type !== EventType.CUSTOM) return

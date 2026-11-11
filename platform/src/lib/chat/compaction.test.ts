@@ -101,6 +101,8 @@ function compactionTestSetup(middleware: ChatMiddleware[] = []) {
     )
     return projectChatModelHistory(state.history.slice(index + 1))
   }
+  const metrics = vi.fn(async (_metrics: Schema.JsonObject) => {})
+  const beforeCall = vi.fn(async () => {})
   const compaction = (native = false) =>
     createChatCompactionMiddleware({
       state,
@@ -110,7 +112,8 @@ function compactionTestSetup(middleware: ChatMiddleware[] = []) {
       configuration: compactionTestLimits,
       summaryOptions: {},
       onUsage: async () => {},
-      beforeCall: async () => {},
+      onMetrics: metrics,
+      beforeCall,
       save,
       projectSuffix: () => Promise.resolve(suffix()),
     })
@@ -134,8 +137,99 @@ function compactionTestSetup(middleware: ChatMiddleware[] = []) {
       middleware: [projection, ...middleware, compaction(native)],
       ...(abortController ? { abortController } : {}),
     })
-  return { state, adapter, summaryAdapter, save, requests, run }
+  return {
+    state,
+    adapter,
+    summaryAdapter,
+    save,
+    requests,
+    run,
+    compaction,
+    projection,
+    metrics,
+    beforeCall,
+  }
 }
+
+test.each([false, true])(
+  "failed summarization continues only when original context fits: %s",
+  async (oversized) => {
+    const fixture = compactionTestSetup()
+    if (oversized)
+      fixture.state.history[0]!.payload = compactionTestPayload({
+        id: "u1-part",
+        type: "text",
+        content: "x".repeat(6000),
+      })
+    fixture.summaryAdapter.setResponses([{ error: "Unavailable" }])
+    const outcome = await fixture.run().then(
+      (reply) => reply.text,
+      (error: unknown) => (error instanceof ChatCompactionError ? error.code : error),
+    )
+    expect(outcome).toBe(oversized ? "compaction_context_full" : "Continued.")
+    expect(fixture.adapter.state.callCount).toBe(oversized ? 0 : 1)
+    expect(fixture.save).not.toHaveBeenCalled()
+  },
+)
+
+test("recoverable compaction does not swallow publication or authority failures", async () => {
+  const fixture = compactionTestSetup()
+  fixture.save.mockRejectedValueOnce(new Error("Publication failed"))
+  await expect(fixture.run()).rejects.toThrow("Publication failed")
+  expect(fixture.adapter.state.callCount).toBe(0)
+  fixture.beforeCall.mockRejectedValue(new Error("Access revoked"))
+  await expect(fixture.run()).rejects.toThrow("Access revoked")
+  expect(fixture.adapter.state.callCount).toBe(0)
+})
+
+test("usage follows the exact provider prefix and portable cuts summarize every covered message", async () => {
+  const fixture = compactionTestSetup()
+  for (const [index, size] of [3000, 3000, 800, 800].entries())
+    fixture.state.history[index]!.payload = compactionTestPayload({
+      id: `part-${index}`,
+      type: "text",
+      content: String(index).repeat(size),
+    })
+  const compaction = fixture.compaction()
+  const onUsage = compaction.onUsage!
+  compaction.onUsage = (ctx, usage) => onUsage(ctx, { ...usage, promptTokens: 1000 })
+  const run = () =>
+    chat({
+      adapter: fixture.adapter,
+      messages: projectChatModelHistory(fixture.state.history),
+      threadId: "thread",
+      stream: false,
+      debug: false,
+      middleware: [fixture.projection, compaction],
+    })
+  await run()
+  expect(fixture.save).not.toHaveBeenCalled()
+  fixture.state.history.push(
+    {
+      ...fixture.state.history[1]!,
+      id: "a3",
+      turnMessageId: "u3",
+      payload: compactionTestPayload({ id: "a3-part", type: "text", content: "new".repeat(2100) }),
+    },
+    {
+      ...fixture.state.history[0]!,
+      id: "u4",
+      payload: compactionTestPayload({ id: "u4-part", type: "text", content: "Continue" }),
+    },
+  )
+  const summaries: string[] = []
+  fixture.summaryAdapter.setResponses([
+    ({ request }) => {
+      summaries.push(JSON.stringify(request.messages))
+      return { text: "Covered work" }
+    },
+  ])
+  await run()
+  expect(fixture.state.artifact?.coveredThroughMessageId).toBe("a1")
+  expect(summaries[0]).toContain("0".repeat(3000))
+  expect(summaries[0]).toContain("1".repeat(3000))
+  expect(fixture.metrics).toHaveBeenCalledWith(expect.objectContaining({ actualInputTokens: 1000 }))
+})
 
 test.each([
   { sizes: [3300, 3300, 2000], covered: "a1", fits: true },

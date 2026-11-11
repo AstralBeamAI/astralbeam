@@ -23,3 +23,12 @@ export interface ChatAttachmentFile {
   readonly mimeType: string
   readonly bytes: Uint8Array
 }
+
+/** Compacted files keep their handles without reading original bytes until a tool needs them. */
+export type ChatAttachmentSource =
+  | ChatAttachmentFile
+  | (Pick<ChatAttachmentFile, "handle" | "filename" | "mimeType"> & {
+      readonly bytes?: never
+      readonly text?: never
+      readonly load: (signal?: AbortSignal) => Promise<ChatAttachmentFile>
+    })

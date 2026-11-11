@@ -34,6 +34,7 @@ const chatRunTest = vi.hoisted(() => ({
     middleware: ChatMiddleware[]
   }>,
   hydrated: undefined as unknown,
+  hydrationCalls: [] as unknown[],
   started: Promise.withResolvers<void>(),
   closed: Promise.withResolvers<void>(),
   order: [] as string[],
@@ -174,6 +175,7 @@ function chatTestLayer(options: {
         read: () => Effect.die("unused"),
         hydrate: ({ messages }) => {
           chatRunTest.hydrated = messages
+          chatRunTest.hydrationCalls.push(messages)
           return Effect.succeed([...messages])
         },
         attach: () => Effect.succeed(0),
@@ -232,6 +234,7 @@ const runChat = (body?: Record<string, unknown>) =>
 
 beforeEach(() => {
   chatRunTest.hydrated = undefined
+  chatRunTest.hydrationCalls = []
   chatRunTest.started = Promise.withResolvers<void>()
   chatRunTest.closed = Promise.withResolvers<void>()
   chatRunTest.options = []
@@ -579,8 +582,19 @@ describe("Chat.run", () => {
         ),
       )
       assert.include(JSON.stringify(refreshed?.providerMessages), `[Attached: ${filename}]`)
-      if (state === "compacted")
+      if (state === "compacted") {
         assert.notInclude(JSON.stringify(refreshed?.providerMessages), "[Attached: sales.tsv]")
+        assert.notInclude(JSON.stringify(chatRunTest.hydrationCalls), '"older"')
+        const calls = chatRunTest.hydrationCalls.length
+        const reader = refreshed?.tools?.find(
+          (tool) => tool.name === "read_attachment",
+        ) as AnyServerTool
+        const original = yield* Effect.promise(() =>
+          Promise.resolve(reader.execute?.({ file: "sales.tsv" }) as unknown),
+        )
+        assert.propertyVal(original, "file", "sales.tsv")
+        assert.strictEqual(chatRunTest.hydrationCalls.length, calls + 1)
+      }
       for (const tools of [options.tools, refreshed?.tools]) {
         const reader = tools?.find((tool) => tool.name === "read_attachment") as AnyServerTool
         const result = yield* Effect.promise(() =>
