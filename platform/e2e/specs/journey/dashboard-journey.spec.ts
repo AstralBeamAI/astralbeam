@@ -101,8 +101,7 @@ test("an operator configures the deployment and an owner runs the dashboard end 
     await expect(shell.navigation).toBeHidden()
     await expect(page.getByRole("button", { name: "Account", exact: true })).toBeVisible()
     await captureMilestone(page, "03-onboarding")
-    await onboarding.openCreateOrganization()
-    await organizationDialog.create(identity.organizationName, identity.organizationSlug)
+    await onboarding.createOrganization(identity.organizationName, identity.organizationSlug)
     await page.waitForURL(`**/${identity.organizationSlug}`)
     await expect(
       page.getByRole("heading", { name: "Add the assistant to your app", exact: true }),

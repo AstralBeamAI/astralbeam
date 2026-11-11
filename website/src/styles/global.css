@@ -712,14 +712,6 @@ main {
   gap: 1rem;
 }
 
-.hero-links {
-  margin-top: 1rem;
-  max-width: 34rem;
-  color: var(--text-muted);
-  font-size: 0.9rem;
-}
-
-.hero-links a,
 .section-sub a {
   color: var(--primary);
   text-decoration: underline;
@@ -1719,8 +1711,7 @@ main {
   .hero-title {
     font-size: clamp(3.4rem, 13.5vw, 5.2rem);
   }
-  .hero-sub,
-  .hero-links {
+  .hero-sub {
     margin-inline: auto;
   }
   .hero-ctas {

@@ -42,10 +42,10 @@ export const DOCS_SECTIONS: DocsSection[] = [
     pages: [
       {
         slug: "quickstart",
-        updated: "2026-11-06",
+        updated: "2026-11-11",
         title: "Quickstart",
         description:
-          "Add chat to your React app with your existing login and send your first message.",
+          "Create an API key, add a token endpoint, mount the chat widget, and send your first message.",
       },
       {
         slug: "customize",

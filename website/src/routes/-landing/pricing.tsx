@@ -42,9 +42,9 @@ export function Pricing() {
           <dl className="pricing-rates">
             <UsageRates />
           </dl>
-          <p className="pricing-credit mono">$20 in free credits every month</p>
+          <p className="pricing-credit mono">Free till Jan 1, 2027. No card needed.</p>
           <a className="btn btn-primary btn-lg" href={siteMetadata.links.signUp}>
-            Start on Cloud
+            Get Started
           </a>
         </article>
 
@@ -82,7 +82,7 @@ export function Pricing() {
 
       <p className="pricing-providers">
         Bring your own LLM keys. Models, sandboxes, and observability are billed directly by
-        providers. Cloud credits cover AstralBeam fees only. All prices in USD.
+        providers. All prices in USD.
       </p>
     </section>
   )
