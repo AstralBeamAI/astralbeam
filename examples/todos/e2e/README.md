@@ -17,6 +17,7 @@ bun run --cwd examples/todos e2e
 - `bun run --cwd examples/todos e2e --project=app` runs only the free specs. Nothing in that project calls a model.
 - `bun run --cwd examples/todos e2e --project=agent` runs the specs that drive a real agent, after the free app specs pass. **These spend OpenAI credits on every run.**
 - The `agent` project is included only when `OPENAI_API_KEY` is set in the shell or platform development environment files. The seed uses that key to create a **Development OpenAI** connection for organizations without providers. Existing providers stay unchanged, so verify the seeded agent's model assignment. If the project is omitted, report it as not run.
+- Sandbox specs require a verified provider assigned to the Todos agent. For Docker, follow [operator setup](../../../platform/src/routes/docs/-content/dashboard/sandboxes.md#docker), then run `E2E_SANDBOX=docker bun run --cwd examples/todos e2e sandbox.spec.ts --project=agent`. For Microsandbox, use `E2E_SANDBOX=microsandbox` with [the setup below](#test-microsandbox).
 - `bun run --cwd examples/todos e2e -g "some title"` narrows to matching test titles while iterating.
 
 The suite starts its own platform and todos servers on ports derived from the worktree path, so it never touches the 4500 and 4700 development servers and two worktrees can run at once. Set `E2E_PLATFORM_URL` and `E2E_TODOS_URL` to test servers you are already running instead.

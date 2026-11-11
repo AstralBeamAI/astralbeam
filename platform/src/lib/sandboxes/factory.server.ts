@@ -3,7 +3,7 @@ import process from "node:process"
 import { Context, Effect, Layer } from "effect"
 
 import { SandboxProviderUnavailable } from "./errors.ts"
-import { getAvailableSandboxProviderIds } from "./availability.server.ts"
+import { getAvailableSandboxProviderIds, isSandboxProviderEnabled } from "./availability.server.ts"
 import { getLocalSandboxImage } from "./image.server.ts"
 import type {
   SandboxProviderCredentials,
@@ -39,7 +39,8 @@ const factories: {
     new E2BSandbox({ ...configuration.options, ...configuration.credentials }),
   microsandbox: ({ Microsandbox }) => {
     const sdkPath = process.env.__ASTRALBEAM_INTERNAL_MICROSANDBOX_SDK
-    if (!sdkPath) throw new Error("Microsandbox is not enabled on this server")
+    if (!isSandboxProviderEnabled("microsandbox") || !sdkPath)
+      throw new Error("Microsandbox is not enabled on this server")
     return new Microsandbox({ image: getLocalSandboxImage(), sdkPath })
   },
   sprites: ({ SpritesSandbox }, configuration) =>
