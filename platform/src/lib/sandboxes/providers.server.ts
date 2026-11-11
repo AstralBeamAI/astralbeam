@@ -10,6 +10,7 @@ import { mapDatabaseErrors } from "@/db/lib/sqlstate"
 import { sandboxProvider, SandboxProviderCredentialsPayloadSchema } from "@/db/schema/organizations"
 import { LockVersionSchema, UuidV7Schema } from "@/lib/schemas"
 import { runSandboxConnectionTest } from "./connection-test.server.ts"
+import { isSandboxProviderEnabled } from "./availability.server.ts"
 import {
   SandboxCleanupFailed,
   SandboxConnectionFailed,
@@ -18,6 +19,7 @@ import {
   SandboxProviderNameTaken,
   SandboxProviderNotFound,
   SandboxProviderUnreadable,
+  SandboxProviderUnavailable,
 } from "./errors.ts"
 import {
   decodeProviderOptions,
@@ -176,13 +178,13 @@ export class SandboxProviders extends Context.Service<
       readonly id: string
       readonly lockVersion: number
     }) => Effect.Effect<void, SandboxProviderChanged | SandboxProviderInUse>
-    /** The configuration a chat run builds its sandbox from. */
+    /** Enabled, readable configuration for chat and new sandbox-only attachments. */
     readonly resolveConfiguration: (input: {
       readonly organizationId: string
       readonly id: string
     }) => Effect.Effect<
       SandboxProviderConfiguration,
-      SandboxProviderNotFound | SandboxProviderUnreadable
+      SandboxProviderNotFound | SandboxProviderUnreadable | SandboxProviderUnavailable
     >
   }
 >()("astralbeam/sandboxes/SandboxProviders") {
@@ -401,6 +403,10 @@ export class SandboxProviders extends Context.Service<
         function* (input: { organizationId: string; id: string }) {
           const found = yield* readRow(input.organizationId, input.id)
           if (!found) return yield* new SandboxProviderNotFound()
+          if (!isSandboxProviderEnabled(found.row.providerType))
+            return yield* new SandboxProviderUnavailable({
+              cause: new Error("Sandbox provider is disabled on this server"),
+            })
           if (Option.isNone(found.credentials)) return yield* new SandboxProviderUnreadable()
           return {
             name: found.row.name,

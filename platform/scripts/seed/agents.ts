@@ -35,17 +35,14 @@ export async function seedAgents(transaction: SeedTransaction): Promise<SeedAgen
           name: provider.name,
           providerType: provider.providerType,
           options: provider.options,
-          // Docker is the only provider with no credential to encrypt, and `lastTest` is display
-          // only: the chat endpoint hands an agent sandbox tools without consulting it.
+          // Docker needs no credential. Seeding leaves its connection untested.
           credentials: null,
           lastTest: null,
         })
         .onConflictDoUpdate({
           target: [sandboxProvider.organizationId, sandboxProvider.name],
           set: {
-            providerType: provider.providerType,
-            options: provider.options,
-            credentials: null,
+            name: provider.name,
           },
         })
         .returning({ id: sandboxProvider.id })
@@ -84,10 +81,9 @@ export async function seedAgents(transaction: SeedTransaction): Promise<SeedAgen
             systemPrompt: seedAgent.systemPrompt,
             attachmentsEnabled: seedAgent.attachmentsEnabled,
             webAccessEnabled: false,
-            sandboxProviderId,
           },
         })
-        .returning({ id: agent.id })
+        .returning({ id: agent.id, sandboxProviderId: agent.sandboxProviderId })
       if (!inserted) {
         throw new Error(`PostgreSQL did not return a row for agent '${seedAgent.name}'`)
       }
@@ -96,7 +92,10 @@ export async function seedAgents(transaction: SeedTransaction): Promise<SeedAgen
         id: formatAgentId({ organizationId, id: inserted.id }),
         name: seedAgent.name,
         isDefault: seedAgent.id === seedOrganization.defaultAgentId,
-        sandboxProviderName: seedAgent.sandboxProviderName,
+        sandboxProviderName:
+          sandboxProviderId && inserted.sandboxProviderId === sandboxProviderId
+            ? seedAgent.sandboxProviderName
+            : null,
       })
     }
 

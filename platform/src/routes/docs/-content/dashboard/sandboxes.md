@@ -29,9 +29,20 @@ Docker and Microsandbox use the operator's `LOCAL_SANDBOX_IMAGE`. The default is
 
 ## Local providers
 
-Docker and Microsandbox appear in the provider choices only when their host checks pass. If a provider becomes unavailable, you can still rename its saved connections or switch them to another provider.
+Docker and Microsandbox appear in the provider choices only when their host checks pass. If a provider becomes unavailable, you can still rename its saved connections or switch them to another provider. Disabling removes its chat tools and blocks new sandbox-only uploads without clearing assignments.
 
 Check the startup console for each provider's status. Docker needs a reachable daemon. Microsandbox needs the runtime prepared by Platform, even if a separate `msb` command is installed. Run `astralbeam-platform --help` for the environment settings that disable or require each local provider.
+
+## Docker
+
+1. Install and start [Docker](https://docs.docker.com/engine/install/) on the sandbox host. Run `docker info` as Platform's operating-system user to check access to the daemon. The adapter ignores Docker CLI contexts. For OrbStack, Colima, or a custom context, export its daemon endpoint before bootstrap and start:
+
+   ```sh
+   export DOCKER_HOST="$(docker context inspect --format '{{.Endpoints.docker.Host}}')"
+   ```
+
+2. Stop Platform. Set `DOCKERSANDBOX_DISABLED=false` in its environment or `.env` to require Docker. Run `astralbeam-platform bootstrap` to prepare the image and validate the connection, then restart with the same environment. Keep the deployment's database URL and encryption key.
+3. [Add and verify a provider](#add-and-verify-a-provider), choosing **Docker**, then select it on an agent.
 
 ## Microsandbox
 

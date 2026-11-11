@@ -38,6 +38,13 @@ test("offers Microsandbox only when startup approved its SDK", async () => {
   expect(sandboxFactoryMocks.microsandbox).not.toHaveBeenCalled()
   vi.stubEnv("__ASTRALBEAM_INTERNAL_MICROSANDBOX_SDK", "/approved/runtime/index.js")
 
+  vi.stubEnv("MICROSANDBOX_DISABLED", "true")
+  expect(await getAvailableSandboxProviderIds()).not.toContain("microsandbox")
+  expect(
+    (await Effect.runPromise(Effect.flip(createSandboxProvider("microsandbox", configuration))))
+      ._tag,
+  ).toBe("SandboxProviderUnavailable")
+  vi.stubEnv("MICROSANDBOX_DISABLED", undefined)
   expect(await getAvailableSandboxProviderIds()).toContain("microsandbox")
   await Effect.runPromise(createSandboxProvider("microsandbox", configuration))
   expect(sandboxFactoryMocks.microsandbox).toHaveBeenCalledExactlyOnceWith({

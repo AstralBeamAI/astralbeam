@@ -21,6 +21,7 @@ describe.skipIf(!databaseUrl)("operator-owned sandbox images", () => {
   let organizationId: string
   beforeAll(async () => {
     vi.stubEnv("DOCKERSANDBOX_DISABLED", "true")
+    vi.stubEnv("MICROSANDBOX_DISABLED", "true")
     vi.stubEnv("__ASTRALBEAM_INTERNAL_MICROSANDBOX_SDK", undefined)
     db = getAuthDatabase()
     const [row] = await db
@@ -49,9 +50,19 @@ describe.skipIf(!databaseUrl)("operator-owned sandbox images", () => {
       const restored = await runtime.runPromise(
         Effect.flatMap(SandboxProviders, (providers) => providers.get(input)),
       )
+      const disabled = await runtime.runPromise(
+        Effect.flatMap(SandboxProviders, (providers) => providers.resolveConfiguration(input)).pipe(
+          Effect.flip,
+        ),
+      )
+      expect(disabled._tag).toBe("SandboxProviderUnavailable")
+      const variable =
+        providerType === "docker" ? "DOCKERSANDBOX_DISABLED" : "MICROSANDBOX_DISABLED"
+      vi.stubEnv(variable, "false")
       const resolved = await runtime.runPromise(
         Effect.flatMap(SandboxProviders, (providers) => providers.resolveConfiguration(input)),
       )
+      vi.stubEnv(variable, "true")
       expect(restored?.options).toEqual({})
       expect(resolved.options).toEqual({})
       const [stored] = await db

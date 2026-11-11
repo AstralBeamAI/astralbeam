@@ -1,22 +1,32 @@
-import { spawnSync } from "node:child_process"
 import { readFile } from "node:fs/promises"
 import process from "node:process"
+import { fileURLToPath } from "node:url"
 
 import { captureMoment } from "../../capture.ts"
 import { expect, test } from "../../fixtures.ts"
 
-// E2E_SANDBOX=microsandbox uses an enabled Platform with its seeded Todos Assistant switched
-// to Microsandbox. Otherwise these tests use the seed's Docker connection.
-
-function dockerDaemonIsReachable(): boolean {
-  return spawnSync("docker", ["info"], { stdio: "ignore" }).status === 0
-}
-
 test.describe("with a configured sandbox", () => {
   test.skip(
-    () => process.env.E2E_SANDBOX !== "microsandbox" && !dockerDaemonIsReachable(),
-    "Start Docker, or use E2E_SANDBOX=microsandbox with a configured Microsandbox agent.",
+    process.env.E2E_SANDBOX !== "docker" && process.env.E2E_SANDBOX !== "microsandbox",
+    "Set E2E_SANDBOX=docker or microsandbox after configuring the agent's sandbox.",
   )
+
+  test("turns an attached spreadsheet into todos", async ({ todos, chat }) => {
+    test.slow()
+    await test.step("attach the sample spreadsheet", async () => {
+      await chat.waitForReady()
+      await chat.attach(fileURLToPath(new URL("../../../samples/tasks.csv", import.meta.url)))
+      await expect(chat.attachmentChip("tasks.csv")).toBeVisible()
+    })
+
+    await chat.sendAndWait(
+      "Run a command in your sandbox to read the attached CSV, then create one todo for each task row.",
+    )
+
+    await expect(chat.toolRow(/exit 0/).first()).toBeVisible()
+    await expect(todos.item(/staging database/i)).toBeVisible()
+    expect(await todos.items().count()).toBeGreaterThan(3)
+  })
 
   test("pages sandbox text and downloads the saved artifact", async ({ page, chat }) => {
     test.slow()

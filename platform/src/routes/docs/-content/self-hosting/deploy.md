@@ -14,7 +14,7 @@ curl -fsSL https://astralbeam.ai/install.sh | sh
 HOST=127.0.0.1 ~/.local/bin/astralbeam-platform start
 ```
 
-The installer verifies the release checksum and installs to `~/.local/bin`. Bootstrap downloads the local runtimes and sandbox image, generates private settings, and applies migrations. Later starts reuse those files. No Bun, Docker, or separately managed database is needed for this path.
+The installer verifies the release checksum and installs to `~/.local/bin`. Standalone bootstrap defaults to required Microsandbox and disabled Docker, downloads the local runtimes and sandbox image, generates private settings, and applies migrations. Existing environment settings take precedence. Later starts reuse those files. No Bun, Docker, or separately managed database is needed for this path.
 
 Open http://localhost:4510/configure and [complete setup](#complete-setup). Run later commands from the same working directory so the binary finds its `.env` file. Stop with Ctrl+C.
 
@@ -142,6 +142,8 @@ Standalone bootstrap saves `DATABASE_URL=embedded` in `.env` for later starts an
 ### Docker Compose
 
 This stack creates a local evaluation with PostgreSQL and persistent File System storage. Existing S3 installations should keep their current Compose file and storage settings.
+
+Local sandboxes require [operator setup](../dashboard/sandboxes.md#local-providers) and separately provisioned daemon or virtualization access. Compose forwards the sandbox environment settings but grants no runtime access by default.
 
 In an empty directory, download the Compose file and create a private `.env` once. The command refuses to overwrite an existing file:
 

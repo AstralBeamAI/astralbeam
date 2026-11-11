@@ -199,11 +199,7 @@ async function preparePlatformSandboxes({ prepareImages = false } = {}): Promise
         (name === "Docker" && process.env.DOCKERSANDBOX_DISABLED === "false") ||
         (name === "Microsandbox" && process.env.MICROSANDBOX_DISABLED === "false")
       if (required && !result) throw new Error(`${name} is required but is unavailable`)
-      if (
-        prepareImages &&
-        result !== "disabled" &&
-        (name === "Docker" || name === "Microsandbox")
-      ) {
+      if (prepareImages && result === true && (name === "Docker" || name === "Microsandbox")) {
         const image = getLocalSandboxImage()
         if (name === "Docker") {
           if (result)
@@ -348,6 +344,7 @@ program
     const defaults = {
       ...(options.standalone && {
         ...(storedKeys.size === 0 && !hasS3Environment && { STORAGE_PROVIDER: "filesystem" }),
+        DOCKERSANDBOX_DISABLED: "true",
         MICROSANDBOX_DISABLED: "false",
       }),
       LOCAL_SANDBOX_IMAGE: getLocalSandboxImage(),
