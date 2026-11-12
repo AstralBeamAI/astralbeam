@@ -191,7 +191,17 @@ test("avatars and existing logo APIs store files privately and enforce their own
         200,
       )
       expect((await colleague.request.get(new URL(logoUrl, platformUrl).href)).status()).toBe(200)
+      const invitations = await colleague.request.get("/api/auth/organization/list-invitations", {
+        params: { organizationId },
+      })
+      expect(invitations.status()).toBe(403)
       await colleaguePage.goto(`/${baseline.organizationSlug}/members`)
+      await expect(
+        colleaguePage.getByRole("heading", { name: "Members", exact: true, level: 1 }),
+      ).toBeVisible()
+      await expect(
+        colleaguePage.getByRole("table", { name: "Invitations", exact: true }),
+      ).toHaveCount(0)
       await membersPage(colleaguePage).uploadAvatar(png)
       const avatar = await pool.query<{ avatar_file_id: string }>(
         "select avatar_file_id from member where id = $1",
