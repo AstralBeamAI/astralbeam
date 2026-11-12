@@ -9,9 +9,7 @@ imageAlt: "An agent filters data and reuses earlier work before sending the mode
 
 “Which invoices are overdue?” needs a short answer. Downloading every invoice and carrying them into later turns makes it expensive.
 
-For a customer-facing SaaS agent, start with models, repeated context, and tool responses. Add customer limits early. The order below balances savings and effort for a small team. Start with batching if background jobs dominate your bill.
-
-Press **Start** to compare approaches. Like our [chat interface field guide](/blog/ten-agentic-chat-interface-failures), these demos are illustrative simulations, not benchmarks.
+For a customer-facing SaaS agent, start with models, repeated context, and tool responses. Add customer limits early. Start with batching if background jobs dominate your bill.
 
 ## Check what a completed task costs
 
