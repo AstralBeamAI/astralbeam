@@ -79,8 +79,7 @@ import { chatUsageLimitGuard } from "./usage-limits"
 const modelErrorMessages: Readonly<Record<string, string>> = {
   compaction_usage_limit:
     "The conversation’s usage limit has been reached. Try again after it resets.",
-  compaction_limits:
-    "This agent’s model needs token limits to continue long conversations. Ask the site owner to configure them.",
+  compaction_limits: "This agent’s model needs token limits. Ask the site owner to configure them.",
   compaction_context_full:
     "This conversation cannot fit safely. Finish pending actions, shorten the input, or start a new conversation.",
   compaction_instructions:
@@ -285,7 +284,7 @@ export class Chat extends Context.Service<
                 .pipe(Effect.timeout("5 seconds"), Effect.ignore),
             )
             const pricing = yield* modelProviders.pricing(model)
-            if (agent.compactionEnabled && !pricing)
+            if (!pricing)
               return Stream.succeed<StreamChunk>({
                 type: EventType.RUN_ERROR,
                 code: "compaction_limits",
@@ -414,47 +413,36 @@ export class Chat extends Context.Service<
                 }),
               )
             }
-            const adapter = createChatAdapter(
-              model,
-              agent.compactionEnabled ? recordCompactionUsage : undefined,
-            )
+            const adapter = createChatAdapter(model, recordCompactionUsage)
             const nativeCompaction =
               !agent.webAccessEnabled &&
               model.providerType === "openai" &&
               model.api === "responses" &&
               new URL(model.baseUrl).origin === "https://api.openai.com"
-            const compaction =
-              agent.compactionEnabled && pricing
-                ? createChatCompactionMiddleware({
-                    state: compactionState,
-                    adapter,
-                    summaryAdapter: createChatAdapter(model),
-                    native: nativeCompaction,
-                    configuration: pricing,
-                    summaryOptions: chatModelOutputOptions(
-                      model,
-                      Math.min(pricing.outputCap, 4096),
-                    ),
-                    onUsage: recordCompactionUsage,
-                    onMetrics: (metrics) =>
-                      execute(Effect.logInfo("Conversation context", metrics)),
-                    beforeCall: beforeModelCall,
-                    projectSuffix: projectCompactionSuffix,
-                    save: (anchor, payload) =>
-                      execute(
-                        threads.saveCompaction({
-                          claim: compactionState.claim,
-                          leafMessageId: compactionState.history.at(-1)!.id,
-                          artifact: {
-                            coveredThroughMessageId: anchor,
-                            compatibilityKey: compactionState.compatibilityKey,
-                            payload,
-                            usage: compactionState.usage ?? {},
-                          },
-                        }),
-                      ),
-                  })
-                : undefined
+            const compaction = createChatCompactionMiddleware({
+              state: compactionState,
+              adapter,
+              native: nativeCompaction,
+              configuration: pricing,
+              summaryOptions: chatModelOutputOptions(model, Math.min(pricing.outputCap, 4096)),
+              onUsage: recordCompactionUsage,
+              onMetrics: (metrics) => execute(Effect.logInfo("Conversation context", metrics)),
+              beforeCall: beforeModelCall,
+              projectSuffix: projectCompactionSuffix,
+              save: (anchor, payload) =>
+                execute(
+                  threads.saveCompaction({
+                    claim: compactionState.claim,
+                    leafMessageId: compactionState.history.at(-1)!.id,
+                    artifact: {
+                      coveredThroughMessageId: anchor,
+                      compatibilityKey: compactionState.compatibilityKey,
+                      payload,
+                      usage: compactionState.usage ?? {},
+                    },
+                  }),
+                ),
+            })
             const managed = managedChatMiddleware({
               managed: input.managed,
               threads,
@@ -492,15 +480,14 @@ export class Chat extends Context.Service<
                       systemPrompts,
                       tools,
                     )
-                    if (agent.compactionEnabled)
-                      selectChatCompaction(
-                        compactionState,
-                        yield* threads.compactions({
-                          scope: claim.scope,
-                          id: claim.threadId,
-                        }),
-                        nativeCompaction,
-                      )
+                    selectChatCompaction(
+                      compactionState,
+                      yield* threads.compactions({
+                        scope: claim.scope,
+                        id: claim.threadId,
+                      }),
+                      nativeCompaction,
+                    )
                     const contextKey = chatCompactionContextKey(compactionState)
                     if (contextKey) {
                       normalized = yield* prepareChatHistory({
@@ -552,9 +539,7 @@ export class Chat extends Context.Service<
             ]
             const source = chat({
               adapter,
-              ...(agent.compactionEnabled && pricing
-                ? { modelOptions: chatModelOutputOptions(model, pricing.outputCap) }
-                : {}),
+              modelOptions: chatModelOutputOptions(model, pricing.outputCap),
               // Undefined still enables TanStack's default error logger.
               debug: log ? { logger: chatDebugLogger({ runId: params.runId }) } : false,
               messages,
@@ -570,7 +555,7 @@ export class Chat extends Context.Service<
               middleware: [
                 createChatAttachmentSnapshotMiddleware(inputMessages, history),
                 ...accounting,
-                ...(compaction ? [compaction] : []),
+                compaction,
                 {
                   name: "mcp-presentation",
                   onStart: (ctx) =>

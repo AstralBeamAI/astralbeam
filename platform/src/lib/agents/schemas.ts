@@ -26,7 +26,6 @@ export const AgentFieldsSchema = Schema.Struct({
   systemPrompt: AgentSystemPromptSchema,
   attachmentsEnabled: Schema.Boolean,
   webAccessEnabled: Schema.Boolean,
-  compactionEnabled: Schema.optionalKey(Schema.Boolean),
   sandboxProviderId: Schema.NullOr(UuidV7Schema),
   modelIds: Schema.optionalKey(
     Schema.Array(UuidV7Schema).pipe(

@@ -2,7 +2,7 @@
   "type": "diff",
   "version": "9",
   "dialect": "postgres",
-  "id": "8223e8ce-3bb8-4835-8534-023a70c216a3",
+  "id": "cc04a5de-f0b1-4abc-9940-dcc58a63cc35",
   "prevIds": [
     "bb0b548e-3259-4f10-a1e0-5a3a842d2c85"
   ],
@@ -23,24 +23,6 @@
         "n|rel|public.chat_compaction_pkey"
       ],
       "reads": [
-        "n|sch|public"
-      ]
-    },
-    {
-      "statementType": "add_column",
-      "statementTarget": [
-        "column",
-        "public",
-        "agent",
-        "compaction_enabled"
-      ],
-      "writes": [
-        "s|col|public.agent.compaction_enabled",
-        "n|col|public.agent.compaction_enabled",
-        "e|col|public.agent.compaction_enabled"
-      ],
-      "reads": [
-        "n|tbl|public.agent",
         "n|sch|public"
       ]
     },
@@ -133,22 +115,6 @@
         "name": "chat_compaction",
         "isRlsEnabled": false,
         "entityType": "tables"
-      }
-    },
-    {
-      "op": "create",
-      "row": {
-        "schema": "public",
-        "table": "agent",
-        "name": "compaction_enabled",
-        "type": "boolean",
-        "typeSchema": null,
-        "notNull": true,
-        "dimensions": 0,
-        "default": "false",
-        "generated": null,
-        "identity": null,
-        "entityType": "columns"
       }
     },
     {

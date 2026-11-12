@@ -68,7 +68,6 @@ export interface ModelChoice extends Omit<ModelProviderModel, "configuration"> {
   readonly providerId: string
   readonly providerName: string
   readonly webAccess: boolean | null
-  readonly compactionAvailable: boolean
 }
 
 export interface ChatModelConfiguration {
@@ -330,7 +329,6 @@ export class ModelProviders extends Context.Service<
       const choices = Effect.fn("ModelProviders.choices")(function* (input: {
         organizationId: string
       }) {
-        const catalog = yield* readPricing
         const models = yield* db
           .select({
             id: providerModel.id,
@@ -341,7 +339,6 @@ export class ModelProviders extends Context.Service<
             providerType: modelProvider.providerType,
             api: modelProvider.api,
             baseUrl: modelProvider.baseUrl,
-            configuration: providerModel.configuration,
           })
           .from(providerModel)
           .innerJoin(
@@ -353,16 +350,9 @@ export class ModelProviders extends Context.Service<
           )
           .where(eq(providerModel.organizationId, input.organizationId))
           .orderBy(asc(modelProvider.name), asc(providerModel.name), asc(providerModel.id))
-        return models.map(({ providerType, api, baseUrl, configuration, ...model }) => ({
+        return models.map(({ providerType, api, baseUrl, ...model }) => ({
           ...model,
           webAccess: modelWebAccess({ providerType, api, baseUrl, modelId: model.modelId }),
-          compactionAvailable:
-            effectiveModelConfiguration({
-              catalog,
-              providerType,
-              modelId: model.modelId,
-              configured: configuration,
-            }) !== null,
         }))
       }, Effect.orDie)
 

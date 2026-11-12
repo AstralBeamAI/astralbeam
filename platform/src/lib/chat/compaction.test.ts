@@ -97,6 +97,11 @@ function compactionTestSetup(
   )
   const summaryAdapter = fakeText()
   summaryAdapter.setResponses([{ text: "Goals and completed work. AB-428 is still pending." }])
+  const stream = adapter.chatStream.bind(adapter)
+  adapter.chatStream = (request) =>
+    request.modelOptions?.max_tokens === configuration.outputCap
+      ? summaryAdapter.chatStream(request)
+      : stream(request)
   const save = vi.fn((anchor: string, payload: ChatCompactionArtifact["payload"]) =>
     Promise.resolve({
       id: crypto.randomUUID(),
@@ -117,10 +122,9 @@ function compactionTestSetup(
     createChatCompactionMiddleware({
       state,
       adapter,
-      summaryAdapter,
       native,
       configuration,
-      summaryOptions: {},
+      summaryOptions: { max_tokens: configuration.outputCap },
       onUsage: async () => {},
       onMetrics: metrics,
       beforeCall,

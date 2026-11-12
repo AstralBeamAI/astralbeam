@@ -72,6 +72,6 @@ Owners and developers can create, edit, and delete agents. Viewers cannot access
 
 ## Long conversations
 
-**Summarize long conversations** lets an agent summarize older context automatically as its model window fills up. The full conversation and attachments stay saved and visible, but summaries can lose details. Summary calls count toward the same usage limits as chat replies.
+Agents automatically summarize older context as their model window fills up. The full conversation and attachments stay saved and visible, but summaries can lose details. Summary calls count toward the same usage limits as chat replies.
 
-Existing agents keep this setting off until you enable it. New agents enable it when the default model has known token limits. Set custom model limits in Models before enabling it. Thresholds and recent-context retention are managed automatically.
+Custom models need token limits configured in Models. Thresholds and recent-context retention are managed automatically.

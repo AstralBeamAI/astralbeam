@@ -77,9 +77,6 @@ export function AgentForm({
   const [systemPrompt, setSystemPrompt] = useState(existing?.systemPrompt ?? "")
   const hydrated = useHydrated()
   const [attachmentsEnabled, setAttachmentsEnabled] = useState(existing?.attachmentsEnabled ?? true)
-  const [compactionChoice, setCompactionChoice] = useState<boolean | undefined>(
-    existing?.compactionEnabled,
-  )
   const [webOverride, setWebOverride] = useState<boolean | null>(existing?.webAccessEnabled ?? null)
   const [sandboxEnabled, setSandboxEnabled] = useState(
     existing ? existing.sandboxProviderId !== null : availableSandboxProviders.length > 0,
@@ -106,14 +103,11 @@ export function AgentForm({
   const selectedModel = models.find((model) => model.id === modelIds[0])
   const webAvailable = selectedModel !== undefined && selectedModel.webAccess !== false
   const webAccessEnabled = webOverride ?? selectedModel?.webAccess === true
-  const compactionAvailable = selectedModel?.compactionAvailable === true
-  const compactionEnabled = compactionChoice ?? compactionAvailable
   const normalizedName = name.trim()
   const valid =
     Schema.is(AgentNameSchema)(normalizedName) &&
     Schema.is(AgentSystemPromptSchema)(systemPrompt) &&
     modelIds.length > 0 &&
-    (!compactionEnabled || compactionAvailable) &&
     (!webAccessEnabled || webAvailable) &&
     (!sandboxEnabled || selectedSandboxProviderId !== null)
 
@@ -129,7 +123,6 @@ export function AgentForm({
       name: normalizedName,
       systemPrompt,
       attachmentsEnabled,
-      compactionEnabled,
       webAccessEnabled,
       modelIds,
       sandboxProviderId: selectedSandboxProviderId,
@@ -172,7 +165,6 @@ export function AgentForm({
     (name !== existing.name ||
       systemPrompt !== existing.systemPrompt ||
       attachmentsEnabled !== existing.attachmentsEnabled ||
-      compactionEnabled !== existing.compactionEnabled ||
       webAccessEnabled !== (existing.webAccessEnabled ?? selectedModel?.webAccess === true) ||
       selectedSandboxProviderId !== existing.sandboxProviderId ||
       JSON.stringify(modelIds) !== JSON.stringify(existing.modelIds))
@@ -181,7 +173,6 @@ export function AgentForm({
     setName(existing.name)
     setSystemPrompt(existing.systemPrompt)
     setAttachmentsEnabled(existing.attachmentsEnabled)
-    setCompactionChoice(existing.compactionEnabled)
     setWebOverride(existing.webAccessEnabled)
     setModelIds([...existing.modelIds])
     setSandboxEnabled(existing.sandboxProviderId !== null)
@@ -258,41 +249,6 @@ export function AgentForm({
             <FieldSet>
               <FieldLegend>Capabilities</FieldLegend>
               <FieldDescription>Choose what this agent can do.</FieldDescription>
-              <Field orientation="horizontal">
-                <FieldContent>
-                  <FieldLabel htmlFor="agent-compaction-enabled">
-                    Summarize long conversations
-                  </FieldLabel>
-                  <FieldDescription id="agent-compaction-description">
-                    Keep conversations going as the model’s context fills up. Summaries use extra
-                    tokens and can lose details. Saved messages and files stay available.{" "}
-                    <DocsLink href="/docs/dashboard/agents#long-conversations">
-                      How summarization works
-                    </DocsLink>
-                    {!compactionAvailable && (
-                      <>
-                        {" "}
-                        Choose a default model with known token limits, or configure them in{" "}
-                        <Link
-                          to="/$orgSlug/models"
-                          params={{ orgSlug: organizationSlug }}
-                          className="underline"
-                        >
-                          Models
-                        </Link>
-                        .
-                      </>
-                    )}
-                  </FieldDescription>
-                </FieldContent>
-                <Switch
-                  id="agent-compaction-enabled"
-                  checked={compactionEnabled}
-                  onCheckedChange={setCompactionChoice}
-                  disabled={disabled || (!compactionAvailable && !compactionEnabled)}
-                  aria-describedby="agent-compaction-description"
-                />
-              </Field>
               <Field orientation="horizontal">
                 <Checkbox
                   id="agent-attachments-enabled"

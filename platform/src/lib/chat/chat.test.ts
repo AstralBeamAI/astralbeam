@@ -126,7 +126,6 @@ const sandboxedAgent: ChatAgent = {
   systemPrompt: "Help",
   attachmentsEnabled: false,
   webAccessEnabled: false,
-  compactionEnabled: false,
   sandboxProviderId: "01990a5d-ac96-774b-b942-6b13c85384cc",
 }
 
@@ -156,7 +155,7 @@ function chatTestLayer(options: {
   readonly agent?: ChatAgent | undefined
   readonly model?: ChatModelConfiguration | typeof undecryptable
   readonly history?: MessageRecord[]
-  readonly pricing?: ModelConfiguration
+  readonly pricing?: ModelConfiguration | null
   readonly compactions?: ChatCompactionArtifact[]
   readonly acquireMcp?: typeof McpTools.Service.acquire
   readonly sandboxSession?: typeof ChatSandboxes.Service.session
@@ -190,7 +189,8 @@ function chatTestLayer(options: {
         test: () => Effect.succeed({ toolCount: 0 }),
       }),
       Layer.succeed(ModelProviders, {
-        pricing: () => Effect.succeed(options.pricing ?? null),
+        pricing: () =>
+          Effect.succeed(options.pricing === undefined ? CHAT_TEST_PRICING : options.pricing),
         resolveForAgent: () =>
           options.model === undecryptable
             ? Effect.fail(new ModelProviderUnreadable())
@@ -254,25 +254,23 @@ describe("Chat.run", () => {
           error?.message,
           configured
             ? "This agent’s instructions and tools exceed its model’s context limit. Ask the site owner to adjust the agent."
-            : "This agent’s model needs token limits to continue long conversations. Ask the site owner to configure them.",
+            : "This agent’s model needs token limits. Ask the site owner to configure them.",
         )
         assert.notInclude(chatRunTest.order, "aborted")
         assert.include(chatRunTest.order, "interrupted")
       }).pipe(
         Effect.provide(
           chatTestLayer({
-            agent: { ...sandboxedAgent, compactionEnabled: true },
+            agent: sandboxedAgent,
             model: CHAT_TEST_MODEL,
-            ...(configured
+            pricing: configured
               ? {
-                  pricing: {
-                    ...CHAT_TEST_PRICING,
-                    contextWindowTokens: 10,
-                    maxOutputTokens: 1,
-                    outputCap: 1,
-                  },
+                  ...CHAT_TEST_PRICING,
+                  contextWindowTokens: 10,
+                  maxOutputTokens: 1,
+                  outputCap: 1,
                 }
-              : {}),
+              : null,
           }),
         ),
       ),
@@ -284,6 +282,9 @@ describe("Chat.run", () => {
       Effect.gen(function* () {
         const events = yield* runChat({ forwardedProps: { debug } })
         yield* Stream.runCollect(Stream.take(events, 1))
+        assert.isTrue(
+          chatRunTest.options[0]!.middleware.some((middleware) => middleware.name === "compaction"),
+        )
         const native = chatRunTest.options[0]!.debug
         if (debug === true && IS_DEVELOPMENT_SERVER) {
           assert.isTrue(typeof native === "object" && typeof native.logger?.debug === "function")
@@ -626,7 +627,6 @@ describe("Chat.run", () => {
         chatTestLayer({
           agent: {
             ...sandboxedAgent,
-            compactionEnabled: state === "compacted",
             sandboxProviderId: state === "unreadable" ? sandboxedAgent.sandboxProviderId : null,
           },
           model: CHAT_TEST_MODEL,

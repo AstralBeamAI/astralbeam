@@ -131,7 +131,6 @@ function chatCompactionCut(
 export function createChatCompactionMiddleware(options: {
   state: ChatCompactionState
   adapter: AnyTextAdapter
-  summaryAdapter: AnyTextAdapter
   native: boolean
   configuration: ModelConfiguration
   summaryOptions: Record<string, unknown>
@@ -146,7 +145,6 @@ export function createChatCompactionMiddleware(options: {
 }): ChatMiddleware {
   const { state, adapter } = options
   let budget = modelInputAllowance(options.configuration)
-  let tools: Tool[] = []
   let preparation: {
     attempts: number
     candidate?: { anchor: string; payload: ChatCompactionArtifact["payload"] }
@@ -157,7 +155,7 @@ export function createChatCompactionMiddleware(options: {
   const estimate = (message: ModelMessage) =>
     measuredTokens.get(JSON.stringify(message)) ?? estimateChatContext(message)
   const summarize = conversationSummarizer({
-    adapter: options.summaryAdapter,
+    adapter,
     modelOptions: options.summaryOptions,
     middleware: [
       {
@@ -186,13 +184,10 @@ export function createChatCompactionMiddleware(options: {
     const suffix = messages.slice(cut.offset)
     let head: ModelMessage[]
     if (native) {
-      const input = {
+      head = await adapter.compact!({
         ...ctx,
         messages: messages.slice(0, cut.offset),
-        tools,
-        maxTokens: Math.min(options.configuration.outputCap, 4096),
-      }
-      head = await adapter.compact!(input)
+      })
     } else {
       const strategy = summarizeOldest({
         summarize,
@@ -245,7 +240,6 @@ export function createChatCompactionMiddleware(options: {
     ...middleware,
     async onConfig(ctx, config) {
       if (ctx.phase === "init") return
-      tools = config.tools
       const key = JSON.stringify({
         systemPrompts: config.systemPrompts,
         tools: chatCompactionTools(config.tools),

@@ -221,7 +221,6 @@ export const agent = snakeCase.table(
     // Agent capability policy the chat endpoint enforces; the SDK can narrow it, never grant it.
     attachmentsEnabled: boolean().notNull().default(true),
     webAccessEnabled: boolean().notNull().default(false),
-    compactionEnabled: boolean().notNull().default(false),
     // Optional so a new organization has a usable agent before anyone configures a provider,
     // which cannot be saved until its connection test passes.
     sandboxProviderId: uuid(),
