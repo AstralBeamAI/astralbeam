@@ -19,15 +19,9 @@ In one [coding-agent study](https://arxiv.org/abs/2607.12161v5), compression cut
 
 Compare the same tasks and model versions. Track quality, latency, retries, tool fees, sandbox fees, and storage. Separate uncached input, cache writes, reads, and output without double-counting reasoning. Test fresh and populated caches. Savings overlap, so don't add percentages.
 
-## 1. Choose the model and response your task needs
+## 1. Choose the model your task needs
 
-Test cheaper models on real requests, including tool calls and permissions. [OpenAI's cost guide](https://developers.openai.com/api/docs/guides/cost-optimization) covers model choice. Ask for the fields your app needs instead of paragraphs it discards, following its [latency guide](https://developers.openai.com/api/docs/guides/latency-optimization).
-
-Try lower reasoning effort too. The [Responses API's output cap](https://developers.openai.com/api/docs/guides/reasoning) includes reasoning, visible output, and non-visible formatting. Too low can produce incomplete answers and retries.
-
-```cost-demo
-output
-```
+Test cheaper models on real requests, including tool calls and permissions. [OpenAI's cost guide](https://developers.openai.com/api/docs/guides/cost-optimization) covers model choice.
 
 A router picks a model for each task. A cascade tries a cheaper model, then escalates rejected results. [RouteLLM](https://arxiv.org/abs/2406.18665) studies the tradeoff between cost and quality. Verify fields, IDs, and amounts against sources. Valid JSON and self-reported confidence aren't enough. Count validation and both attempts. [Switching models mid-conversation](https://claude.com/blog/lessons-from-building-claude-code-prompt-caching-is-everything) can also require rebuilding the cache.
 

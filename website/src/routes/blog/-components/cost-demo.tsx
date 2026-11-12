@@ -106,22 +106,6 @@ const examples = {
       costDriver: "One small + one higher-cost call",
     },
   },
-  output: {
-    name: "Budget the answer",
-    prompt: "Return the category and priority for this ticket.",
-    expensive: {
-      packets: ["Restated question", "Long explanation", "Category", "Priority"],
-      action: "The model writes paragraphs the application immediately discards.",
-      result: "Unused output still counts toward the bill.",
-      costDriver: "Verbose generated answer",
-    },
-    better: {
-      packets: ['{"category":"billing",', '"priority":"high"}'],
-      action: "Request the required fields with an appropriate output and reasoning budget.",
-      result: "Validate completeness. A limit that truncates the answer can cause retries.",
-      costDriver: "Required fields only",
-    },
-  },
   batching: {
     name: "Move delay-tolerant work to a batch",
     prompt: "Categorize yesterday's support tickets overnight.",
