@@ -49,13 +49,9 @@ export function makeTracingProcessor(
       delete attributes["url.path"]
       delete attributes["url.query"]
       const status = { ...span.status }
-      // Effect marks a caught operation successful on exit. An explicitly reported error still failed.
-      if (typeof span.attributes["error.type"] === "string") {
-        status.code = SpanStatusCode.ERROR
+      if (status.code === SpanStatusCode.ERROR) {
         const message = exception?.["exception.message"]
         if (typeof message === "string") status.message ??= message
-      }
-      if (status.code === SpanStatusCode.ERROR) {
         attributes["error.type"] = exception?.["exception.type"] ?? attributes["error.type"]
         attributes["error.message"] ??= exception?.["exception.message"]
         attributes["error.stack"] ??= exception?.["exception.stacktrace"]

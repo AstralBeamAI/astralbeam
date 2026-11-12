@@ -22,7 +22,9 @@ export const getMembersPageData = createServerFn({ method: "GET" })
           [
             auth.api((api) => api.listMembers({ headers, query: queries.members })),
             auth.api((api) => api.listMembers({ headers, query: queries.owners })),
-            auth.api((api) => api.listInvitations({ headers, query: queries.invitations })),
+            context.permissions.createInvitation
+              ? auth.api((api) => api.listInvitations({ headers, query: queries.invitations }))
+              : Effect.succeed([]),
           ],
           { concurrency: "unbounded" },
         )

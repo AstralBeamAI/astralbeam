@@ -34,8 +34,7 @@ function storeError(cause?: unknown): RateLimiter.RateLimiterError {
   return new RateLimiter.RateLimiterError({ reason })
 }
 
-// Effect's persistent RateLimiter store extends its window per token, so fixed windows count here.
-// https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.118/packages/effect/src/persistence/RateLimiter.ts
+// Keep atomic PostgreSQL counts and explicit resets in the shared Better Auth rate-limit table.
 export class DatabaseRateLimiter extends Context.Service<
   DatabaseRateLimiter,
   {

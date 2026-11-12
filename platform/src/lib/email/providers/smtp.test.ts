@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest"
-import { ConfigProvider, Effect, Layer, Schema } from "effect"
+import { ConfigProvider, Effect, Fiber, Layer, Schema } from "effect"
 import { beforeEach, vi } from "vitest"
 
 const smtpTest = vi.hoisted(() => ({
@@ -96,6 +96,27 @@ describe("SMTP provider", () => {
       assert.strictEqual(smtpTest.close.mock.calls.length, 1)
       assert.strictEqual(smtpTest.sendMail.mock.calls.length, 0)
     }),
+  )
+
+  it.effect("aborts an interrupted send without retrying or closing the shared transport", () =>
+    Effect.gen(function* () {
+      const started = Promise.withResolvers<AbortSignal>()
+      smtpTest.sendMail.mockImplementationOnce(({ signal }: { signal: AbortSignal }) => {
+        started.resolve(signal)
+        return new Promise<never>(() => {})
+      })
+      const providers = yield* EmailProviders
+      const settings = yield* Effect.orDie(decodeSmtpTestSettings({}))
+      const sending = yield* Effect.forkChild(providers.send({ settings, email: smtpEmail }))
+      const signal = yield* Effect.promise(() => started.promise)
+      assert.isFalse(signal.aborted)
+      yield* Fiber.interrupt(sending)
+      assert.isTrue(signal.aborted)
+      assert.strictEqual(smtpTest.sendMail.mock.calls.length, 1)
+      assert.strictEqual(smtpTest.close.mock.calls.length, 0)
+      assert.strictEqual(yield* providers.send({ settings, email: smtpEmail }), "smtp-message")
+      assert.strictEqual(smtpTest.createTransport.mock.calls.length, 1)
+    }).pipe(Effect.provide(deliveringProviders)),
   )
 })
 

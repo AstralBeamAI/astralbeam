@@ -58,12 +58,14 @@ function MembersPage() {
           canUpdateMember={permissions.updateMember}
           canRemoveMember={permissions.deleteMember}
         />
-        <OrganizationInvitations
-          organizationId={data.organization.id}
-          isOwner={isOwner}
-          canInvite={permissions.createInvitation}
-          canCancelInvitation={permissions.cancelInvitation}
-        />
+        {permissions.createInvitation && (
+          <OrganizationInvitations
+            organizationId={data.organization.id}
+            isOwner={isOwner}
+            canInvite={permissions.createInvitation}
+            canCancelInvitation={permissions.cancelInvitation}
+          />
+        )}
       </div>
     </div>
   )

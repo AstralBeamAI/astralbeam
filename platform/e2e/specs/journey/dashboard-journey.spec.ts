@@ -4,6 +4,7 @@ import { expect, test } from "@e2e/fixtures.ts"
 import { makeRunIdentity } from "@e2e/identity.ts"
 import { emailLink, waitForEmail } from "@e2e/mailbox.ts"
 import { mailboxSmtpPort, operatorKey, platformUrl } from "@e2e/worktree.ts"
+import { decodeJwt } from "jose"
 
 /**
  * One continuous session over an empty deployment: configure it, create an account, verify its
@@ -92,7 +93,20 @@ test("an operator configures the deployment and an owner runs the dashboard end 
     const verificationLink = emailLink(verification, /\/api\/auth\/verify-email/)
     // Links are built from the configured base URL, so this catches a misconfigured deployment.
     expect(verificationLink).toContain(platformUrl)
-    await auth.completeEmailVerification(verificationLink)
+    const originalUserId = decodeJwt(new URL(verificationLink).searchParams.get("token")!).userId
+    expect(originalUserId).toEqual(expect.any(String))
+
+    await auth.open("sign-up")
+    await auth.signUp(identity)
+    await page.waitForURL(/\/auth\/verify-email/)
+    const resent = await waitForEmail(identity.email, {
+      afterId: verification.id,
+      subject: /verif/i,
+    })
+    const resentLink = emailLink(resent, /\/api\/auth\/verify-email/)
+    expect(resentLink).toContain(platformUrl)
+    expect(decodeJwt(new URL(resentLink).searchParams.get("token")!).userId).toBe(originalUserId)
+    await auth.completeEmailVerification(resentLink)
   })
 
   await test.step("verification signs the new account in and asks it for an organization", async () => {
