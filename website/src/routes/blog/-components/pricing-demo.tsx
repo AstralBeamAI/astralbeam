@@ -551,7 +551,6 @@ function Demo({ example }: { example: Example }) {
               </StableText>
             </strong>
           </div>
-          <p className="demo-detail">Fictional example · prices before tax</p>
         </div>
       </div>
       <div className="demo-controls">

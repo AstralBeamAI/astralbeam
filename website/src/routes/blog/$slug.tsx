@@ -77,19 +77,24 @@ const markdownComponents: Components = {
   },
   pre({ node, children }) {
     const code = node?.children[0]
-    if (
-      code?.type === "element" &&
-      Array.isArray(code.properties.className) &&
-      (code.properties.className.includes("language-demo") ||
-        code.properties.className.includes("language-pricing"))
-    ) {
+    if (code?.type === "element" && Array.isArray(code.properties.className)) {
       const text = code.children[0]
       if (text?.type === "text") {
-        return code.properties.className.includes("language-pricing") ? (
-          <PricingDemo kind={text.value.trim()} />
-        ) : (
-          <FailureDemo kind={text.value.trim()} />
-        )
+        if (code.properties.className.includes("language-glossary")) {
+          return (
+            <aside className="blog-glossary" aria-label="Pricing options">
+              <Markdown components={markdownComponents} skipHtml>
+                {text.value}
+              </Markdown>
+            </aside>
+          )
+        }
+        if (code.properties.className.includes("language-pricing")) {
+          return <PricingDemo kind={text.value.trim()} />
+        }
+        if (code.properties.className.includes("language-demo")) {
+          return <FailureDemo kind={text.value.trim()} />
+        }
       }
     }
     return <pre>{children}</pre>

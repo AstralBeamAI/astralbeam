@@ -9,13 +9,30 @@ imageAlt: "A subscription and usage receipt shows the included allowance, extra 
 
 An agent can chase an invoice without getting it paid. You cover the calls, but you could charge for access, each investigation, or money recovered. Choose what customers can budget and you can measure, then decide whether it belongs in their plan, an add-on, or a usage bill.
 
-Press **Start** to compare billing mistakes and better patterns. Prices are fictional, before tax. Community posts are anecdotes, not conversion or margin benchmarks.
+```glossary
+## What goes on the bill?
+
+- **Access:** a flat fee or seats.
+- **Usage:** tokens, compute, or tool calls.
+- **Jobs:** workflows, exports, or conversations.
+- **Outcomes:** an agreed result.
+
+## Who pays the model provider?
+
+- **Cost plus markup:** you pay, then add a fee.
+- **BYOK (bring your own key):** customers use their keys and pay the provider.
+
+## How do customers buy?
+
+- **Credits:** a prepaid usage balance.
+- **Base fee plus usage:** a subscription allowance, with charges for extra work.
+```
 
 ## Work out what to charge for
 
 ### Access: a flat fee or a price per seat
 
-A subscription lets people use your app without pricing every click. A [report-tool founder on HN](https://news.ycombinator.com/item?id=40376857) described that benefit. You can still set limits, as [Basecamp](https://basecamp.com/pricing) does.
+A subscription lets people use your app without pricing every click. You can still set limits.
 
 You pay for the heavy users too. [Sam Altman said in January 2025](https://x.com/sama/status/1876104315296968813) that ChatGPT Pro was losing money because people used it more than expected. Look at your expensive customers, not just the average.
 
