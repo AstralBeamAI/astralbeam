@@ -92,18 +92,19 @@ const examples = {
   },
   routing: {
     name: "Route by task difficulty",
-    prompt: "Classify a ticket, then handle a difficult escalation.",
+    prompt: "Two separate workflows: tag new tickets and resolve complex escalations.",
     expensive: {
       packets: ["Simple classification", "Difficult escalation"],
       action: "Both requests go to the most expensive model.",
       result: "Routine work pays the same model rate as the difficult case.",
-      costDriver: "Two higher-cost model calls",
+      costDriver: "Higher model rate + available cache reuse",
     },
     better: {
       packets: ["Small model: classify", "Strong model: escalation"],
-      action: "Route evaluated task classes to a suitable model and escalate when required.",
-      result: "Routine work uses a lower-cost route. Include routing and retry costs.",
-      costDriver: "One small + one higher-cost call",
+      action:
+        "Choose a tested model per workflow. Switching mid-conversation can lose cache reuse.",
+      result: "Keep routing only if total cost per successful task falls at the quality you need.",
+      costDriver: "Model rates + cache misses + routing + retries",
     },
   },
   batching: {

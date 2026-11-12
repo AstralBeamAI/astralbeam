@@ -9,7 +9,7 @@ imageAlt: "An agent filters data and reuses earlier work before sending the mode
 
 “Which invoices are overdue?” needs a short answer. Downloading every invoice and carrying them into later turns makes it expensive.
 
-For a customer-facing SaaS agent, start with models, repeated context, and tool responses. Add customer limits early. Start with batching if background jobs dominate your bill.
+For a customer-facing SaaS agent, start with repeated context, models, and tool responses. Add customer limits early. Start with batching if background jobs dominate your bill.
 
 ## Check what a completed task costs
 
@@ -19,17 +19,7 @@ In one [coding-agent study](https://arxiv.org/abs/2607.12161v5), compression cut
 
 Compare the same tasks and model versions. Track quality, latency, retries, tool fees, sandbox fees, and storage. Separate uncached input, cache writes, reads, and output without double-counting reasoning. Test fresh and populated caches. Savings overlap, so don't add percentages.
 
-## 1. Choose the model your task needs
-
-Test cheaper models on real requests, including tool calls and permissions. [OpenAI's cost guide](https://developers.openai.com/api/docs/guides/cost-optimization) covers model choice.
-
-A router picks a model for each task. A cascade tries a cheaper model, then escalates rejected results. [RouteLLM](https://arxiv.org/abs/2406.18665) studies the tradeoff between cost and quality. Verify fields, IDs, and amounts against sources. Valid JSON and self-reported confidence aren't enough. Count validation and both attempts. [Switching models mid-conversation](https://claude.com/blog/lessons-from-building-claude-code-prompt-caching-is-everything) can also require rebuilding the cache.
-
-```cost-demo
-routing
-```
-
-## 2. Reuse the context that stays the same
+## 1. Reuse the context that stays the same
 
 Put stable instructions and ordered tool definitions first, changing questions and metadata last. Check [Claude's prerequisites](https://platform.claude.com/docs/en/build-with-claude/prompt-caching) and [OpenAI's eligibility rules](https://developers.openai.com/api/docs/guides/prompt-caching) for minimum prefixes, expiry, and settings. Claude requires `cache_control`.
 
@@ -37,6 +27,18 @@ Writes can carry a premium. Check that savings from later reads cover the higher
 
 ```cost-demo
 caching
+```
+
+## 2. Choose the model your task needs
+
+Test cheaper models on real requests, including tool calls and permissions. [OpenAI's cost guide](https://developers.openai.com/api/docs/guides/cost-optimization) covers model choice.
+
+A router picks a model for each task. A cascade tries a cheaper model, then escalates rejected results. [RouteLLM](https://arxiv.org/abs/2406.18665) studies the tradeoff between cost and quality. Verify fields, IDs, and amounts against sources. Valid JSON and self-reported confidence aren't enough. Count routing, validation, and both attempts.
+
+Start with separate workflows, such as ticket tagging and complex escalations. [Switching models mid-conversation](https://claude.com/blog/lessons-from-building-claude-code-prompt-caching-is-everything) can require rebuilding the prompt cache. A cheaper model reading a long history at the uncached rate can cost more than the current model using its cache. Keep routing only when total cost per successful task improves at the quality you need.
+
+```cost-demo
+routing
 ```
 
 ## 3. Send only the data the agent needs
