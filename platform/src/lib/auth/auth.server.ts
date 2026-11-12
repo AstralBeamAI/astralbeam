@@ -106,17 +106,18 @@ function authConfigFromValues(values: ConfigValues): AuthConfig | null {
 }
 
 // Rebuilds the `/sign-up/email` link for a resend outside an endpoint context, so signing up again
-// recovers an unverified account. https://github.com/better-auth/better-auth/blob/v1.7.2/packages/better-auth/src/api/routes/sign-up.ts
+// recovers an unverified account. https://github.com/better-auth/better-auth/blob/v1.7.21/packages/better-auth/src/api/routes/sign-up.ts
 const buildVerificationURL = Effect.fn("buildVerificationURL")(function* (
   config: AuthConfig,
-  email: string,
+  user: { id: string; email: string },
 ) {
   const token = yield* Effect.tryPromise(() =>
     createEmailVerificationToken(
       config.betterAuthSecret,
-      email,
+      user.email,
       undefined,
       EMAIL_VERIFICATION_EXPIRY_SECONDS,
+      { userId: user.id },
     ),
   ).pipe(Effect.orDie)
   const url = new URL(`${AUTH_BASE_PATH}/verify-email`, config.appBaseUrl)
@@ -279,7 +280,7 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
           request,
           user.emailVerified
             ? mailer.sendAccountExists({ user })
-            : Effect.flatMap(buildVerificationURL(config, user.email), (url) =>
+            : Effect.flatMap(buildVerificationURL(config, user), (url) =>
                 mailer.sendVerification({
                   user,
                   url,

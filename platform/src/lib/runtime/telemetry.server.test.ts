@@ -170,7 +170,7 @@ it("isolates concurrent errors, redacts exports, and preserves cancellation and 
     SpanStatusCode.ERROR,
   )
   const cancelled = spans.find((span) => span.name === "cancelled")!
-  assert.strictEqual(cancelled.status.code, SpanStatusCode.OK)
+  assert.strictEqual(cancelled.status.code, SpanStatusCode.UNSET)
   assert.deepStrictEqual(cancelled.events, [])
   assert.strictEqual(events.length, 3)
 })

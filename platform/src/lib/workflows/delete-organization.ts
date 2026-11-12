@@ -33,7 +33,7 @@ function purgeOrganizationStep<E, R>(name: string, execute: Effect.Effect<unknow
     name,
     execute: execute.pipe(
       Effect.asVoid,
-      // Effect SQL turns commit failures into defects. Purges are safe to retry after uncertain commits.
+      // Retry SQL cleanup defects too. Purges are safe to retry after uncertain commits.
       // https://github.com/Effect-TS/effect/blob/main/packages/effect/src/sql/SqlClient.ts
       Effect.catchDefect((defect) =>
         SqlError.isSqlError(defect) ? Effect.fail(defect) : Effect.die(defect),

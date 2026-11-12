@@ -40,8 +40,9 @@ export const acquireSender = (settings: SmtpProviderSettings) =>
   Effect.map(
     acquireSmtpTransport(settings),
     (transport) => (email: ProviderEmail) =>
-      emailProviderCall(() =>
+      emailProviderCall((signal) =>
         transport.sendMail({
+          signal,
           from: email.from,
           to: [...email.to],
           cc: [...email.cc],
