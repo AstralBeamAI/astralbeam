@@ -9,6 +9,7 @@ export function docsPage(page: Page) {
   return {
     dialog,
     input,
+    previews: results.locator(".line-clamp-2"),
     results,
     trigger,
     async open(path = "/docs") {

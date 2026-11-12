@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import type { DocsChunk } from "@/routes/docs/-lib/search"
+import type { DocsSearchResult } from "@/routes/docs/-lib/search"
 
 export function DocsSearch() {
   useEffect(() => {
@@ -61,7 +61,7 @@ export function DocsSearch() {
           items={results}
           value={query}
           onValueChange={setQuery}
-          itemToStringValue={(result: DocsChunk) => result.heading}
+          itemToStringValue={(result: DocsSearchResult) => result.heading}
           mode="none"
           inline
           open
@@ -91,7 +91,7 @@ export function DocsSearch() {
             </Button>
           )}
           <Autocomplete.List className="max-h-[min(55dvh,28rem)] overflow-y-auto">
-            {(result: DocsChunk) => (
+            {(result: DocsSearchResult) => (
               <Autocomplete.Item
                 key={result.url}
                 value={result}
@@ -101,7 +101,7 @@ export function DocsSearch() {
               >
                 <span className="block text-xs text-muted-foreground">{result.page}</span>
                 <span className="block text-sm font-medium">{result.heading}</span>
-                <span className="line-clamp-2 text-xs text-muted-foreground">{result.text}</span>
+                <span className="line-clamp-2 text-xs text-muted-foreground">{result.snippet}</span>
               </Autocomplete.Item>
             )}
           </Autocomplete.List>
