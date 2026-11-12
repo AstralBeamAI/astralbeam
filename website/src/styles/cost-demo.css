@@ -205,15 +205,13 @@
   cursor: default;
   color: var(--blog-muted);
 }
-.cost-controls > p {
-  grid-column: 1 / -1;
-  color: var(--blog-muted);
-  min-height: 42px;
-}
-.cost-disclaimer {
-  margin-top: 10px;
-  color: var(--blog-muted);
-  font-size: 11px;
+.cost-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 @keyframes cost-appear {
   from {

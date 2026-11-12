@@ -333,25 +333,10 @@ function Simulation({ example }: { example: Example }) {
             {step < 0 ? "▶ Start" : "↺ Replay"}
           </button>
         </div>
-        <p role="status">
-          <ReservedText
-            texts={[
-              "Press Start to watch the better pattern.",
-              "Press Start to watch the expensive approach, followed by the better pattern.",
-              "Now, the better pattern. Prepare the work.",
-              "Prepare the work for the expensive approach.",
-              example.expensive.action,
-              example.better.action,
-              example.expensive.result,
-              example.better.result,
-            ]}
-            visible={status}
-          />
+        <p className="cost-status" role="status">
+          {status}
         </p>
       </div>
-      <p className="cost-disclaimer">
-        Illustrative simulation. Compare actual usage, quality, and total cost for your workload.
-      </p>
     </section>
   )
 }
