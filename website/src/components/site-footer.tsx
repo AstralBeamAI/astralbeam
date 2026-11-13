@@ -25,7 +25,6 @@ export function SiteFooter() {
       </a>
       <a href="/terms">TERMS</a>
       <a href="/privacy">PRIVACY</a>
-      <a href="/licenses.txt">LICENSES</a>
     </footer>
   )
 }

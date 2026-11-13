@@ -29,6 +29,12 @@
 /blog/images/chat-state-map.svg
   Cache-Control: public, max-age=300, must-revalidate
 
+/blog/images/saas-pricing-models.png
+  Cache-Control: public, max-age=300, must-revalidate
+
+/blog/images/saas-pricing-models.svg
+  Cache-Control: public, max-age=300, must-revalidate
+
 /demo/returns-q3.csv
   Cache-Control: public, max-age=300, must-revalidate
 

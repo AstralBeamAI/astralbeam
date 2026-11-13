@@ -1,4 +1,6 @@
 import { createFileRoute, notFound } from "@tanstack/react-router"
+import { Children, isValidElement } from "react"
+import type { ReactNode } from "react"
 import Markdown from "react-markdown"
 import type { Components } from "react-markdown"
 
@@ -8,6 +10,7 @@ import { siteMetadata, siteUrl } from "@/lib/site"
 
 import { BlogShell } from "./-components/blog-shell"
 import { FailureDemo } from "./-components/failure-demo"
+import { PricingDemo } from "./-components/pricing-demo"
 
 export const Route = createFileRoute("/blog/$slug")({
   codeSplitGroupings: [["loader", "component"]],
@@ -58,7 +61,27 @@ export const Route = createFileRoute("/blog/$slug")({
   component: BlogPost,
 })
 
+function headingText(children: ReactNode): string {
+  return Children.toArray(children)
+    .map((child) =>
+      isValidElement<{ children?: ReactNode }>(child)
+        ? headingText(child.props.children)
+        : typeof child === "string" || typeof child === "number"
+          ? String(child)
+          : "",
+    )
+    .join("")
+}
+
 const markdownComponents: Components = {
+  h3({ children }) {
+    const id = headingText(children)
+      .toLowerCase()
+      .replaceAll("'", "")
+      .replace(/[^a-z0-9]+/gu, "-")
+      .replace(/^-|-$/gu, "")
+    return <h3 id={id}>{children}</h3>
+  },
   a({ href, title, children }) {
     const external =
       href &&
@@ -76,13 +99,25 @@ const markdownComponents: Components = {
   },
   pre({ node, children }) {
     const code = node?.children[0]
-    if (
-      code?.type === "element" &&
-      Array.isArray(code.properties.className) &&
-      code.properties.className.includes("language-demo")
-    ) {
+    if (code?.type === "element" && Array.isArray(code.properties.className)) {
       const text = code.children[0]
-      if (text?.type === "text") return <FailureDemo kind={text.value.trim()} />
+      if (text?.type === "text") {
+        if (code.properties.className.includes("language-glossary")) {
+          return (
+            <nav className="blog-glossary" aria-label="Pricing options">
+              <Markdown components={markdownComponents} skipHtml>
+                {text.value}
+              </Markdown>
+            </nav>
+          )
+        }
+        if (code.properties.className.includes("language-pricing")) {
+          return <PricingDemo kind={text.value.trim()} />
+        }
+        if (code.properties.className.includes("language-demo")) {
+          return <FailureDemo kind={text.value.trim()} />
+        }
+      }
     }
     return <pre>{children}</pre>
   },

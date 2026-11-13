@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">A price is a product promise</title>
+  <desc id="desc">Fixed access, metered work, and verified outcomes connect to an itemized receipt within a customer budget.</desc>
+  <defs><pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#c3cec1"/></pattern></defs>
+  <path fill="#e8eee2" d="M0 0h1200v630H0z"/>
+  <path fill="url(#grid)" d="M590 0h610v630H590z"/>
+  <g fill="#264c3d">
+    <text x="64" y="84" font-family="Arial,sans-serif" font-size="15" letter-spacing="3">ASTRALBEAM</text>
+    <text x="64" y="259" font-family="Georgia,serif" font-size="61" letter-spacing="-2">A price is a</text>
+    <text x="64" y="335" font-family="Georgia,serif" font-size="61" letter-spacing="-2">product promise.</text>
+    <text x="66" y="405" font-family="Arial,sans-serif" font-size="20" fill="#536653">Choose a unit. Make the bill predictable.</text>
+  </g>
+  <g stroke="#9caf9d" stroke-width="2" fill="none"><path d="M790 180h70m-70 133h70m-70 133h70"/></g>
+  <g font-family="Arial,sans-serif">
+    <g fill="#fffef9" stroke="#c8d4c2"><rect x="625" y="136" width="165" height="88" rx="12"/><rect x="625" y="269" width="165" height="88" rx="12"/><rect x="625" y="402" width="165" height="88" rx="12"/></g>
+    <g fill="#264c3d" font-size="19"><text x="647" y="174">Fixed access</text><text x="647" y="307">Metered work</text><text x="647" y="440">Outcomes</text></g>
+    <g fill="#536653" font-size="14"><text x="647" y="200">One clear plan</text><text x="647" y="333">A defined unit</text><text x="647" y="466">Evidence of value</text></g>
+    <rect x="860" y="111" width="285" height="404" rx="12" fill="#fffef9" stroke="#a3b99e"/>
+    <text x="884" y="154" fill="#456a40" font-size="13" letter-spacing="1">YOUR BILL, EXPLAINED</text>
+    <path d="M884 177h237" stroke="#dce2db"/>
+    <g fill="#536653" font-size="17"><text x="884" y="218">Base plan</text><text x="1120" y="218" text-anchor="end">$49</text><text x="884" y="260">Included runs</text><text x="1120" y="260" text-anchor="end">200</text><text x="884" y="302">50 extra × $0.30</text><text x="1120" y="302" text-anchor="end">$15</text></g>
+    <path d="M884 329h237" stroke="#dce2db"/>
+    <g fill="#264c3d" font-size="24"><text x="884" y="370">Total</text><text x="1120" y="370" text-anchor="end">$64</text></g>
+    <rect x="884" y="413" width="237" height="65" rx="8" fill="#eaf5ee"/>
+    <text x="899" y="440" fill="#236757" font-size="16">Budget: $70</text><text x="899" y="461" fill="#536653" font-size="13">Pause before spending more.</text>
+  </g>
+</svg>
