@@ -10,8 +10,6 @@
     <text x="64" y="335" font-family="Georgia,serif" font-size="61" letter-spacing="-2">product promise.</text>
     <text x="66" y="405" font-family="Arial,sans-serif" font-size="20" fill="#536653">Choose a unit. Make the bill predictable.</text>
   </g>
-  <rect x="65" y="494" width="205" height="40" rx="20" fill="#d5e3d0"/>
-  <text x="88" y="520" fill="#264c3d" font-family="Arial,sans-serif" font-size="14">AN INTERACTIVE GUIDE</text>
   <g stroke="#9caf9d" stroke-width="2" fill="none"><path d="M790 180h70m-70 133h70m-70 133h70"/></g>
   <g font-family="Arial,sans-serif">
     <g fill="#fffef9" stroke="#c8d4c2"><rect x="625" y="136" width="165" height="88" rx="12"/><rect x="625" y="269" width="165" height="88" rx="12"/><rect x="625" y="402" width="165" height="88" rx="12"/></g>

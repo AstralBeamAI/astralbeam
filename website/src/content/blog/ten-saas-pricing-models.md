@@ -9,7 +9,7 @@ imageAlt: "A subscription and usage receipt shows the included allowance, extra 
 
 An agent can chase an invoice without getting it paid. You can bill for the calls if that's the deal. If you promised to charge for money recovered, you haven't earned that fee. Someone still pays for the calls.
 
-Choose what the customer is buying, then decide who funds the work when it fails or runs long. Your limits have to make that deal affordable.
+Choose what the customer is buying, then decide who funds the work when it fails or runs long. The choices below fit together: a subscription can include jobs, with a charge for extra work.
 
 ```glossary
 ## What to charge for?
@@ -38,7 +38,7 @@ A subscription lets people use your app without pricing every click. You can sti
 
 You pay for the heavy users too. [Sam Altman said in January 2025](https://x.com/sama/status/1876104315296968813) that ChatGPT Pro was losing money because people used it more than expected. Look at your expensive customers, not just the average.
 
-Our $49 example includes 200 attempts, but one loop takes compute to $65. A disclosed $0.15 cap per attempt stops it incomplete at $30 total. Failed attempts count. That's $19 before the rest of your expenses.
+Our $49 example includes 200 attempts, but one loop pushes total compute spend to $65. With a disclosed $0.15 cap per attempt, the looping run stops incomplete and total compute spend stays at $30. Failed attempts count. That leaves $19 before the rest of your expenses.
 
 ```pricing
 fixed
@@ -46,7 +46,7 @@ fixed
 
 Seats need purchase controls too. An invitation can add to the bill, so let the owner approve the increase and proration first. [Slack](https://slack.com/help/articles/218915077-Slacks-Fair-Billing-Policy) credits inactivity on eligible self-serve plans.
 
-[Strella chose seats](https://www.bvp.com/atlas/durable-monetization-how-four-ai-founders-solved-the-pricing-puzzle) to avoid per-project approvals, with inference a small cost beside participant compensation. But seats get awkward if your agent helps a smaller team do the same work. [One builder described that renewal problem](https://www.reddit.com/r/SaaS/comments/1scw6p8/comment/ogipj5s/) and switched to transactions processed. If automation shrinks the paid team, test whether processed work follows value better than headcount.
+[Strella chose seats](https://www.bvp.com/atlas/durable-monetization-how-four-ai-founders-solved-the-pricing-puzzle) to avoid per-project approvals, with inference a small cost beside paying research participants. But seats get awkward if your agent helps a smaller team do the same work. [One builder described that renewal problem](https://www.reddit.com/r/SaaS/comments/1scw6p8/comment/ogipj5s/) and switched to transactions processed. If automation shrinks the paid team, test pricing by work processed.
 
 ```pricing
 seats
@@ -70,9 +70,9 @@ tool
 
 ### Jobs: a workflow, export, or conversation
 
-Your customer may know they need 500 reports a month without knowing the token count. A price per job gives them a budget. [n8n](https://n8n.io/pricing/) bills workflow executions. Specify input and duration limits, included services, and when you charge. With conversations, does returning tomorrow start a new one?
+Your customer may know they need 500 reports a month without knowing the token count. A price per job lets them estimate the bill. [n8n](https://n8n.io/pricing/) bills workflow executions. Specify input and duration limits, included services, and when you charge. With conversations, does returning tomorrow start a new one?
 
-[Mintlify's cofounder](https://x.com/handotdev/status/2097459135747084603) described fixed prices per completed action while absorbing variable compute costs. You'd carry that risk too. Completing a job doesn't always solve the customer's problem.
+[Mintlify's cofounder](https://x.com/handotdev/status/2097459135747084603) described fixed prices per completed action while absorbing variable compute costs. If you pay the provider, you'd carry that risk too. Completing a job doesn't always solve the customer's problem.
 
 Keep one job ID across retries so you don't charge twice for the same export. [Stripe's meter events](https://docs.stripe.com/billing/subscriptions/usage-based/recording-usage-api) process asynchronously, so keep durable records that distinguish retries from new orders.
 
@@ -84,7 +84,7 @@ workflow
 
 If your agent recovers money, you can charge a share, as [Chargeflow](https://www.chargeflow.io/pricing) does for chargebacks. For support, [Fin](https://www.intercom.com/help/en/articles/8205718-fin-ai-agent-outcomes) counts confirmed and assumed resolutions, plus configured procedure handoffs. It reverses resolution charges when customers return to the same conversation for more help.
 
-Agree on what counts as done and how customers can dispute it. The [Skope discussion on HN](https://news.ycombinator.com/item?id=44973758) gets into that evidence problem. You still pay for unsuccessful attempts.
+Agree on what counts as done and how customers can dispute it. The [Skope discussion on HN](https://news.ycombinator.com/item?id=44973758) gets into that evidence problem. Unsuccessful attempts still cost money.
 
 Our fictional $1 charge needs customer confirmation and reverses if the issue reopens within seven days. Closing it again needs new confirmation. Seven days is our rule, not Fin's. [Ada](https://www.ada.cx/platform/) says most customers choose conversation pricing, with resolution pricing for specific enterprise needs.
 
@@ -96,7 +96,7 @@ outcome
 
 ### Provider cost plus your fee
 
-With cost plus markup, your fee sits on top of the provider bill. [Stripe](https://docs.stripe.com/billing/token-billing) supports this. Say whether you bill list or negotiated rates and how caching, tools, and failed calls count. Save the rate used for each run.
+With cost plus markup, your fee sits on top of the provider bill. [Stripe's token-billing docs](https://docs.stripe.com/billing/token-billing) describe this through Metronome. Say whether you bill list or negotiated rates and how caching, tools, and failed calls count. Save the rate used for each run.
 
 A 20% markup on $10 makes a $12 bill. The $2 spread divided by $12 revenue is **16.7%**, before other serving costs. A 20% margin requires **$10 ÷ 0.8 = $12.50**, again excluding those costs.
 
@@ -108,7 +108,7 @@ markup
 
 With bring your own key (BYOK), customers pay through their provider accounts. That may suit existing contracts. Connecting your provider key is different from asking each customer to create and fund an account. A [local dictation-app builder](https://www.reddit.com/r/SaaS/comments/1vuzeva/byok_sounded_fair_the_api_key_setup_is_where/) found setup difficult for nontechnical users. [Provider payment, permissions, and rate limits](https://www.reddit.com/r/SaaS/comments/1vuzeva/comment/p5672ua/) can also create support work.
 
-[OpenRouter's terms](https://openrouter.ai/pricing) are a reminder to show both bills. In the example, the provider hasn't charged the authorized $10 yet. Keep that separate from the $29 app fee. Protect keys, label each account's limits, and ask before falling back to another paying account. Your fee still covers storage, tools, and support.
+[OpenRouter's terms](https://openrouter.ai/pricing) are a reminder to show both bills. In the example, authorizing a $10 provider budget doesn't create a charge. The total reaches $39 when the job uses it, including the $29 app fee. Protect keys, label each account's limits, and ask before falling back to another paying account. Your fee still covers storage, tools, and support.
 
 ```pricing
 byok
@@ -132,7 +132,7 @@ You can include some agent work in a subscription and charge for the rest. [Bess
 
 At $49 for 200 workflows plus $0.30 each extra, 250 cost **$64**. If serving costs average $0.15 per completed workflow, including failed attempts, the work costs $37.50. That leaves $26.50 before other expenses. Check expensive runs too.
 
-Show the extra $15 before approval, when allowances reset, and whether work stops at zero. Two prices take explaining, especially when terms change: see [Cursor's apology](https://cursor.com/en-US/blog/june-2025-pricing) and the [HN discussion](https://news.ycombinator.com/item?id=44470148).
+Show the extra $15 before the customer approves more work. State when allowances reset and whether work stops at zero. Two prices take explaining, especially when terms change: see [Cursor's apology](https://cursor.com/en-US/blog/june-2025-pricing) and the [HN discussion](https://news.ycombinator.com/item?id=44470148).
 
 ```pricing
 hybrid
@@ -140,7 +140,7 @@ hybrid
 
 ## Test the bill before changing your plans
 
-Show a customer two pilot invoices for the same work, using different pricing plans. Include failures, retries, tools, support, and human review. Ask which bill they can budget and who would approve extra spend. Then measure adoption, margin, and retention.
+Show a customer two pilot invoices for the same work, using different pricing plans. Count failures, retries, tools, support, and human review in your costs. Ask which bill they can budget and who would approve extra spend. Then measure adoption, margin, and retention.
 
 [Stripe's survey](https://stripe.com/blog/saas-platform-trends-in-AI-era) of 200 North American and European SaaS leaders, half Stripe customers, found a quarter planned seats plus agent charges. Those are seller plans. Ask buyers whether [Levie's comparison with work performed](https://x.com/levie/status/1976462057840181320) matches their own costs.
 
@@ -148,7 +148,7 @@ If you sell [commitments](https://www.snowflake.com/en/pricing-options/), explai
 
 ## Put the limits where the work happens
 
-Put the estimate beside the action that starts the job, along with the rate and who pays. Keep **spent**, **reserved**, and **remaining** separate. Agree on what happens at zero and to calls already running. A conversation cap won't protect the account if users can open another chat.
+Put the estimate beside the action that starts the job, along with the rate and who pays. Keep **spent**, **reserved**, and **remaining** separate. Agree on what happens at zero and to calls already running. A per-chat spending cap won't protect the account if users can keep opening new chats.
 
 Keep a receipt with the job ID, billable event, quantity, rate version, allowance, and adjustments. Check what a limit covers before calling it hard. [Vercel](https://vercel.com/docs/spend-management) documents timing restrictions. [Snowflake's warehouse monitors](https://docs.snowflake.com/en/user-guide/resource-monitors) leave some serverless and AI usage outside their scope. Test concurrent jobs, late reports, failed cancellation, and an empty balance.
 
