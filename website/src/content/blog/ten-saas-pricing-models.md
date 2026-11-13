@@ -1,7 +1,7 @@
 ---
 title: "How to Price AI Agents in Your SaaS"
 description: "What to charge for an agent in your app, what can go wrong, and the usage limits you'll need."
-date: "2026-11-10"
+date: "2026-11-13"
 author: "AstralBeam team"
 image: "/blog/images/saas-pricing-models.png"
 imageAlt: "A subscription and usage receipt shows the included allowance, extra work, and total against a customer-approved budget."
