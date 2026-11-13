@@ -5,7 +5,7 @@
   <path fill="#e8eee2" d="M0 0h1200v630H0z"/>
   <path fill="url(#grid)" d="M590 0h610v630H590z"/>
   <g fill="#264c3d">
-    <text x="64" y="84" font-family="Arial,sans-serif" font-size="15" letter-spacing="3">ASTRALBEAM / FIELD NOTES</text>
+    <text x="64" y="84" font-family="Arial,sans-serif" font-size="15" letter-spacing="3">ASTRALBEAM</text>
     <text x="64" y="259" font-family="Georgia,serif" font-size="61" letter-spacing="-2">A price is a</text>
     <text x="64" y="335" font-family="Georgia,serif" font-size="61" letter-spacing="-2">product promise.</text>
     <text x="66" y="405" font-family="Arial,sans-serif" font-size="20" fill="#536653">Choose a unit. Make the bill predictable.</text>
