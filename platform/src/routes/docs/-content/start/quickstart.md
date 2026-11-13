@@ -185,7 +185,7 @@ mountAstralBeamChat(container, { apiUrl: "https://astralbeam.ai/api" })
 ```html title="index.html"
 <div id="sidebar" style="height: 100dvh"></div>
 <script type="module">
-  import { mountAstralBeamChat } from "https://cdn.jsdelivr.net/npm/@astralbeam/sdk@0.30.6/dist/client.js"
+  import { mountAstralBeamChat } from "https://cdn.jsdelivr.net/npm/@astralbeam/sdk@0.30.7/dist/client.js"
 
   mountAstralBeamChat(document.getElementById("sidebar"), { apiUrl: "https://astralbeam.ai/api" })
 </script>
