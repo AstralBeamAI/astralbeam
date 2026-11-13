@@ -1,7 +1,7 @@
 ---
 title: "Lower LLM Costs by Giving Your Agent Less Work"
 description: "Pick the right model, stop sending unused data, and reuse work. Where to start when you're adding an agent to your SaaS."
-date: "2026-11-10"
+date: "2026-11-14"
 author: "AstralBeam team"
 image: "/blog/images/llm-costs.png"
 imageAlt: "An agent filters data and reuses earlier work before sending the model what it needs."
