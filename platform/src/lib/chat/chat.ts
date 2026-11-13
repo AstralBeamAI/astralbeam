@@ -4,6 +4,7 @@ import {
   maxIterations,
   mergeAgentTools,
   type StreamChunk,
+  type TokenUsage,
 } from "@tanstack/ai"
 import { chat } from "@tanstack/ai-effect"
 import { otelMiddleware } from "@tanstack/ai/middlewares/otel"
@@ -15,7 +16,11 @@ import { redactSensitiveValue } from "@/lib/redaction"
 import { APP_HANDLE } from "@/lib/constants"
 import { ChatThreads, type MessageRecord } from "./threads/threads"
 import { ChatThreadInvalid, type ChatThreadError } from "./threads/errors"
-import { projectChatModelHistory, projectChatPublicHistory } from "./threads/projection"
+import {
+  projectChatModelHistory,
+  projectChatPublicHistory,
+  chatStoredJson,
+} from "./threads/projection"
 import {
   managedChatDelivery,
   managedChatMiddleware,
@@ -26,7 +31,15 @@ import {
   type ChatModelConfiguration,
 } from "@/lib/model-providers/model-providers.server"
 import { Agents } from "@/lib/agents/agents.server"
-import { createChatAdapter } from "./adapter"
+import { ChatCompactionError, chatCompactionMessages } from "./compaction"
+import {
+  chatCompactionContextKey,
+  chatCompactionKey,
+  selectChatCompaction,
+  createChatCompactionMiddleware,
+  type ChatCompactionState,
+} from "./compaction-middleware"
+import { chatModelOutputOptions, createChatAdapter } from "./adapter"
 import { chatWebTools } from "./web"
 import { createChatAttachmentTools } from "./attachments/tools"
 import {
@@ -56,7 +69,7 @@ import {
 } from "./errors.ts"
 import { ChatSandboxes } from "./sandbox/sandbox"
 import { createChatSandboxTools } from "./sandbox/tools"
-import type { ChatParams, ChatPrincipal } from "./types"
+import type { ChatMessages, ChatParams, ChatPrincipal } from "./types"
 import { IS_DEVELOPMENT_SERVER } from "@/lib/runtime/environment.server"
 import { errorReason } from "@/lib/runtime/failure-report.server"
 import { UsageLimits } from "@/lib/usage-limits/usage-limits.server"
@@ -64,6 +77,15 @@ import { chatUsageLimitGuard } from "./usage-limits"
 
 // Only recognized provider codes get actionable copy. Provider messages can contain credentials.
 const modelErrorMessages: Readonly<Record<string, string>> = {
+  compaction_usage_limit:
+    "The conversation’s usage limit has been reached. Try again after it resets.",
+  compaction_limits: "This agent’s model needs token limits. Ask the site owner to configure them.",
+  compaction_context_full:
+    "This conversation cannot fit safely. Finish pending actions, shorten the input, or start a new conversation.",
+  compaction_instructions:
+    "This agent’s instructions and tools exceed its model’s context limit. Ask the site owner to adjust the agent.",
+  compaction_failed:
+    "Conversation context could not be prepared. Try again or start a new conversation.",
   invalid_api_key: "The model provider rejected its API key. Ask the site owner to update it.",
   authentication_error:
     "The model provider rejected its credentials. Ask the site owner to check them.",
@@ -82,12 +104,14 @@ const prepareChatHistory = Effect.fnUntraced(function* ({
   files,
   webAccessEnabled,
   sandboxEnabled,
+  contextKey,
 }: {
   readonly history: readonly MessageRecord[]
   readonly model: ChatModelConfiguration
   readonly files: typeof ChatFiles.Service
   readonly webAccessEnabled: boolean
   readonly sandboxEnabled: boolean
+  readonly contextKey?: string | undefined
   readonly scope: Pick<ChatFileScope, "organizationId" | "tenantId" | "threadId">
 }) {
   const stored = yield* Effect.try({
@@ -97,6 +121,7 @@ const prepareChatHistory = Effect.fnUntraced(function* ({
         protocol: model.api,
         modelId: model.modelId,
         webAccessEnabled,
+        contextKey,
       }),
     catch: () => new ChatThreadInvalid(),
   })
@@ -259,6 +284,12 @@ export class Chat extends Context.Service<
                 .pipe(Effect.timeout("5 seconds"), Effect.ignore),
             )
             const pricing = yield* modelProviders.pricing(model)
+            if (!pricing)
+              return Stream.succeed<StreamChunk>({
+                type: EventType.RUN_ERROR,
+                code: "compaction_limits",
+                message: "compaction_limits",
+              })
             const usageLimitGuard = limits.length
               ? chatUsageLimitGuard({
                   usageLimits,
@@ -322,6 +353,96 @@ export class Chat extends Context.Service<
                     params.tools,
                   )
             const tools = [...collectTools()]
+            const execute = Effect.runPromiseWith(services)
+            const compactionState: ChatCompactionState = {
+              history,
+              claim: input.managed.claim,
+              compatibilityKey: chatCompactionKey(model, systemPrompts, tools),
+            }
+            let usageFailure: { cause: unknown } | undefined
+            const beforeModelCall = async () => {
+              if (usageFailure) throw usageFailure.cause
+              await execute(threads.assertActive({ claim: compactionState.claim }))
+              if (usageLimitGuard && !(await usageLimitGuard.check()))
+                throw new ChatCompactionError({ code: "compaction_usage_limit" })
+            }
+            const recordCompactionUsage = async (usage: TokenUsage) => {
+              compactionState.usage = chatStoredJson(usage)
+              try {
+                await usageLimitGuard?.record(usage)
+              } catch (cause) {
+                usageFailure = { cause }
+                throw cause
+              }
+              await execute(Effect.logInfo("Conversation compaction usage", usage))
+            }
+            const projectCompactionSuffix = async (prepared?: ChatMessages) => {
+              const start =
+                compactionState.history.findIndex(
+                  (message) => message.id === compactionState.artifact?.coveredThroughMessageId,
+                ) + 1
+              const messages =
+                prepared ??
+                (
+                  await execute(
+                    prepareChatHistory({
+                      history: compactionState.history,
+                      files: storedFiles,
+                      model,
+                      contextKey: chatCompactionContextKey(compactionState),
+                      sandboxEnabled: agent.sandboxProviderId !== null,
+                      webAccessEnabled: agent.webAccessEnabled,
+                      scope: {
+                        ...compactionState.claim.scope,
+                        threadId: compactionState.claim.threadId,
+                      },
+                    }),
+                  )
+                ).messages
+              // Metadata from the prefix reserves names without reading compacted file bytes.
+              const suffix = new Set(compactionState.history.slice(start).map(({ id }) => id))
+              return execute(
+                storedFiles.hydrate({
+                  scope: {
+                    ...compactionState.claim.scope,
+                    threadId: compactionState.claim.threadId,
+                  },
+                  messages: convertMessagesToModelMessages(messages).filter((message) =>
+                    suffix.has(message.id?.split(":")[0] ?? ""),
+                  ),
+                }),
+              )
+            }
+            const adapter = createChatAdapter(model, recordCompactionUsage)
+            const nativeCompaction =
+              !agent.webAccessEnabled &&
+              model.providerType === "openai" &&
+              model.api === "responses" &&
+              new URL(model.baseUrl).origin === "https://api.openai.com"
+            const compaction = createChatCompactionMiddleware({
+              state: compactionState,
+              adapter,
+              native: nativeCompaction,
+              configuration: pricing,
+              summaryOptions: chatModelOutputOptions(model, Math.min(pricing.outputCap, 4096)),
+              onUsage: recordCompactionUsage,
+              onMetrics: (metrics) => execute(Effect.logInfo("Conversation context", metrics)),
+              beforeCall: beforeModelCall,
+              projectSuffix: projectCompactionSuffix,
+              save: (anchor, payload) =>
+                execute(
+                  threads.saveCompaction({
+                    claim: compactionState.claim,
+                    leafMessageId: compactionState.history.at(-1)!.id,
+                    artifact: {
+                      coveredThroughMessageId: anchor,
+                      compatibilityKey: compactionState.compatibilityKey,
+                      payload,
+                      usage: compactionState.usage ?? {},
+                    },
+                  }),
+                ),
+            })
             const managed = managedChatMiddleware({
               managed: input.managed,
               threads,
@@ -330,16 +451,19 @@ export class Chat extends Context.Service<
               model,
               pricing,
               publicHistory: projectChatPublicHistory(history),
+              contextKey: () => chatCompactionContextKey(compactionState),
               agentId: `agent_${input.principal.organization.id}_${agent.id}`,
-              execute: Effect.runPromiseWith(services),
+              execute,
               refreshContext: (claim) =>
-                Effect.runPromiseWith(services)(
+                execute(
                   Effect.gen(function* () {
                     const saved = yield* threads.history({
                       scope: claim.scope,
                       id: claim.threadId,
                     })
-                    const normalized = yield* prepareChatHistory({
+                    compactionState.history = saved
+                    compactionState.claim = claim
+                    let normalized = yield* prepareChatHistory({
                       history: saved,
                       files: storedFiles,
                       scope: { ...claim.scope, threadId: claim.threadId },
@@ -348,16 +472,48 @@ export class Chat extends Context.Service<
                       sandboxEnabled: agent.sandboxProviderId !== null,
                     })
                     files.splice(0, files.length, ...normalized.files)
-                    inputMessages.splice(0, inputMessages.length, ...normalized.projected)
-                    if (session) yield* session.prepareUploads(files)
                     tools.splice(0, tools.length, ...collectTools())
                     if (files.length && !systemPrompts.includes(CHAT_ATTACHMENT_SYSTEM_PROMPT))
                       systemPrompts.splice(1, 0, CHAT_ATTACHMENT_SYSTEM_PROMPT)
-                    return {
-                      providerMessages: yield* storedFiles.hydrate({
-                        scope: { ...claim.scope, threadId: claim.threadId },
-                        messages: convertMessagesToModelMessages(normalized.messages),
+                    compactionState.compatibilityKey = chatCompactionKey(
+                      model,
+                      systemPrompts,
+                      tools,
+                    )
+                    selectChatCompaction(
+                      compactionState,
+                      yield* threads.compactions({
+                        scope: claim.scope,
+                        id: claim.threadId,
                       }),
+                      nativeCompaction,
+                    )
+                    const contextKey = chatCompactionContextKey(compactionState)
+                    if (contextKey) {
+                      normalized = yield* prepareChatHistory({
+                        history: saved,
+                        files: storedFiles,
+                        scope: { ...claim.scope, threadId: claim.threadId },
+                        model,
+                        webAccessEnabled: agent.webAccessEnabled,
+                        sandboxEnabled: agent.sandboxProviderId !== null,
+                        contextKey,
+                      })
+                      files.splice(0, files.length, ...normalized.files)
+                      tools.splice(0, tools.length, ...collectTools())
+                    }
+                    inputMessages.splice(0, inputMessages.length, ...normalized.projected)
+                    if (session) yield* session.prepareUploads(files)
+                    const providerMessages = [
+                      ...(compactionState.artifact
+                        ? chatCompactionMessages(compactionState.artifact.payload)
+                        : []),
+                      ...(yield* Effect.promise(() =>
+                        projectCompactionSuffix(normalized.messages),
+                      )),
+                    ]
+                    return {
+                      providerMessages,
                       publicHistory: projectChatPublicHistory(saved),
                       tools,
                       systemPrompts,
@@ -382,7 +538,8 @@ export class Chat extends Context.Service<
               ...(usageLimitGuard ? [usageLimitGuard.middleware] : []),
             ]
             const source = chat({
-              adapter: createChatAdapter(model),
+              adapter,
+              modelOptions: chatModelOutputOptions(model, pricing.outputCap),
               // Undefined still enables TanStack's default error logger.
               debug: log ? { logger: chatDebugLogger({ runId: params.runId }) } : false,
               messages,
@@ -398,6 +555,7 @@ export class Chat extends Context.Service<
               middleware: [
                 createChatAttachmentSnapshotMiddleware(inputMessages, history),
                 ...accounting,
+                compaction,
                 {
                   name: "mcp-presentation",
                   onStart: (ctx) =>
@@ -414,12 +572,22 @@ export class Chat extends Context.Service<
               resume: params.resume,
               ...(model.providerType === "openai" &&
                 model.api === "responses" && { reasoning: "high" }),
-            }).pipe(Stream.orDie)
+            })
             const delivered = managedChatDelivery({
               source,
               managed: input.managed,
               state: managed.state,
-            })
+            }).pipe(
+              Stream.catchTag("AIError", (error) =>
+                error.cause instanceof ChatCompactionError
+                  ? Stream.succeed<StreamChunk>({
+                      type: EventType.RUN_ERROR,
+                      code: error.cause.code,
+                      message: error.cause.code,
+                    })
+                  : Stream.die(error),
+              ),
+            )
             return usageLimitGuard ? usageLimitGuard.announce(delivered) : delivered
           }),
         ).pipe(

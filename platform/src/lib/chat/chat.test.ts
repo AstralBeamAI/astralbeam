@@ -70,7 +70,10 @@ vi.mock("@tanstack/ai-effect", async (original) => {
           chatRunTest.closed.resolve()
         }
       }
-      return actual.chat({ ...options, middleware: [] })
+      return actual.chat({
+        ...options,
+        middleware: options.middleware.filter((entry) => entry.name === "compaction"),
+      })
     },
   }
 })
@@ -80,6 +83,7 @@ import {
   type ChatModelConfiguration,
 } from "@/lib/model-providers/model-providers.server"
 import { ModelProviderUnreadable } from "@/lib/model-providers/errors"
+import type { ModelConfiguration } from "@/lib/model-providers/schemas"
 import { Agents, type ChatAgent } from "@/lib/agents/agents.server"
 import { AgentNotFound } from "@/lib/agents/errors"
 import { declaredHttpApiStatus } from "@/lib/runtime/http-api-status"
@@ -92,7 +96,10 @@ import { CHAT_MODEL_UNAVAILABLE_MESSAGE, CHAT_SANDBOX_SYSTEM_PROMPT } from "./co
 import { ChatSandboxConfigurationUnreadable } from "./sandbox/errors.ts"
 import { ChatSandboxes } from "./sandbox/sandbox.ts"
 import type { ChatPrincipal } from "./types.ts"
+import type { ChatCompactionArtifact } from "./compaction-middleware"
 
+const chatTestAttachmentStates = ["removed", "unreadable", "malformed", "compacted"]
+const CHAT_TEST_COVERED_IMAGE_ID = "019a0000-0000-7000-8000-000000000006"
 const CHAT_TEST_SAVED_FILE_ID = "019a0000-0000-7000-8000-000000000004"
 const ORGANIZATION_ID = OrganizationIdSchema.make("01990a5d-ac96-774b-b942-6b13c85384ca")
 const chatTestExecution = {
@@ -133,11 +140,23 @@ const CHAT_TEST_MODEL: ChatModelConfiguration = {
   modelId: "gpt-5.6-terra",
   fetch,
 }
+const CHAT_TEST_PRICING: ModelConfiguration = {
+  currency: "USD",
+  pricingSource: { kind: "manual" },
+  prices: { inputPerMillion: "1", outputPerMillion: "1" },
+  contextTiers: [],
+  contextWindowTokens: 16000,
+  maxInputTokens: null,
+  maxOutputTokens: 1000,
+  outputCap: 1000,
+}
 
 function chatTestLayer(options: {
   readonly agent?: ChatAgent | undefined
   readonly model?: ChatModelConfiguration | typeof undecryptable
   readonly history?: MessageRecord[]
+  readonly pricing?: ModelConfiguration | null
+  readonly compactions?: ChatCompactionArtifact[]
   readonly acquireMcp?: typeof McpTools.Service.acquire
   readonly sandboxSession?: typeof ChatSandboxes.Service.session
   readonly hydrate?: typeof ChatFiles.Service.hydrate
@@ -170,7 +189,8 @@ function chatTestLayer(options: {
         test: () => Effect.succeed({ toolCount: 0 }),
       }),
       Layer.succeed(ModelProviders, {
-        pricing: () => Effect.succeed(null),
+        pricing: () =>
+          Effect.succeed(options.pricing === undefined ? CHAT_TEST_PRICING : options.pricing),
         resolveForAgent: () =>
           options.model === undecryptable
             ? Effect.fail(new ModelProviderUnreadable())
@@ -182,6 +202,7 @@ function chatTestLayer(options: {
       } as unknown as UsageLimits["Service"]),
       Layer.succeed(ChatThreads, {
         history: () => Effect.succeed(options.history ?? []),
+        compactions: () => Effect.succeed(options.compactions ?? []),
         assertActive: () => Effect.void,
         interrupt: () => Effect.sync(() => chatRunTest.order.push("interrupted")),
       } as unknown as ChatThreads["Service"]),
@@ -223,12 +244,47 @@ beforeEach(() => {
 })
 
 describe("Chat.run", () => {
+  it.effect.each([false, true])(
+    "reports unavailable compaction capacity safely, limits configured: %s",
+    (configured) =>
+      Effect.gen(function* () {
+        const events = yield* Stream.runCollect(yield* runChat())
+        const error = events.find((event) => event.type === EventType.RUN_ERROR)
+        assert.strictEqual(
+          error?.message,
+          configured
+            ? "This agent’s instructions and tools exceed its model’s context limit. Ask the site owner to adjust the agent."
+            : "This agent’s model needs token limits. Ask the site owner to configure them.",
+        )
+        assert.notInclude(chatRunTest.order, "aborted")
+        assert.include(chatRunTest.order, "interrupted")
+      }).pipe(
+        Effect.provide(
+          chatTestLayer({
+            agent: sandboxedAgent,
+            model: CHAT_TEST_MODEL,
+            pricing: configured
+              ? {
+                  ...CHAT_TEST_PRICING,
+                  contextWindowTokens: 10,
+                  maxOutputTokens: 1,
+                  outputCap: 1,
+                }
+              : null,
+          }),
+        ),
+      ),
+  )
+
   it.effect.each([true, undefined])(
     "enables native debug only for an explicit development debug request: %s",
     (debug) =>
       Effect.gen(function* () {
         const events = yield* runChat({ forwardedProps: { debug } })
         yield* Stream.runCollect(Stream.take(events, 1))
+        assert.isTrue(
+          chatRunTest.options[0]!.middleware.some((middleware) => middleware.name === "compaction"),
+        )
         const native = chatRunTest.options[0]!.debug
         if (debug === true && IS_DEVELOPMENT_SERVER) {
           assert.isTrue(typeof native === "object" && typeof native.logger?.debug === "function")
@@ -505,7 +561,7 @@ describe("Chat.run", () => {
       ),
   )
 
-  it.effect.each(["removed", "unreadable", "malformed"])("saved files: %s", (state) =>
+  it.effect.each(chatTestAttachmentStates)("saved files: %s", (state) =>
     Effect.gen(function* () {
       if (state === "malformed") {
         const failure = yield* Effect.flip(runChat())
@@ -513,10 +569,11 @@ describe("Chat.run", () => {
         assert.isEmpty(chatRunTest.options)
         return
       }
+      const filename = state === "compacted" ? "sales-2.tsv" : "sales.tsv"
       yield* Stream.runCollect(Stream.take(yield* runChat(), 1))
       const options = chatRunTest.options[0]!
       assert.isEmpty(chatRunTest.hydrationCalls)
-      assert.include(JSON.stringify(options.messages), "[Attached: sales.tsv")
+      assert.include(JSON.stringify(options.messages), `[Attached: ${filename}`)
       assert.isFalse(options.tools.some((tool) => tool.name.startsWith("sandbox_")))
       assert.notInclude(options.systemPrompts, CHAT_SANDBOX_SYSTEM_PROMPT)
       assert.include(options.systemPrompts, sandboxedAgent.systemPrompt)
@@ -527,22 +584,31 @@ describe("Chat.run", () => {
           {} as Parameters<NonNullable<ChatMiddleware["onConfig"]>>[1],
         ),
       )
-      assert.include(JSON.stringify(refreshed?.providerMessages), "[Attached: sales.tsv")
+      assert.include(JSON.stringify(refreshed?.providerMessages), `[Attached: ${filename}`)
       assert.include(JSON.stringify(refreshed?.providerMessages), "iVBORw0KGgo=")
       assert.notInclude(JSON.stringify(refreshed?.providerMessages), `"type":"${APP_HANDLE}"`)
       assert.notInclude(JSON.stringify(chatRunTest.hydrationCalls), CHAT_TEST_SAVED_FILE_ID)
       const reader = refreshed?.tools?.find(
         (tool) => tool.name === "read_attachment",
       ) as AnyServerTool
+      if (state === "compacted") {
+        assert.notInclude(JSON.stringify(refreshed?.providerMessages), "[Attached: sales.tsv]")
+        assert.notInclude(JSON.stringify(chatRunTest.hydrationCalls), '"older"')
+        assert.notInclude(JSON.stringify(chatRunTest.hydrationCalls), CHAT_TEST_COVERED_IMAGE_ID)
+        const original = yield* Effect.promise(() =>
+          Promise.resolve(reader.execute?.({ file: "sales.tsv" }) as unknown),
+        )
+        assert.propertyVal(original, "file", "sales.tsv")
+      }
       const result = yield* Effect.promise(() =>
-        Promise.resolve(reader.execute?.({ file: "sales.tsv" }) as unknown),
+        Promise.resolve(reader.execute?.({ file: filename }) as unknown),
       )
       assert.notProperty(result, "sandboxPath")
       assert.notProperty(result, "content")
       const reads = chatRunTest.hydrationCalls.filter((call) =>
         JSON.stringify(call.messages).includes(CHAT_TEST_SAVED_FILE_ID),
       )
-      assert.lengthOf(reads, 1)
+      assert.lengthOf(reads, state === "compacted" ? 2 : 1)
       assert.deepStrictEqual(reads[0]!.scope, {
         ...chatTestExecution.claim.scope,
         threadId: chatTestExecution.claim.threadId,
@@ -551,7 +617,7 @@ describe("Chat.run", () => {
       yield* Effect.flip(
         Effect.tryPromise(() =>
           Promise.resolve(
-            reader.execute?.({ file: "sales.tsv" }, { abortSignal: AbortSignal.abort() }),
+            reader.execute?.({ file: filename }, { abortSignal: AbortSignal.abort() }),
           ),
         ).pipe(Effect.asVoid),
       )
@@ -564,6 +630,18 @@ describe("Chat.run", () => {
             sandboxProviderId: state === "unreadable" ? sandboxedAgent.sandboxProviderId : null,
           },
           model: CHAT_TEST_MODEL,
+          pricing: CHAT_TEST_PRICING,
+          compactions: [
+            {
+              id: "checkpoint",
+              coveredThroughMessageId: "older-reply",
+              payload: {
+                version: 1,
+                kind: "portable",
+                messages: [{ role: "user", content: "Earlier work" }],
+              },
+            },
+          ] as unknown as ChatCompactionArtifact[],
           hydrate: ({ messages }) =>
             Effect.succeed(
               messages.map((message) => ({
@@ -628,7 +706,41 @@ describe("Chat.run", () => {
                 ],
               },
             },
-          ] as unknown as MessageRecord[],
+          ].flatMap((message) =>
+            state === "compacted"
+              ? [
+                  {
+                    ...message,
+                    id: "older",
+                    payload: {
+                      ...message.payload,
+                      parts: [
+                        ...message.payload.parts,
+                        {
+                          id: "old-photo",
+                          type: "image",
+                          source: {
+                            type: APP_HANDLE,
+                            id: CHAT_TEST_COVERED_IMAGE_ID,
+                            mimeType: "image/png",
+                            byteSize: 8,
+                          },
+                          metadata: { filename: "old-photo.png" },
+                        },
+                      ],
+                    },
+                  },
+                  {
+                    id: "older-reply",
+                    role: "assistant",
+                    state: "complete",
+                    turnMessageId: "older",
+                    payload: { version: 1, parts: [] },
+                  },
+                  message,
+                ]
+              : [message],
+          ) as unknown as MessageRecord[],
         }),
       ),
     ),

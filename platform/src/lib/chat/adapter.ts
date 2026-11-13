@@ -1,4 +1,4 @@
-import { createModel, extendAdapter } from "@tanstack/ai"
+import { createModel, extendAdapter, type TokenUsage } from "@tanstack/ai"
 import { createAnthropicChat } from "@tanstack/ai-anthropic"
 import { createGeminiChat } from "@tanstack/ai-gemini"
 import { createGrokText } from "@tanstack/ai-grok"
@@ -6,6 +6,8 @@ import { createOpenaiChat } from "@tanstack/ai-openai"
 import { createOpenRouterText } from "@tanstack/ai-openrouter"
 import { HTTPClient } from "@openrouter/sdk/lib/http"
 import { openaiCompatibleText } from "@tanstack/ai-openai/compatible"
+
+import { fetchChatCompactionUsage } from "./compaction-usage"
 
 import type { ChatModelConfiguration } from "@/lib/model-providers/model-providers.server"
 
@@ -21,14 +23,25 @@ export function chatModelOutputOptions(
     : { max_tokens: maxTokens }
 }
 
-export function createChatAdapter(configuration: ChatModelConfiguration) {
+export function createChatAdapter(
+  configuration: ChatModelConfiguration,
+  onCompactionUsage?: (usage: TokenUsage) => Promise<void>,
+) {
   const models = [createModel(configuration.modelId, ["text", "image", "document"])]
   if (configuration.providerType === "openai" && configuration.api === "responses") {
     const createOpenaiModel = extendAdapter(createOpenaiChat, models)
     // Null stops the SDK reading OPENAI_ORG_ID and OPENAI_PROJECT_ID from the deployment.
     return createOpenaiModel(configuration.modelId, configuration.apiKey, {
       baseURL: configuration.baseUrl,
-      fetch: configuration.fetch,
+      fetch: onCompactionUsage
+        ? (input, init) =>
+            fetchChatCompactionUsage({
+              model: configuration,
+              input,
+              init,
+              record: onCompactionUsage,
+            })
+        : configuration.fetch,
       organization: null,
       project: null,
     })

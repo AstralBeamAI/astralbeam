@@ -145,6 +145,7 @@
         "@scalar/api-reference-react": "^0.9.81",
         "@tanstack/ai": "^1.2.0",
         "@tanstack/ai-anthropic": "^1.0.0",
+        "@tanstack/ai-compaction": "^1.0.0",
         "@tanstack/ai-effect": "^0.1.0",
         "@tanstack/ai-gemini": "^1.0.0",
         "@tanstack/ai-grok": "^1.0.0",
@@ -1470,6 +1471,8 @@
     "@tanstack/ai-anthropic": ["@tanstack/ai-anthropic@1.0.0", "", { "dependencies": { "@anthropic-ai/sdk": "^0.135.0", "@tanstack/ai-utils": "^1.0.0" }, "peerDependencies": { "@anthropic-ai/vertex-sdk": "^0.19.0", "@tanstack/ai": "^1.0.0" }, "optionalPeers": ["@anthropic-ai/vertex-sdk"] }, "sha512-YeJoyaSJ4wSqALXHfIX5Lxd9CulqwqU55bcNaLaqPPut+X6eH96aFXhX2qRhUOvH9vhK/8r7MmIroE/dpICBww=="],
 
     "@tanstack/ai-client": ["@tanstack/ai-client@1.0.0", "", { "dependencies": { "@tanstack/ai": "^1.0.0", "@tanstack/ai-event-client": "^1.0.0", "@tanstack/ai-utils": "^1.0.0", "@tanstack/store": "^0.11.1" } }, "sha512-lPba8LAMmJn7X/D6LongAR4RfwWv/6I/XJPiYKZ8C235VKQMN1ZszhswyFOCIDYJzgzO1N7azHTwoEwSohR48Q=="],
+
+    "@tanstack/ai-compaction": ["@tanstack/ai-compaction@1.0.0", "", { "peerDependencies": { "@tanstack/ai": "^1.0.0" } }, "sha512-UEnCgeCi78pTATi0cvFWM7XPoFebuQV2rptV2lm08g+DoD4WF2bTBJEoXpauUwLIIYaBc/rbAww7vvdRfqebVA=="],
 
     "@tanstack/ai-effect": ["@tanstack/ai-effect@0.1.0", "", { "peerDependencies": { "@tanstack/ai": "^1.2.0", "effect": "^4.1.0" } }, "sha512-Uid/fSXYV6Wdzny1fD3V98oqkfpg2BSAfnyQZXF62eJKM759hbCLSPGTDyAOMufJtoYdkK51oqgQ7/BHaGYquw=="],
 

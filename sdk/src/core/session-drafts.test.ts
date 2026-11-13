@@ -98,6 +98,7 @@ test.each(["selection", "api", "identity"] as const)(
     expect(chat.getState().submission?.phase).toBe("failed")
     await chat.openThread(threadB)
     expect(chat.getState().submission).toBeUndefined()
+    expect(chat.getState().preparingContext).toBe(false)
 
     if (change === "api") chat.updateOptions({ apiUrl: "https://replacement.example/api" })
     else if (change === "identity") {
@@ -236,6 +237,12 @@ test("new-conversation callbacks identify the destination and acknowledge input 
       { type: "text", content: "Start a saved conversation" },
     ])
     expect(settled).not.toHaveBeenCalled()
+    stream!.enqueue(
+      new TextEncoder().encode(
+        `data: ${JSON.stringify({ type: "CUSTOM", name: "compaction:started", value: {} })}\n\n`,
+      ),
+    )
+    await vi.waitFor(() => expect(chat.getState().preparingContext).toBe(true))
     chat.reset()
     stream?.close()
     stream = undefined
@@ -244,6 +251,7 @@ test("new-conversation callbacks identify the destination and acknowledge input 
     expect(onThreadReady).toHaveBeenCalledExactlyOnceWith(threadA)
     expect(chat.getState().thread).toBeUndefined()
     expect(chat.getState().submission).toBeUndefined()
+    expect(chat.getState().preparingContext).toBe(false)
   } finally {
     stream?.close()
   }
