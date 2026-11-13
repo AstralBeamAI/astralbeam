@@ -7,9 +7,9 @@ image: "/blog/images/saas-pricing-models.png"
 imageAlt: "A subscription and usage receipt shows the included allowance, extra work, and total against a customer-approved budget."
 ---
 
-An agent can chase an invoice without getting it paid. You can bill for the calls if that's the deal. If you promised to charge for money recovered, you haven't earned that fee. Someone still pays for the calls.
+An agent can chase an invoice without getting it paid. If you charge for calls, you can bill for the attempt. If you charge for money recovered, you can't. The calls cost money either way.
 
-Choose what the customer is buying, then decide who funds the work when it fails or runs long. The choices below fit together: a subscription can include jobs, with a charge for extra work.
+Decide what the customer buys and who pays when work fails or runs long. These choices can overlap: a subscription might include 200 jobs, with a charge for each extra job.
 
 ```glossary
 ## What to charge for?
@@ -46,7 +46,7 @@ fixed
 
 Seats need purchase controls too. An invitation can add to the bill, so let the owner approve the increase and proration first. [Slack](https://slack.com/help/articles/218915077-Slacks-Fair-Billing-Policy) credits inactivity on eligible self-serve plans.
 
-[Strella chose seats](https://www.bvp.com/atlas/durable-monetization-how-four-ai-founders-solved-the-pricing-puzzle) to avoid per-project approvals, with inference a small cost beside paying research participants. But seats get awkward if your agent helps a smaller team do the same work. [One builder described that renewal problem](https://www.reddit.com/r/SaaS/comments/1scw6p8/comment/ogipj5s/) and switched to transactions processed. If automation shrinks the paid team, test pricing by work processed.
+[Strella chose seats](https://www.bvp.com/atlas/durable-monetization-how-four-ai-founders-solved-the-pricing-puzzle) to avoid per-project approvals. Its model costs were small beside the cost of paying research participants. But seats get awkward if your agent helps a smaller team do the same work. [One builder described that renewal problem](https://www.reddit.com/r/SaaS/comments/1scw6p8/comment/ogipj5s/) and switched to transactions processed. If automation shrinks the paid team, test pricing by work processed.
 
 ```pricing
 seats
@@ -56,13 +56,13 @@ seats
 
 What would a normal month cost? Take a customer's workload and sketch a bill. [Anthropic](https://platform.claude.com/docs/en/about-claude/pricing) and [GitHub](https://github.blog/news-insights/company-news/github-copilot-is-moving-to-usage-based-billing/) explain their usage rates. [One founder](https://www.reddit.com/r/SaaS/comments/1r1k8sx/seat_vs_usage_based_pricing/) found usage pricing helped rollout, but prospects worried about spending and established customers asked for seats.
 
-An alert won't stop a job. Reserve money before concurrent jobs can spend it twice, record actual usage, and release anything unused. Limit each run too, since provider reports can arrive late.
+An alert won't stop a job. Reserve each job's budget before it starts, so two jobs can't spend the same balance. Charge for actual usage and release the rest. Cap each run too: provider reports can arrive late.
 
 ```pricing
 usage
 ```
 
-We've set the allowance to two actions here. They cost $0.20, after which the agent asks to continue. The failure example ran four successful tools and left the issue open. For your own action rates, compare [Salesforce](https://www.salesforce.com/agentforce/pricing/) and decide how failures and retries count, as [Zapier](https://help.zapier.com/hc/en-us/articles/8496196837261-How-is-task-usage-measured-in-Zapier) does.
+In the next example, two actions cost $0.20. The agent then asks before doing more. In the failure, four tools succeed but the customer's issue stays open. For your own action rates, compare [Salesforce](https://www.salesforce.com/agentforce/pricing/) and decide how failures and retries count, as [Zapier](https://help.zapier.com/hc/en-us/articles/8496196837261-How-is-task-usage-measured-in-Zapier) does.
 
 ```pricing
 tool
@@ -70,7 +70,7 @@ tool
 
 ### Jobs: a workflow, export, or conversation
 
-Your customer may know they need 500 reports a month without knowing the token count. A price per job lets them estimate the bill. [n8n](https://n8n.io/pricing/) bills workflow executions. Specify input and duration limits, included services, and when you charge. With conversations, does returning tomorrow start a new one?
+Your customer may know they need 500 reports a month without knowing the token count. A price per job lets them estimate the bill. [n8n](https://n8n.io/pricing/) bills workflow executions. Specify input and duration limits, included services, and when you charge. For conversations, say whether returning tomorrow starts a new one.
 
 [Mintlify's cofounder](https://x.com/handotdev/status/2097459135747084603) described fixed prices per completed action while absorbing variable compute costs. If you pay the provider, you'd carry that risk too. Completing a job doesn't always solve the customer's problem.
 
@@ -96,7 +96,7 @@ outcome
 
 ### Provider cost plus your fee
 
-With cost plus markup, your fee sits on top of the provider bill. [Stripe's token-billing docs](https://docs.stripe.com/billing/token-billing) describe this through Metronome. Say whether you bill list or negotiated rates and how caching, tools, and failed calls count. Save the rate used for each run.
+Markup adds your fee to the provider bill. [Stripe's token-billing docs](https://docs.stripe.com/billing/token-billing) describe this through Metronome. Say whether you bill list or negotiated rates and how caching, tools, and failed calls count. Save the rate used for each run.
 
 A 20% markup on $10 makes a $12 bill. The $2 spread divided by $12 revenue is **16.7%**, before other serving costs. A 20% margin requires **$10 ÷ 0.8 = $12.50**, again excluding those costs.
 
@@ -140,7 +140,7 @@ hybrid
 
 ## Test the bill before changing your plans
 
-Show a customer two pilot invoices for the same work, using different pricing plans. Count failures, retries, tools, support, and human review in your costs. Ask which bill they can budget and who would approve extra spend. Then measure adoption, margin, and retention.
+Show a customer two pilot invoices for the same work, using different pricing plans. Ask which bill they can budget and who would approve extra spend. Count failures, retries, tools, support, and human review in your costs. Then measure adoption, margin, and retention.
 
 [Stripe's survey](https://stripe.com/blog/saas-platform-trends-in-AI-era) of 200 North American and European SaaS leaders, half Stripe customers, found a quarter planned seats plus agent charges. Those are seller plans. Ask buyers whether [Levie's comparison with work performed](https://x.com/levie/status/1976462057840181320) matches their own costs.
 
@@ -152,7 +152,7 @@ Put the estimate beside the action that starts the job, along with the rate and 
 
 Keep a receipt with the job ID, billable event, quantity, rate version, allowance, and adjustments. Check what a limit covers before calling it hard. [Vercel](https://vercel.com/docs/spend-management) documents timing restrictions. [Snowflake's warehouse monitors](https://docs.snowflake.com/en/user-guide/resource-monitors) leave some serverless and AI usage outside their scope. Test concurrent jobs, late reports, failed cancellation, and an empty balance.
 
-Return to the unpaid invoice. Before another run starts, you and the customer should be able to explain the bill if it gets paid and if it doesn't.
+Go back to the unpaid invoice. Before the agent tries again, you and the customer should know what you'll charge if it gets paid and if it doesn't.
 
 ## Try it in your app
 
