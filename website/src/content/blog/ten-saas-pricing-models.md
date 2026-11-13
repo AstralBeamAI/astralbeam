@@ -86,7 +86,7 @@ If your agent recovers money, you can charge a share, as [Chargeflow](https://ww
 
 Agree on what counts as done and how customers can dispute it. The [Skope discussion on HN](https://news.ycombinator.com/item?id=44973758) gets into that evidence problem. Unsuccessful attempts still cost money.
 
-Our fictional $1 charge needs customer confirmation and reverses if the issue reopens within seven days. Closing it again needs new confirmation. Seven days is our rule, not Fin's. [Ada](https://www.ada.cx/platform/) says most customers choose conversation pricing, with resolution pricing for specific enterprise needs.
+Our fictional $1 charge needs customer confirmation and reverses if the issue reopens within seven days. Closing it again needs new confirmation. [Ada](https://www.ada.cx/platform/) says most customers choose conversation pricing, with resolution pricing for specific enterprise needs.
 
 ```pricing
 outcome
