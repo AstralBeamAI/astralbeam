@@ -38,7 +38,7 @@ export function HighlightedCode({
           {title ?? language}
         </CodeBlockTitle>
         <CodeBlockActions>
-          <CodeBlockCopyButton value={code} className="any-pointer-coarse:size-11" />
+          <CodeBlockCopyButton value={code} className="any-pointer-coarse:size-8" />
         </CodeBlockActions>
       </CodeBlockHeader>
       <CodeBlockContent

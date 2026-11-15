@@ -126,7 +126,7 @@ export function McpConnectionsPanel({
                 </p>
                 <Button
                   size="sm"
-                  className="any-pointer-coarse:min-h-11 any-pointer-coarse:min-w-11"
+                  className="any-pointer-coarse:min-h-8 any-pointer-coarse:min-w-8"
                   onClick={() => void catalog.refetch()}
                 >
                   Try again
@@ -278,7 +278,7 @@ export function McpConnectionsPanel({
                               {name} value
                             </FieldLabel>
                             <Input
-                              className="any-pointer-coarse:min-h-11 any-pointer-coarse:text-base"
+                              className="any-pointer-coarse:min-h-8 any-pointer-coarse:text-base"
                               id={`${fieldId}-${server.id}-${name}`}
                               name={name}
                               type="password"
@@ -308,14 +308,14 @@ export function McpConnectionsPanel({
                           <Button
                             type="submit"
                             size="sm"
-                            className="any-pointer-coarse:min-h-11 any-pointer-coarse:min-w-11"
+                            className="any-pointer-coarse:min-h-8 any-pointer-coarse:min-w-8"
                           >
                             Save credentials
                           </Button>
                           <Button
                             type="button"
                             size="sm"
-                            className="any-pointer-coarse:min-h-11 any-pointer-coarse:min-w-11"
+                            className="any-pointer-coarse:min-h-8 any-pointer-coarse:min-w-8"
                             variant="outline"
                             onClick={() => setHeadersFor(null)}
                           >

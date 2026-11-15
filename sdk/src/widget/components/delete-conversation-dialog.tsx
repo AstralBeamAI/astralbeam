@@ -47,14 +47,14 @@ export function DeleteConversationDialog({
         )}
         <AlertDialogFooter>
           <AlertDialogCancel
-            className="any-pointer-coarse:min-h-11 any-pointer-coarse:min-w-11"
+            className="any-pointer-coarse:min-h-8 any-pointer-coarse:min-w-8"
             disabled={deleting}
           >
             Cancel
           </AlertDialogCancel>
           <Button
             variant="destructive"
-            className="any-pointer-coarse:min-h-11 any-pointer-coarse:min-w-11"
+            className="any-pointer-coarse:min-h-8 any-pointer-coarse:min-w-8"
             disabled={deleting}
             onClick={() => {
               setDeleting(true)

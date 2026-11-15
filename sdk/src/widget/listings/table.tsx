@@ -148,7 +148,7 @@ export function DirectoryTable({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="any-pointer-coarse:min-h-11 any-pointer-coarse:min-w-11"
+                    className="any-pointer-coarse:min-h-8 any-pointer-coarse:min-w-8"
                     onClick={() =>
                       "tenant_id" in record
                         ? onTenantUserSelect?.(record)

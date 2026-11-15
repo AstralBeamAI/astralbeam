@@ -139,7 +139,7 @@ export function mountAstralBeamChat(
       }
       @keyframes astralbeam-loading-spin { to { transform: rotate(360deg); } }
       @media (any-pointer: coarse) {
-        [data-slot="chat-loading"] button { inset-block-start: 6px; width: 44px; height: 44px; }
+        [data-slot="chat-loading"] button { inset-block-start: 12px; width: 32px; height: 32px; }
       }
       @media (prefers-reduced-motion: reduce) {
         [data-slot="chat-loading-status"][data-loading]::before { animation: none; }
