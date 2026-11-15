@@ -213,7 +213,7 @@ export function ThreadHistory({
                         aria-label={threadTitle(thread)}
                         aria-current={current ? "true" : undefined}
                         className={cn(
-                          "group/thread ps-2 pe-1 any-pointer-coarse:min-h-11",
+                          "group/thread ps-2 pe-1 any-pointer-coarse:min-h-8",
                           current && "bg-muted font-semibold",
                         )}
                       >

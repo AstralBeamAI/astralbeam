@@ -70,7 +70,7 @@ export function ConversationTitle({
           }}
         />
       )}
-      <div className="flex h-10 items-center gap-1 px-4 any-pointer-coarse:min-h-11">
+      <div className="flex h-10 items-center gap-1 px-4">
         {renaming ? (
           <form
             className="flex min-w-0 flex-1 gap-1"
@@ -90,7 +90,7 @@ export function ConversationTitle({
             <Input
               ref={input}
               aria-label="Conversation title"
-              className="h-7 any-pointer-coarse:min-h-11"
+              className="h-7 any-pointer-coarse:min-h-8"
               value={title}
               maxLength={200}
               disabled={saving}
@@ -145,7 +145,7 @@ export function ConversationTitle({
               </DropdownMenuTrigger>
               <DropdownMenuContent container={container} align="end" className="w-40">
                 <DropdownMenuItem
-                  className="any-pointer-coarse:min-h-11"
+                  className="any-pointer-coarse:min-h-8"
                   disabled={!editable}
                   onClick={() => {
                     setTitle(thread.title ?? "")
@@ -156,7 +156,7 @@ export function ConversationTitle({
                   Rename
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  className="any-pointer-coarse:min-h-11"
+                  className="any-pointer-coarse:min-h-8"
                   disabled={state.messages.length === 0}
                   onClick={() => {
                     void navigator.clipboard
@@ -169,7 +169,7 @@ export function ConversationTitle({
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  className="any-pointer-coarse:min-h-11"
+                  className="any-pointer-coarse:min-h-8"
                   variant="destructive"
                   disabled={!editable}
                   onClick={() => setConfirmDelete(true)}

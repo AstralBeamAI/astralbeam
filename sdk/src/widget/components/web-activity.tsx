@@ -42,7 +42,7 @@ export function WebActivity({ part, active }: { part: ChatToolCallPart; active: 
             target="_blank"
             rel="nofollow noopener noreferrer"
             referrerPolicy="no-referrer"
-            className="min-w-0 flex-col items-start any-pointer-coarse:min-h-11 any-pointer-coarse:min-w-11 any-pointer-coarse:justify-center"
+            className="min-w-0 flex-col items-start any-pointer-coarse:min-h-8 any-pointer-coarse:min-w-8 any-pointer-coarse:justify-center"
           >
             <TraceLine>
               <TraceTitle className="whitespace-normal wrap-anywhere">

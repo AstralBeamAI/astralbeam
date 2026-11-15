@@ -68,7 +68,7 @@ function McpServers(options: MountAstralBeamMcpServersOptions) {
         {options.onCreateServer && !adding && (
           <Button
             size="sm"
-            className="any-pointer-coarse:min-h-11 any-pointer-coarse:min-w-11"
+            className="any-pointer-coarse:min-h-8 any-pointer-coarse:min-w-8"
             onClick={() => setAdding(true)}
           >
             <PlusIcon /> Add MCP server
@@ -146,7 +146,7 @@ function McpServers(options: MountAstralBeamMcpServersOptions) {
                 <div className="flex justify-end gap-2">
                   <Button
                     size="xs"
-                    className="any-pointer-coarse:min-h-11 any-pointer-coarse:min-w-11"
+                    className="any-pointer-coarse:min-h-8 any-pointer-coarse:min-w-8"
                     variant="outline"
                     disabled={busy}
                     onClick={() => setRemoval(null)}
@@ -155,7 +155,7 @@ function McpServers(options: MountAstralBeamMcpServersOptions) {
                   </Button>
                   <Button
                     size="xs"
-                    className="any-pointer-coarse:min-h-11 any-pointer-coarse:min-w-11"
+                    className="any-pointer-coarse:min-h-8 any-pointer-coarse:min-w-8"
                     variant="destructive"
                     disabled={busy}
                     onClick={() => void remove(server.id)}
@@ -283,7 +283,7 @@ function McpServerForm({
           <CardHeader>
             <CardTitle className="text-sm">Add MCP server</CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-1 gap-2.5 [&_[data-slot=input]]:text-xs [&_[data-slot=native-select]]:text-xs any-pointer-coarse:[&_input]:min-h-11 any-pointer-coarse:[&_[data-slot=input]]:text-base any-pointer-coarse:[&_[data-slot=native-select]]:text-base any-pointer-coarse:[&_select]:min-h-11">
+          <CardContent className="grid grid-cols-1 gap-2.5 [&_[data-slot=input]]:text-xs [&_[data-slot=native-select]]:text-xs any-pointer-coarse:[&_input]:min-h-8 any-pointer-coarse:[&_[data-slot=input]]:text-base any-pointer-coarse:[&_[data-slot=native-select]]:text-base any-pointer-coarse:[&_select]:min-h-8">
             {field("endpointUrl", "Server URL", {
               type: "url",
               autoFocus: true,
@@ -375,7 +375,7 @@ function McpServerForm({
               type="button"
               size="sm"
               variant="outline"
-              className="any-pointer-coarse:min-h-11 any-pointer-coarse:min-w-11"
+              className="any-pointer-coarse:min-h-8 any-pointer-coarse:min-w-8"
               onClick={close}
             >
               Cancel
@@ -383,7 +383,7 @@ function McpServerForm({
             <Button
               type="submit"
               size="sm"
-              className="any-pointer-coarse:min-h-11 any-pointer-coarse:min-w-11"
+              className="any-pointer-coarse:min-h-8 any-pointer-coarse:min-w-8"
             >
               {busy ? "Saving…" : "Add MCP server"}
             </Button>

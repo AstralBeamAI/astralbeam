@@ -104,7 +104,7 @@ export function SearchDropdown<T extends { id: string }>({
             render={
               <Button
                 variant="outline"
-                className="w-full justify-between any-pointer-coarse:min-h-11 any-pointer-coarse:min-w-11"
+                className="w-full justify-between any-pointer-coarse:min-h-8 any-pointer-coarse:min-w-8"
               />
             }
           >
@@ -139,7 +139,7 @@ export function SearchDropdown<T extends { id: string }>({
               <Button
                 variant="ghost"
                 size="sm"
-                className="any-pointer-coarse:min-h-11 any-pointer-coarse:min-w-11"
+                className="any-pointer-coarse:min-h-8 any-pointer-coarse:min-w-8"
                 disabled={query.isFetching}
                 onClick={() =>
                   void (query.isFetchNextPageError ? query.fetchNextPage() : query.refetch())

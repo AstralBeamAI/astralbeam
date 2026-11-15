@@ -470,7 +470,7 @@ function PageNavigation({
       <Button
         variant="outline"
         size="sm"
-        className="any-pointer-coarse:min-h-11"
+        className="any-pointer-coarse:min-h-8"
         disabled={busy || !page?.page_before}
         onClick={() => onPage({ page_before: page!.page_before! })}
       >
@@ -479,7 +479,7 @@ function PageNavigation({
       <Button
         variant="outline"
         size="sm"
-        className="any-pointer-coarse:min-h-11"
+        className="any-pointer-coarse:min-h-8"
         disabled={busy || !page?.page_after}
         onClick={() => onPage({ page_after: page!.page_after! })}
       >
