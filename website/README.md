@@ -35,6 +35,8 @@ Blog articles live in `src/content/blog/*.md`. Edit the prose and YAML front mat
 
 Fenced blocks with the language `demo` embed the interactive example named inside, such as `retry`. The available examples are in `src/routes/blog/-components/failure-demo.tsx`. Pricing simulations use the language `pricing` and keys from `src/routes/blog/-components/pricing-demo.tsx`, such as `markup`. A `glossary` fence renders its Markdown as a styled question-and-options guide before the explanations. Normal Markdown handles the rest of the article. These examples run entirely in the browser with synthetic data and no model calls. Keep each example's explanation in the Markdown so the article remains useful without JavaScript.
 
+The `cost-demo` fence embeds cost simulations from `src/routes/blog/-components/cost-demo.tsx`. Animated packets and qualitative cost drivers explain each mechanism without implying measured savings. Each simulation plays the expensive approach followed by the better pattern, with pause and replay controls.
+
 Two caveats for the development server. Vite claims `.png` requests before Nitro sees them, so `/favicon.png` and `/og-image.png` answer 404 under `dev` while building them correctly. Nitro also registers its public output directory as a top-level asset root, so do not point `output.publicDir` back inside the project: every path the last build wrote a file for would then fail under `dev`.
 
 All animation respects `prefers-reduced-motion`. Fonts are self-hosted via @fontsource (Anton / Space Grotesk / JetBrains Mono / Source Serif 4).

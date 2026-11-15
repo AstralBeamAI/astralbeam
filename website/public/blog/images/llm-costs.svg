@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">Make every token count</title>
+  <desc id="desc">Repeated context flows through filtering, code, and caching into a smaller useful working set for a model.</desc>
+  <defs>
+    <pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#c3cec1"/></pattern>
+  </defs>
+  <path fill="#e8eee2" d="M0 0h1200v630H0z"/>
+  <path fill="url(#grid)" d="M590 0h610v630H590z"/>
+  <g fill="#264c3d">
+    <text x="64" y="84" font-family="Arial,sans-serif" font-size="15" letter-spacing="3">ASTRALBEAM / FIELD NOTES</text>
+    <text x="64" y="264" font-family="Georgia,serif" font-size="64" letter-spacing="-2">Make every</text>
+    <text x="64" y="338" font-family="Georgia,serif" font-size="64" letter-spacing="-2">token count.</text>
+    <text x="66" y="403" font-family="Arial,sans-serif" font-size="20" fill="#536653">Less repeated work. Lower LLM costs.</text>
+  </g>
+  <rect x="65" y="494" width="205" height="40" rx="20" fill="#d5e3d0"/>
+  <text x="88" y="520" fill="#264c3d" font-family="Arial,sans-serif" font-size="14">AN INTERACTIVE GUIDE</text>
+  <g stroke="#aabca5" stroke-width="2" fill="none">
+    <path d="M770 195v47m270-47v47M905 337v47M770 242h270M905 242v27"/>
+  </g>
+  <g font-family="Arial,sans-serif">
+    <rect x="640" y="94" width="240" height="101" rx="12" fill="#faf0e9" stroke="#d5a996"/>
+    <text x="663" y="128" font-size="12" letter-spacing="1" fill="#9a5140">REPEATED CONTEXT</text>
+    <path d="M663 151h185m-185 17h150" stroke="#cfac9a" stroke-width="6" stroke-linecap="round"/>
+    <rect x="910" y="94" width="240" height="101" rx="12" fill="#faf0e9" stroke="#d5a996"/>
+    <text x="933" y="128" font-size="12" letter-spacing="1" fill="#9a5140">INTERMEDIATE DATA</text>
+    <path d="M933 151h185m-185 17h150" stroke="#cfac9a" stroke-width="6" stroke-linecap="round"/>
+    <rect x="713" y="269" width="384" height="68" rx="12" fill="#fffef9" stroke="#b0c4a8"/>
+    <text x="742" y="311" font-size="23" fill="#264c3d">Filter. Compute. Reuse.</text>
+    <rect x="747" y="384" width="316" height="154" rx="12" fill="#f6faf2" stroke="#8eac88"/>
+    <text x="774" y="423" font-size="12" letter-spacing="1" fill="#456a40">MODEL WORKING SET</text>
+    <text x="774" y="464" font-size="24" fill="#264c3d">Just what it needs.</text>
+    <text x="774" y="503" font-size="16" fill="#536653">Measure cost per completed task.</text>
+  </g>
+</svg>

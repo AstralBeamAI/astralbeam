@@ -9,6 +9,7 @@ import { pageHead } from "@/lib/page-head"
 import { siteMetadata, siteUrl } from "@/lib/site"
 
 import { BlogShell } from "./-components/blog-shell"
+import { CostDemo } from "./-components/cost-demo"
 import { FailureDemo } from "./-components/failure-demo"
 import { PricingDemo } from "./-components/pricing-demo"
 
@@ -116,6 +117,9 @@ const markdownComponents: Components = {
         }
         if (code.properties.className.includes("language-demo")) {
           return <FailureDemo kind={text.value.trim()} />
+        }
+        if (code.properties.className.includes("language-cost-demo")) {
+          return <CostDemo kind={text.value.trim()} />
         }
       }
     }

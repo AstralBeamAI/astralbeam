@@ -35,6 +35,12 @@
 /blog/images/saas-pricing-models.svg
   Cache-Control: public, max-age=300, must-revalidate
 
+/blog/images/llm-costs.png
+  Cache-Control: public, max-age=300, must-revalidate
+
+/blog/images/llm-costs.svg
+  Cache-Control: public, max-age=300, must-revalidate
+
 /demo/returns-q3.csv
   Cache-Control: public, max-age=300, must-revalidate
 
