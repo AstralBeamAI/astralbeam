@@ -69,3 +69,9 @@ Point your app at a replacement before deleting its agent. If you delete the def
 ## Who can change agents
 
 Owners and developers can create, edit, and delete agents. Viewers cannot access these pages. See [Members](./members.md).
+
+## Long conversations
+
+Agents automatically summarize older context as their model window fills up. The full conversation and attachments stay saved and visible, but summaries can lose details. Summary calls count toward the same usage limits as chat replies.
+
+Custom models need token limits configured in Models. Thresholds and recent-context retention are managed automatically.

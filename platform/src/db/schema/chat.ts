@@ -13,6 +13,7 @@ import {
   type PgTableExtraConfigValue,
 } from "drizzle-orm/pg-core"
 
+import { ChatCompactionPayloadSchema } from "@/lib/chat/compaction"
 import { ApiUuidSchema } from "@/lib/schemas.ts"
 import {
   deferrableForeignKey,
@@ -43,6 +44,7 @@ const ChatMessageMetadataSchema = Schema.Struct({
       providerType: Schema.optional(Schema.String),
       protocol: Schema.optional(Schema.String),
       modelId: Schema.optional(Schema.String),
+      contextKey: Schema.optional(Schema.String),
       usage: Schema.optional(Schema.JsonObject),
     }),
   ),
@@ -435,6 +437,50 @@ export const chatFile = snakeCase.table(
     deferrableForeignKey({
       columns: [table.organizationId, table.fileObjectId],
       foreignColumns: [fileObject.organizationId, fileObject.id],
+    }).onDelete("cascade"),
+  ],
+)
+
+export const chatCompaction = snakeCase.table(
+  "chat_compaction",
+  {
+    organizationId: uuid().notNull(),
+    id: uuidV7(),
+    tenantId: uuid().notNull(),
+    threadId: uuid().notNull(),
+    coveredThroughMessageId: uuid().notNull(),
+    compatibilityKey: text().notNull(),
+    payload: schemaJsonb(ChatCompactionPayloadSchema).notNull(),
+    usage: schemaJsonb(Schema.JsonObject).notNull(),
+    ...timestamps(),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    primaryKey({ columns: [table.organizationId, table.tenantId, table.id] }),
+    uniqueIndex("chat_compaction_anchor_uidx").on(
+      table.organizationId,
+      table.tenantId,
+      table.threadId,
+      table.coveredThroughMessageId,
+      table.compatibilityKey,
+      sql`(${table.payload}->>'kind')`,
+    ),
+    deferrableForeignKey({
+      columns: [table.organizationId, table.tenantId, table.threadId],
+      foreignColumns: [chatThread.organizationId, chatThread.tenantId, chatThread.id],
+    }).onDelete("cascade"),
+    deferrableForeignKey({
+      columns: [
+        table.organizationId,
+        table.tenantId,
+        table.threadId,
+        table.coveredThroughMessageId,
+      ],
+      foreignColumns: [
+        chatMessage.organizationId,
+        chatMessage.tenantId,
+        chatMessage.threadId,
+        chatMessage.id,
+      ],
     }).onDelete("cascade"),
   ],
 )
