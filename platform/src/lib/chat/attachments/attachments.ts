@@ -1,7 +1,7 @@
 import { type ChatMiddleware, type ModelMessage, EventType } from "@tanstack/ai"
 import { Context, Effect, Layer, Predicate, Result, Schema } from "effect"
 import { createHash } from "node:crypto"
-import { and, eq, isNull, or } from "drizzle-orm"
+import { and, eq, inArray, isNull, notExists, or } from "drizzle-orm"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate.ts"
 import { Database } from "@/db/database.ts"
 import { chatFile } from "@/db/schema/chat.ts"
@@ -577,6 +577,10 @@ export class ChatFiles extends Context.Service<
       payload: ChatMessagePayload
       cache?: ChatFileCache
     }) => Effect.Effect<ChatMessagePayload, FileError>
+    readonly retireUnattached: (input: {
+      scope: ChatThreadScope
+      fileIds: readonly string[]
+    }) => Effect.Effect<void>
     readonly read: (input: ChatFileReadInput) => Effect.Effect<ChatFileBytes, FileError>
     readonly download: (
       input: ChatFileReadInput & { contentDisposition: string },
@@ -621,6 +625,47 @@ export class ChatFiles extends Context.Service<
             scope.threadId ? eq(chatFile.threadId, scope.threadId) : undefined,
           ),
         )
+      const retireUnattached = Effect.fn("ChatFiles.retireUnattached")(function* ({
+        scope,
+        fileIds,
+      }: Parameters<typeof ChatFiles.Service.retireUnattached>[0]) {
+        if (fileIds.length === 0) return
+        const tenantFiles = and(
+          eq(chatFile.organizationId, scope.organizationId),
+          eq(chatFile.tenantId, scope.tenantId),
+        )
+        yield* db
+          .transaction((tx) =>
+            Effect.gen(function* () {
+              yield* tx
+                .delete(chatFile)
+                .where(
+                  and(
+                    tenantFiles,
+                    eq(chatFile.uploaderTenantUserId, scope.tenantUserId),
+                    inArray(chatFile.fileObjectId, fileIds),
+                    isNull(chatFile.messageId),
+                  ),
+                )
+              yield* tx
+                .update(fileObject)
+                .set({ status: "purging" })
+                .where(
+                  and(
+                    eq(fileObject.organizationId, scope.organizationId),
+                    inArray(fileObject.id, fileIds),
+                    notExists(
+                      tx
+                        .select({ id: chatFile.id })
+                        .from(chatFile)
+                        .where(and(tenantFiles, eq(chatFile.fileObjectId, fileObject.id))),
+                    ),
+                  ),
+                )
+            }),
+          )
+          .pipe(Effect.catchCause(() => Effect.logWarning("Could not retire unused chat uploads")))
+      })
       const upload = Effect.fnUntraced(function* (
         scope: ChatThreadScope,
         part: JsonObject,
@@ -645,7 +690,10 @@ export class ChatFiles extends Context.Service<
               uploaderTenantUserId: scope.tenantUserId,
               fileObjectId: saved.id,
             })
-            .pipe(mapDatabaseErrors())
+            .pipe(
+              mapDatabaseErrors(),
+              Effect.onError(() => retireUnattached({ scope, fileIds: [saved.id] })),
+            )
           reference = {
             type: APP_HANDLE,
             id: saved.id,
@@ -863,6 +911,7 @@ export class ChatFiles extends Context.Service<
       })
       return ChatFiles.of({
         store: (input) => store(input).pipe(mapDatabaseErrors()),
+        retireUnattached,
         read: (input) => read(input).pipe(mapDatabaseErrors()),
         download: (input) =>
           download(input).pipe(

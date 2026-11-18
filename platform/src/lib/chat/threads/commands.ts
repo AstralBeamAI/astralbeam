@@ -1,5 +1,5 @@
 import { convertMessagesToModelMessages, normalizeToUIMessage } from "@tanstack/ai"
-import { type Cause, Effect, JsonSchema, Schema, SchemaRepresentation } from "effect"
+import { type Cause, Effect, Exit, JsonSchema, Schema, SchemaRepresentation } from "effect"
 
 import { NonEmptyStringSchema } from "@/lib/schemas"
 import { ApiUuidSchema } from "@/lib/tenants/schemas"
@@ -10,6 +10,7 @@ import { withDatabaseIdempotency } from "@/db/lib/idempotency"
 import { CHAT_ATTACHMENT_MAX_COUNT } from "../attachments/constants"
 import {
   ChatFiles,
+  type ChatFileCache,
   identifyChatFiles,
   normalizeChatAttachments,
   sanitizeAttachmentFilename,
@@ -31,6 +32,7 @@ import {
 
 const managedChatOptions = Schema.Struct({
   clientId: ApiUuidSchema,
+  clientMessageId: Schema.optionalKey(ApiUuidSchema),
   agentId: Schema.optionalKey(Schema.String),
 })
 const decodeChatJson = Schema.decodeUnknownEffect(Schema.Json)
@@ -215,6 +217,15 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
       .resolveConfiguration({ organizationId: scope.organizationId, id: agent.sandboxProviderId })
       .pipe(Effect.mapError(() => new ChatAttachmentSandboxRequired()))
   }
+  const newUploads: ChatFileCache = new Map()
+  yield* Effect.addFinalizer((exit) =>
+    newUploads.size === 0 || (Exit.isSuccess(exit) && admission !== undefined)
+      ? Effect.void
+      : files.retireUnattached({
+          scope,
+          fileIds: Array.from(newUploads.values(), ({ id }) => id),
+        }),
+  )
   // Defer preparation failures so an existing receipt can replay, without storing rejected uploads.
   const prepared = yield* Effect.result(
     Effect.gen(function* () {
@@ -226,11 +237,17 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
       yield* usageLimits.check({ limits, subject: { ...scope, threadId: id } })
       return yield* files.store({
         scope: { ...scope, threadId: id },
+        cache: newUploads,
         payload: {
           version: 1,
           parts: parts.map((part) => ({ ...part, id: crypto.randomUUID() })),
           tools,
-          provenance: { clientId: options.clientId },
+          provenance: {
+            clientId: options.clientId,
+            ...(options.clientMessageId === undefined
+              ? {}
+              : { clientMessageId: options.clientMessageId }),
+          },
         },
       })
     }),
@@ -281,7 +298,7 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
           ),
         )
   return { admission, receipt, clientId: options.clientId }
-})
+}, Effect.scoped)
 
 export interface ManagedToolResultInput {
   readonly sourceMessageId: string

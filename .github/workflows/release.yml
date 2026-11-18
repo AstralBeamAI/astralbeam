@@ -10,7 +10,7 @@ on:
         type: boolean
         default: false
       minimal:
-        description: Skip verification, source maps, smoke tests, and Intel macOS and Windows binaries, and stage the SDK and CLI and release in one job. Dry runs use the full verification path.
+        description: Skip verification, source maps, smoke tests, and Intel macOS and Windows binaries. Minimal releases never become latest. Dry runs use the full verification path.
         type: boolean
         default: false
 
@@ -403,4 +403,4 @@ jobs:
         run: |
           version="$(jq -r .version platform/package.json)"
           cd platform-binaries
-          gh release create "v$version" --target "$GITHUB_SHA" --latest --generate-notes astralbeam-* SHA256SUMS
+          gh release create "v$version" --target "$GITHUB_SHA" --latest=false --generate-notes astralbeam-* SHA256SUMS

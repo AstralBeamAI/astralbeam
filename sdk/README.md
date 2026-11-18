@@ -105,6 +105,8 @@ Download an attachment with `chat.getThreadAttachment({ threadId, fileId })`, wh
 
 By default, `threadId: "auto"` restores this tab's selection after reload using session storage, scoped to the current account, API, and `placementKey ?? agentId ?? "default"`. Use distinct placement keys for independent chats with the same agent. A fresh, independently opened tab starts a new chat. Use `threadId: "new"` to bypass restoration, or pass a saved thread UUID. The widget keeps unsent text and uploaded file references in local storage per placement, account, API, and conversation. Reopening restores the draft without sending it automatically. The host owns sidebar visibility and can persist it separately in session storage.
 
+Same-tab reloads and remounts can recover an unacknowledged text or uploaded-file submission for an explicit Retry. Retry reuses the original admission key within its 24-hour window. If browser session storage was unavailable or the replay window expired, check saved history before sending that input again.
+
 ## Tools and widgets
 
 A tool does something: its `execute` runs in your page. A widget shows something: its `render` draws your UI into the conversation. Both are declared with a `description` and a `parameters` schema. See [Tools and widgets](https://astralbeam.ai/docs/sdk/tools-and-widgets).

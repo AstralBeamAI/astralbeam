@@ -31,7 +31,14 @@ import {
   type JwtOptions,
 } from "../api/api.ts"
 import { createDebugLogger } from "../lib/debug.ts"
-import { storedThreadAttachments, storedThreadDraft } from "../lib/drafts.ts"
+import {
+  chatDraftIdentity,
+  type PendingSubmission,
+  type PendingSubmissionScope,
+  storedPendingSubmission,
+  storedThreadAttachments,
+  storedThreadDraft,
+} from "../lib/drafts.ts"
 import type { MountAstralBeamChatOptions } from "../lib/types.ts"
 import { buildAgentTools, HOST_TOOL_NOT_EXECUTED, type WidgetDeclaration } from "./agent-tools.ts"
 import {
@@ -76,7 +83,11 @@ import {
   selectedThread,
 } from "./threads.ts"
 
-const HISTORY_FAILED = "Reopen this conversation or start a new one before sending."
+const HISTORY_FAILED = "Refresh this conversation or start a new one before sending."
+const UNCONFIRMED_SEND = "This message may not have been sent. Retry to send it."
+const EXPIRED_RETRY =
+  "This message could not be confirmed within 24 hours. Check the saved conversation before sending it again."
+const ADMISSION_REPLAY_MS = 24 * 60 * 60 * 1_000
 
 /** A widget render the agent requested, handed to the host's `onRenderWidget`. */
 export interface WidgetRenderRequest {
@@ -107,6 +118,8 @@ export interface ChatSubmissionCallbacks {
   onThreadReady?: ((threadId: string) => void) | undefined
   /** Called once after the server acknowledges input, before generation finishes. */
   onAccepted?: (() => void) | undefined
+  /** @internal Identifies only the widget's submitted draft attachments during reload recovery. */
+  draftFileIds?: readonly string[] | undefined
 }
 
 /**
@@ -175,6 +188,8 @@ export interface ChatSubmission {
   content: string | MultimodalContent
   phase: "submitting" | "accepted" | "failed" | "refused"
   error?: Error | undefined
+  /** The server's replay window has closed and this delivery cannot be safely retried. */
+  retryExpired?: true
 }
 
 export interface AstralBeamChatState {
@@ -302,12 +317,14 @@ export function createAstralBeamChat(
     activeToolCallIds: [],
     pendingInteractions: [],
   }
-  // The selected conversation's admitted send. Retryable sends are kept per conversation.
+  // A delivery record means the request was dispatched and may have reached the server.
   type Submission = ChatSubmission & {
     key: string
-    delivery:
-      | { state: "undispatched" }
-      | { state: "uncertain"; tools: Array<Record<string, unknown>> }
+    delivery?:
+      | (Omit<PendingSubmission, "id" | "key" | "content"> & {
+          scope: PendingSubmissionScope | undefined
+        })
+      | undefined
     callbacks?: ChatSubmissionCallbacks | undefined
     /** Returns interrupted, undispatched input before its pending work unwinds. */
     onRefused?: () => void
@@ -315,8 +332,10 @@ export function createAstralBeamChat(
   let submission: Submission | undefined
   const submissions = new Map<string, Submission>()
   type ClientAuthority = { client: ChatClient; selection: number }
-  type Operation = ClientAuthority &
-    ({ kind: "submission"; submission: Submission } | { kind: "tool-result" })
+  type Operation = ClientAuthority & { clientId?: string } & (
+      | { kind: "submission"; submission: Submission }
+      | { kind: "tool-result" }
+    )
   type SubmissionAttempt = Extract<Operation, { kind: "submission" }>
   type HistoryRead = {
     owner: ClientAuthority
@@ -347,11 +366,14 @@ export function createAstralBeamChat(
     operation = undefined
     update({})
   }
-  const project = ({ id, content, phase, error }: Submission): ChatSubmission => ({
+  const retryExpired = (delivery: Submission["delivery"]) =>
+    delivery !== undefined && Date.now() - delivery.dispatchedAt >= ADMISSION_REPLAY_MS
+  const project = ({ id, content, phase, error, delivery }: Submission): ChatSubmission => ({
     id,
     content,
     phase,
     ...(error ? { error } : {}),
+    ...(phase === "failed" && retryExpired(delivery) ? { retryExpired: true } : {}),
   })
   // Only these moves are legal, so a late report cannot reopen a settled send.
   const nextPhases: Record<ChatSubmission["phase"], readonly ChatSubmission["phase"][]> = {
@@ -375,21 +397,14 @@ export function createAstralBeamChat(
     currentAttempt(attempt) && attempt.submission.phase === "submitting"
   // A dispatched send may have reached the server, so it keeps Retry. Otherwise it was not sent.
   const endUnaccepted = (sent: Submission, error?: Error) =>
-    sent.delivery.state === "undispatched"
-      ? settle(sent, "refused", error)
-      : settle(
-          sent,
-          "failed",
-          error ?? new Error("This message may not have been sent. Retry to send it."),
-        )
+    sent.delivery
+      ? settle(sent, "failed", error ?? new Error(UNCONFIRMED_SEND))
+      : settle(sent, "refused", error)
   // Every owner change settles the send before dropping it, so no orphan keeps submitting.
   const releaseSubmission = (reason: string) => {
     const released = submission
     if (released?.phase === "submitting")
-      endUnaccepted(
-        released,
-        released.delivery.state === "uncertain" ? undefined : new Error(reason),
-      )
+      endUnaccepted(released, released.delivery ? undefined : new Error(reason))
     if (released?.phase === "refused") released.onRefused?.()
     submission = undefined
     return released
@@ -403,6 +418,30 @@ export function createAstralBeamChat(
   let stopAuthentication: (() => void) | undefined
   let unsubscribeAuthentication: (() => void) | undefined
   let identity: string | undefined
+  const pendingScope = (threadId: string): PendingSubmissionScope | undefined => {
+    const auth = authenticationState(authentication)
+    if (auth.status !== "ready") return
+    return {
+      apiUrl: live.apiUrl ?? DEFAULT_API_URL,
+      identity: chatDraftIdentity(authenticationIdentity(auth.currentUser), live),
+      threadId,
+    }
+  }
+  const recoverSubmission = (threadId: string): Submission | undefined => {
+    const scope = pendingScope(threadId)
+    const pending = scope && storedPendingSubmission(scope)
+    if (!scope || !pending) return
+    const { id, key, content, ...dispatch } = pending
+    const delivery = { ...dispatch, scope }
+    return {
+      id,
+      key,
+      content,
+      phase: "failed",
+      error: new Error(retryExpired(delivery) ? EXPIRED_RETRY : UNCONFIRMED_SEND),
+      delivery,
+    }
+  }
   let started = false
   let selectionGeneration = 0
   let toolExecutionGeneration = 0
@@ -456,17 +495,40 @@ export function createAstralBeamChat(
     }
   }
   const clientId = newUuid()
+  const clearAcceptedDraft = (sent: Submission) => {
+    if (!sent.delivery?.scope) return
+    const { scope, draftFileIds } = sent.delivery
+    const clear = () => storedPendingSubmission(scope, { clearKey: sent.key })
+    if (draftFileIds) storedThreadDraft(scope.apiUrl, scope.identity, scope.threadId, "", "sent")
+    if (!draftFileIds?.length) return void clear()
+    const submitted = new Set(draftFileIds)
+    // Keep recovery until the accepted files are removed from the editable draft.
+    void storedThreadAttachments({
+      ...scope,
+      update: (files) => files.filter((file) => !submitted.has(file.id)),
+    }).then(clear, (error: unknown) =>
+      debug?.("error", "Accepted draft files could not be cleared", error),
+    )
+  }
   const acceptSubmission = () => {
-    if (!submission || !settle(submission, "accepted")) return
+    const sent = submission
+    if (!sent || !settle(sent, "accepted")) return
+    clearAcceptedDraft(sent)
     if (state.thread) update({ thread: { ...state.thread, hasMessages: true } })
-    submission.callbacks?.onAccepted?.()
+    sent.callbacks?.onAccepted?.()
   }
   const replaceAcceptedMessage = (record: ChatHistoryPageEncodedMessagesItem) => {
     const messages = [...client.getSnapshot().messages]
-    const index = messages.findLastIndex((message) => message.role === "user")
+    const index = messages.findLastIndex(
+      (message) =>
+        message.role === "user" && message.metadata?.astralbeamSubmissionId === submission?.id,
+    )
     if (index !== -1) {
-      messages[index] = projectThreadMessages([record])[0]!
-      rememberAttachments([messages[index]])
+      const accepted = projectThreadMessages([record])[0]!
+      if (messages.some((message, other) => other !== index && message.id === record.id))
+        messages.splice(index, 1)
+      else messages[index] = accepted
+      rememberAttachments([accepted])
       client.setMessagesManually(messages)
       if (unsubscribeSnapshot) observeSnapshot()
     }
@@ -474,7 +536,11 @@ export function createAstralBeamChat(
   const liveToolCalls = new Set<string>()
   const liveToolMessageIds = new Map<string, string>()
   const historicalToolIds = new Map<string, Map<string, string>>()
-  type ToolResult = { outcome: "succeeded" | "failed" | "skipped" | "unknown"; output: unknown }
+  type ToolResult = {
+    outcome: "succeeded" | "failed" | "skipped" | "unknown"
+    output: unknown
+    clientId?: string | undefined
+  }
   let toolResults = new Map<string, ToolResult>()
   const threadToolResults = new Map<string, typeof toolResults>()
   const toolResultKey = (id: string) => {
@@ -755,6 +821,7 @@ export function createAstralBeamChat(
           }
           const results = toolResults
           const key = toolResultKey(toolCallId)
+          const resultClientId = operation?.clientId
           const resultIdentity = identity
           const apiUrl = authentication.apiUrl
           try {
@@ -763,6 +830,7 @@ export function createAstralBeamChat(
               results.set(key, {
                 outcome: "succeeded",
                 output: output ?? null,
+                clientId: resultClientId,
               })
             return output
           } catch (error) {
@@ -774,6 +842,7 @@ export function createAstralBeamChat(
               results.set(key, {
                 outcome: "unknown",
                 output: { error: error instanceof Error ? error.message : String(error) },
+                clientId: resultClientId,
               })
             throw error
           }
@@ -821,18 +890,21 @@ export function createAstralBeamChat(
       body.messages.at(-1)?.role === "user" && owner.kind === "submission" && ownsAttempt(owner)
         ? owner.submission
         : undefined
-    const previousDelivery = sent?.delivery
+    const previous = sent?.delivery
     if (sent) {
+      if (retryExpired(sent.delivery)) throw new Error(EXPIRED_RETRY)
+      owner.clientId = previous?.clientId ?? clientId
       payload = {
         ...body,
         threadId: thread.id,
         resume: undefined,
         parentRunId: undefined,
         messages: [body.messages.at(-1)],
-        tools: previousDelivery?.state === "uncertain" ? previousDelivery.tools : body.tools,
+        tools: previous?.tools ?? body.tools,
         forwardedProps: {
           ...body.forwardedProps,
-          clientId,
+          clientId: owner.clientId,
+          clientMessageId: sent.id,
         },
       }
     } else {
@@ -849,6 +921,8 @@ export function createAstralBeamChat(
       const source =
         available.find((pending) => pending.toolCallId === body.messages.at(-1)?.toolCallId) ??
         available[0]
+      owner.clientId =
+        (source && toolResults.get(toolResultKey(source.toolCallId))?.clientId) ?? clientId
       const results = history.pendingInteractions.flatMap((pending) => {
         const submitted = toolResults.get(toolResultKey(pending.toolCallId))
         return submitted && pending.sourceMessageId === source?.sourceMessageId
@@ -857,7 +931,8 @@ export function createAstralBeamChat(
                 source_message_id: pending.sourceMessageId,
                 source_part_id: pending.sourcePartId,
                 response_target_id: pending.responseTargetId,
-                ...submitted,
+                outcome: submitted.outcome,
+                output: submitted.output,
               },
             ]
           : []
@@ -866,7 +941,7 @@ export function createAstralBeamChat(
         return new Response("", { headers: { "Content-Type": "text/event-stream" } })
       path = getResolveChatToolResultUrl(thread.id)
       payload = {
-        client_id: clientId,
+        client_id: owner.clientId,
         run_id: body.runId,
         ...(body.parentRunId ? { parent_run_id: body.parentRunId } : {}),
         results,
@@ -877,8 +952,22 @@ export function createAstralBeamChat(
     const headers = new Headers(init.headers)
     if (sent) headers.set("Idempotency-Key", sent.key)
     if (!currentOperation(owner)) throw new DOMException("Request cancelled", "AbortError")
-    if (sent && sent.delivery.state === "undispatched")
-      sent.delivery = { state: "uncertain", tools: body.tools }
+    if (sent && !previous) {
+      const scope = pendingScope(thread.id)
+      const dispatch = {
+        tools: body.tools,
+        clientId,
+        dispatchedAt: Date.now(),
+        draftFileIds: sent.callbacks?.draftFileIds,
+      }
+      sent.delivery = { ...dispatch, scope }
+      if (scope) {
+        const { id, key, content } = sent
+        storedPendingSubmission(scope, { save: { id, key, content, ...dispatch } })
+        if (dispatch.draftFileIds)
+          storedThreadDraft(scope.apiUrl, scope.identity, scope.threadId, "", "sent")
+      }
+    }
     const response = await astralBeamChatFetch(path, {
       ...auth,
       ...init,
@@ -888,11 +977,14 @@ export function createAstralBeamChat(
       if (!currentOperation(owner)) throw error
       if (
         sent &&
-        previousDelivery?.state === "undispatched" &&
+        !previous &&
         isAstralBeamApiError(error) &&
         (error.status === 400 || error.status === 413 || error.status === 429)
-      )
-        sent.delivery = { state: "undispatched" }
+      ) {
+        if (sent.delivery?.scope)
+          storedPendingSubmission(sent.delivery.scope, { clearKey: sent.key })
+        sent.delivery = undefined
+      }
       // The chat client rewraps failures, so the problem's limit is kept before it is lost.
       const limit = isAstralBeamApiError(error) ? error.body?.usage_limit : undefined
       if (limit) update({ usageLimitReached: { name: limit.name, resetsAt: limit.resets_at } })
@@ -1045,10 +1137,12 @@ export function createAstralBeamChat(
           else {
             if (history.thread.role === "viewer") disposeRenders()
             const agentChanged = state.thread?.agentId !== history.thread.agent_id
+            submission ??= recoverSubmission(threadId)
             update({
               thread: threadFromRecord(history.thread, history.messages.length > 0),
               messagesCursor: history.page_after ?? undefined,
               pendingInteractions: history.pendingInteractions,
+              submission: submission && project(submission),
             })
             if (agentChanged) void resolveCapabilities()
             // TanStack leaves local messages unchanged for an empty hydration page.
@@ -1377,7 +1471,8 @@ export function createAstralBeamChat(
 
   // Reloads saved history behind the transcript. Only an explicit refresh clears a shown failure.
   const refreshThread = async (explicit = true) => {
-    if (!state.thread) return
+    // Detaching would cancel an active stream, which reconciles its history on completion.
+    if (!selectedId || client.getIsLoading()) return
     const generation = selectionGeneration
     try {
       client.detach()
@@ -1538,7 +1633,11 @@ export function createAstralBeamChat(
       if (!ownsAttempt(attempt)) return project(sent)
       scopeCompletedToolCalls()
       if (!(await waitToDispatch(attempt))) return project(sent)
-      await attempt.client.sendMessage(sent.content)
+      const content = typeof sent.content === "string" ? { content: sent.content } : sent.content
+      await attempt.client.sendMessage({
+        ...content,
+        metadata: { ...content.metadata, astralbeamSubmissionId: sent.id },
+      })
       if (!currentAttempt(attempt)) return project(sent)
       endUnaccepted(sent, attempt.client.getError())
       if (currentAttempt(attempt)) await refreshThread(false)
@@ -1578,7 +1677,6 @@ export function createAstralBeamChat(
       content,
       phase: "submitting",
       key: newUuid(),
-      delivery: { state: "undispatched" },
       callbacks,
     }
     submission = sent
@@ -1594,7 +1692,14 @@ export function createAstralBeamChat(
 
   const retry = async () => {
     const sent = submission
-    if (operation || client.getIsLoading() || !sent || !settle(sent, "submitting")) return undefined
+    if (operation || client.getIsLoading() || sent?.phase !== "failed") return undefined
+    if (retryExpired(sent.delivery)) {
+      sent.error = new Error(EXPIRED_RETRY)
+      const expired = project(sent)
+      update({ submission: expired })
+      return expired
+    }
+    if (!settle(sent, "submitting")) return undefined
     update({ error: undefined })
     return deliver(sent)
   }
@@ -1737,6 +1842,7 @@ export function createAstralBeamChat(
       void getValidChatAuthToken({ ...authentication, force: true }).catch(() => undefined)
     },
     reload: async () => {
+      if (client.getIsLoading()) return
       const generation = selectionGeneration
       await refreshThread()
       if (generation !== selectionGeneration || state.error) return
@@ -1810,7 +1916,10 @@ export function createAstralBeamChat(
       debug?.("status", "conversation reset")
       newThread()
       if (state.auth.status === "ready") {
-        const draftIdentity = JSON.stringify([identity, chatPlacementKey(live)])
+        const draftIdentity = chatDraftIdentity(
+          authenticationIdentity(state.auth.currentUser),
+          live,
+        )
         const apiUrl = live.apiUrl ?? DEFAULT_API_URL
         storedThreadDraft(apiUrl, draftIdentity, "", "")
         storedThreadDraft(apiUrl, draftIdentity, "", "", "sent")

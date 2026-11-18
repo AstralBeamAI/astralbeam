@@ -25,7 +25,8 @@ import { createDebugLogger } from "../lib/debug.ts"
 import { ASK_QUESTIONNAIRE_TOOL } from "../core/protocol.ts"
 import type { AstralBeamChatCore } from "../core/session.ts"
 import { authenticationIdentity } from "../core/auth.ts"
-import { chatPlacementKey, newUuid } from "../core/threads.ts"
+import { newUuid } from "../core/threads.ts"
+import { chatDraftIdentity } from "../lib/drafts.ts"
 import type { DraftAttachment, QuestionnaireAnswer } from "./lib/types.ts"
 import { describeUsageLimit, hasPendingToolRun, lastPartInProgress } from "./lib/utils.ts"
 import { hostSlotName, useHostSlots } from "./use-host-slots.ts"
@@ -60,13 +61,24 @@ export function ChatWidget({
   )
   const { messages, status, auth, capabilities, sandbox, sandboxStatus, agentTools } = chatState
   const { history, submission } = chatState
+  const retryExpired = submission?.retryExpired === true
   // A limit that ended a run mid-way is shown like a refused send, which retrying cannot fix.
   const usageLimit = chatState.usageLimitReached
-  const error = usageLimit
-    ? new Error(describeUsageLimit(usageLimit))
-    : submission?.phase === "failed" || submission?.phase === "refused"
-      ? submission.error
-      : chatState.error
+  const retryBesideMessage =
+    submission?.phase === "failed" &&
+    !retryExpired &&
+    !usageLimit &&
+    auth.status === "ready" &&
+    history !== "loading" &&
+    history !== "failed" &&
+    chatState.thread?.role !== "viewer"
+  const error = retryBesideMessage
+    ? undefined
+    : usageLimit
+      ? new Error(describeUsageLimit(usageLimit))
+      : submission?.phase === "failed" || submission?.phase === "refused"
+        ? submission.error
+        : chatState.error
 
   const toolNames = useMemo(() => new Set(agentTools.map((tool) => tool.name)), [agentTools])
   // Joined into a key so the set keeps its identity across chunks and memoized messages skip them.
@@ -120,7 +132,7 @@ export function ChatWidget({
     apiUrl,
     verifiedIdentity:
       auth.status === "ready"
-        ? JSON.stringify([authenticationIdentity(auth.currentUser), chatPlacementKey(session)])
+        ? chatDraftIdentity(authenticationIdentity(auth.currentUser), session)
         : undefined,
     threadId: chatState.thread?.id ?? "",
     canLoad: auth.status === "ready" && (history === "idle" || history === "failed"),
@@ -282,10 +294,7 @@ export function ChatWidget({
       if (
         auth.status === "ready" &&
         composer.identity ===
-          JSON.stringify([
-            authenticationIdentity(auth.currentUser),
-            chatPlacementKey(chat.getOptions()),
-          ])
+          chatDraftIdentity(authenticationIdentity(auth.currentUser), chat.getOptions())
       )
         composer.reset()
     },
@@ -306,6 +315,16 @@ export function ChatWidget({
 
   const focusComposer = () =>
     requestAnimationFrame(() => host.shadowRoot?.querySelector("textarea")?.focus())
+  const startNewChat = () => {
+    chat.reset()
+    focusComposer()
+  }
+  const refresh =
+    history === "failed"
+      ? chat.refreshThread
+      : submission?.phase !== "failed" && messages.length > 0
+        ? chat.reload
+        : undefined
 
   // Closable chat fills the mobile viewport without changing its preferred desktop width.
   const showHeader = options.showHeader !== false
@@ -359,11 +378,10 @@ export function ChatWidget({
             variant="ghost"
             size="icon-sm"
             tooltip="New chat"
-            disabled={!chatState.thread && messages.length === 0}
+            disabled={!chatState.thread && messages.length === 0 && history !== "failed"}
             onClick={(event) => {
               if (event.detail > 1) return
-              chat.reset()
-              focusComposer()
+              startNewChat()
             }}
           >
             <NotePencilIcon />
@@ -403,6 +421,8 @@ export function ChatWidget({
         <ChatTranscript
           readOnly={chatState.thread?.role === "viewer"}
           messages={messages}
+          submission={submission}
+          onRetrySubmission={retryBesideMessage ? chat.retry : undefined}
           currentTenantUserId={auth.status === "ready" ? auth.currentUser.user.id : undefined}
           hasOlder={chatState.messagesCursor !== undefined}
           loadingHistory={history === "loading"}
@@ -495,17 +515,13 @@ export function ChatWidget({
             debug?.("status", "generation stopped by user")
             chat.stop()
           }}
-          onRetry={
-            usageLimit || submission?.phase === "refused"
-              ? undefined
-              : submission?.phase === "failed"
-                ? () => void chat.retry()
-                : messages.length > 0
-                  ? () => void chat.reload()
-                  : undefined
+          errorAction={
+            retryExpired
+              ? { label: "Start new chat", onClick: startNewChat }
+              : refresh && !usageLimit && submission?.phase !== "refused"
+                ? { label: "Refresh", onClick: () => void refresh() }
+                : undefined
           }
-          retryLabel={submission?.phase === "failed" ? "Retry" : "Refresh"}
-          showError={error !== undefined}
           error={error}
           streamBusy={streamBusy}
           isBusy={isBusy || submission?.phase === "failed"}

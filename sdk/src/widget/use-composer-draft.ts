@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { MultimodalContent } from "@tanstack/ai-client"
 import type { DebugLogger } from "../lib/debug.ts"
-import { storedThreadAttachments, storedThreadDraft } from "../lib/drafts.ts"
+import {
+  storedPendingSubmission,
+  storedThreadAttachments,
+  storedThreadDraft,
+} from "../lib/drafts.ts"
 import type { DraftAttachment } from "./lib/types.ts"
 
 const EMPTY_ATTACHMENTS: DraftAttachment[] = []
@@ -93,8 +97,11 @@ export function useComposerDraft({
       )
       .then(({ attachments, storageError }) => {
         if (cancelled) return
-        // After a reload, a send the server never accepted returns ahead of the draft.
-        const sent = storedThreadDraft(apiUrl, identity, threadId, undefined, "sent")
+        const pending = storedPendingSubmission({ apiUrl, identity, threadId })
+        const submitted = new Set(pending?.draftFileIds)
+        const unsent = attachments.filter((file) => !submitted.has(file.id))
+        // Recover text from before dispatch and from older SDKs that only kept the text.
+        const sent = pending ? "" : storedThreadDraft(apiUrl, identity, threadId, undefined, "sent")
         const text = joinDrafts(sent, storedThreadDraft(apiUrl, identity, threadId))
         if (sent) {
           storedThreadDraft(apiUrl, identity, threadId, text)
@@ -103,15 +110,15 @@ export function useComposerDraft({
         edit(threadId, (value, threads) => {
           if (value.attachmentsLoaded) return value
           const added = value.attachments.filter(
-            (file) => !attachments.some((saved) => saved.id === file.id),
+            (file) => !unsent.some((saved) => saved.id === file.id),
           )
           return {
             ...value,
             // A live edit can be newer than storage when a write failed.
             text: threads.has(threadId) ? joinDrafts(sent, value.text) : text,
-            attachments: added.length ? [...attachments, ...added] : attachments,
-            settledAttachments: attachments,
-            savedAttachments: attachments,
+            attachments: added.length ? [...unsent, ...added] : unsent,
+            settledAttachments: unsent,
+            savedAttachments: unsent,
             attachmentsLoaded: true,
             storageError,
           }
@@ -181,9 +188,9 @@ export function useComposerDraft({
 
   // The session keeps these callbacks with its submission, so a Retry settles the same one.
   const follow = (files: readonly DraftAttachment[], initialKey: string) => {
-    const fileIds = new Set(files.map((file) => file.id))
     let key = initialKey
     return {
+      draftFileIds: files.map((file) => file.id),
       onThreadReady: (id: string) => {
         if (key !== "") return
         key = id
@@ -215,17 +222,6 @@ export function useComposerDraft({
           }
         })
         edit("", () => undefined)
-      },
-      onAccepted: () => {
-        storedThreadDraft(apiUrl, identity, key, "", "sent")
-        void storedThreadAttachments({
-          apiUrl,
-          identity,
-          threadId: key,
-          update: (files) => files.filter((file) => !fileIds.has(file.id)),
-        }).catch((error: unknown) =>
-          debug?.("error", "Accepted draft files could not be cleared", error),
-        )
       },
       /** Returns a refused send to the composer it came from, from the session's own copy. */
       restore: (content: string | MultimodalContent) => {

@@ -7,7 +7,7 @@ import { mapDatabaseErrors } from "@/db/lib/sqlstate"
 import { member } from "@/db/schema/organizations"
 import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
 import { SlugSchema } from "@/lib/organizations/slug"
-import { consumeImageUpload, retireImage } from "@/lib/organizations/images.server"
+import { consumeImageUpload, replaceMemberAvatar } from "@/lib/organizations/images.server"
 import { avatarFileUrl } from "@/lib/organizations/images"
 import { effectHandler, exposeError } from "@/lib/runtime/server-fn.server"
 import { toValidationSchema } from "@/lib/schemas"
@@ -38,7 +38,7 @@ export const updateMemberAvatar = createServerFn({ method: "POST" })
           eq(member.id, context.memberId),
         )
         const [current] = yield* db
-          .select({ userId: member.userId, avatarFileId: member.avatarFileId })
+          .select({ userId: member.userId })
           .from(member)
           .where(owner)
           .pipe(mapDatabaseErrors())
@@ -50,15 +50,13 @@ export const updateMemberAvatar = createServerFn({ method: "POST" })
           avatarFileId = (yield* files.upload({ ...image, organizationId: context.organizationId }))
             .id
         }
-        // The upload happens outside SQL. Recheck membership when attaching the new file.
-        const [updated] = yield* db
-          .update(member)
-          .set({ avatarFileId })
-          .where(owner)
-          .returning({ id: member.id })
-          .pipe(mapDatabaseErrors())
+        const updated = yield* replaceMemberAvatar({
+          organizationId: context.organizationId,
+          memberId: context.memberId,
+          userId: current.userId,
+          fileId: avatarFileId,
+        })
         if (!updated) return yield* new InvalidImage()
-        yield* retireImage({ organizationId: context.organizationId, fileId: current.avatarFileId })
         return avatarFileId ? avatarFileUrl(context.organizationId, avatarFileId) : null
       }).pipe(
         Effect.catchTag(

@@ -36,6 +36,39 @@ export const retireImage = Effect.fn("retireImage")(function* ({
     )
 })
 
+export const replaceMemberAvatar = Effect.fn("replaceMemberAvatar")(function* ({
+  organizationId,
+  memberId,
+  userId,
+  fileId,
+}: {
+  organizationId: string
+  memberId: string
+  userId: string
+  fileId: string | null
+}) {
+  const db = yield* Database
+  // Return the actual displaced file when concurrent replacements serialize on the row.
+  // https://www.postgresql.org/docs/18/sql-update.html
+  const [previous] = yield* db
+    .update(member)
+    .set({ avatarFileId: fileId })
+    .where(
+      and(
+        eq(member.organizationId, organizationId),
+        eq(member.id, memberId),
+        eq(member.userId, userId),
+      ),
+    )
+    .returning({ fileId: sql<string | null>`old.avatar_file_id` })
+    .pipe(
+      mapDatabaseErrors(),
+      Effect.onError(() => retireImage({ organizationId, fileId })),
+    )
+  yield* retireImage({ organizationId, fileId: previous ? previous.fileId : fileId })
+  return previous !== undefined
+})
+
 export const consumeImageUpload = Effect.fn("consumeImageUpload")(function* ({
   userId,
 }: {

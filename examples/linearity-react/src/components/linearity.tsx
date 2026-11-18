@@ -11,7 +11,7 @@ import { createWorkspaceTools } from "@/lib/astro-tools.ts"
 import { workspaceUrl } from "@/lib/navigation.ts"
 
 export function Linearity() {
-  const { data, ready, notice, generation } = useDemo()
+  const { data, ready, notice } = useDemo()
   const { workspaceId } = useParams({ from: "/$workspaceId" })
   useEffect(() => {
     if (ready && data.activeWorkspaceId !== workspaceId) demoStore.switchWorkspace(workspaceId)
@@ -21,7 +21,7 @@ export function Linearity() {
     return <div className="app-loading">Opening your workspace…</div>
   return (
     <WorkspaceApp
-      key={`${workspace.id}:${generation}`}
+      key={`${workspace.id}:${data.visitorId}`}
       workspace={workspace}
       workspaces={data.workspaces}
       visitorId={data.visitorId}

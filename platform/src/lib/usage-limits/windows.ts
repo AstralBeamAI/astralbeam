@@ -17,12 +17,12 @@ function wallMillis(instant: Date, timeZone: string) {
   return Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute)
 }
 
-function fromWallMillis(wall: number, timeZone: string) {
+function fromWallMillis(wall: number, timeZone: string, disambiguation: "compatible" | "later") {
   return DateTime.toDateUtc(
     DateTime.makeZonedUnsafe(wall, {
       timeZone,
       adjustForTimeZone: true,
-      disambiguation: "earlier",
+      disambiguation,
     }),
   )
 }
@@ -54,6 +54,13 @@ export function usageLimitWindowEnd(limit: UsageLimitWindowFields, now: Date): D
     return DateTime.toDateUtc(
       DateTime.add(DateTime.makeUnsafe(now), { [`${limit.windowUnit}s`]: limit.windowCount }),
     )
-  const start = fixedWindowStartWall(limit, now)
-  return fromWallMillis(addWallUnits(start, limit.windowUnit, limit.windowCount), limit.timeZone!)
+  const wallEnd = addWallUnits(
+    fixedWindowStartWall(limit, now),
+    limit.windowUnit,
+    limit.windowCount,
+  )
+  const timeZone = limit.timeZone!
+  // Move skipped times forward and keep the first of two repeated times while it is future.
+  const end = fromWallMillis(wallEnd, timeZone, "compatible")
+  return end > now ? end : fromWallMillis(wallEnd, timeZone, "later")
 }

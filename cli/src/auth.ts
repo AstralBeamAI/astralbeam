@@ -14,6 +14,7 @@ import {
   resolveCredentials,
   runState,
   validatedApiUrl,
+  withLockedConfig,
   writeConfig,
 } from "./config.ts"
 import { printJson, printResult, printTable } from "./output.ts"
@@ -81,9 +82,10 @@ export function registerAuthCommands(auth: Cli): Cli {
       const apiKey = await readApiKey()
       const organization = await fetchOrganization(apiKey, apiUrl)
       const directory = await currentDirectory()
-      const config = await readConfig()
-      config.bindings[directory] = { api_url: apiUrl, api_key: apiKey, organization }
-      await writeConfig(config)
+      await withLockedConfig(async (config) => {
+        config.bindings[directory] = { api_url: apiUrl, api_key: apiKey, organization }
+        await writeConfig(config)
+      })
       reportOrganization({ apiKey, apiUrl, organization, directory })
       printResult({ directory, organization, api_url: apiUrl }, runState.json)
     },
@@ -93,11 +95,14 @@ export function registerAuthCommands(auth: Cli): Cli {
     command: "logout",
     describe: "Remove the binding that covers this directory",
     handler: async () => {
-      const config = await readConfig()
-      const found = findBinding(config, await currentDirectory())
-      if (!found) throw new Error("No AstralBeam login covers this directory.")
-      delete config.bindings[found.directory]
-      await writeConfig(config)
+      const directory = await currentDirectory()
+      const found = await withLockedConfig(async (config) => {
+        const binding = findBinding(config, directory)
+        if (!binding) throw new Error("No AstralBeam login covers this directory.")
+        delete config.bindings[binding.directory]
+        await writeConfig(config)
+        return binding
+      })
       const { organization } = found.binding
       printResult({ directory: found.directory, organization }, runState.json)
     },
@@ -112,12 +117,17 @@ export function registerAuthCommands(auth: Cli): Cli {
       if (runState.context) runState.context.organization = organization
       if (directory) {
         // Organizations can be renamed in the dashboard, so refresh what the context line shows.
-        const config = await readConfig()
-        const binding = config.bindings[directory]
-        if (binding && JSON.stringify(binding.organization) !== JSON.stringify(organization)) {
-          binding.organization = organization
-          await writeConfig(config)
-        }
+        await withLockedConfig(async (config) => {
+          const binding = config.bindings[directory]
+          if (
+            binding?.api_key === apiKey &&
+            binding.api_url === apiUrl &&
+            JSON.stringify(binding.organization) !== JSON.stringify(organization)
+          ) {
+            binding.organization = organization
+            await writeConfig(config)
+          }
+        })
       }
       const status = { organization, api_url: apiUrl, api_key: maskApiKey(apiKey) }
       printResult({ ...status, source: directory ?? "ASTRALBEAM_API_KEY" }, runState.json)

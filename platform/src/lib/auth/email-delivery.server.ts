@@ -13,10 +13,12 @@ import { runAppEffect } from "@/lib/runtime/app-effect.server"
 import { reportFailure } from "@/lib/runtime/failure-report.server"
 import { AuthEmailNotDelivered } from "./errors.ts"
 
-// `runInBackgroundOrAwait` swallows a callback's rejection, so a failed send is recorded against its
-// request and rethrown from the `after` hook. https://github.com/better-auth/better-auth/blob/v1.7.2/packages/better-auth/src/context/create-context.ts
-const failedAuthEmailRequests = new WeakMap<Request, APIError>()
 const blockingAuthEmailContext = new AsyncLocalStorage<{ error?: APIError }>()
+
+// Better Auth may clone the request before invoking email callbacks.
+export function runWithAuthEmailDeliveryScope<A>(operation: () => A): A {
+  return blockingAuthEmailContext.run({}, operation)
+}
 
 /** Runs a requestless Better Auth server API call, failing when a blocking send failed. */
 export const withBlockingAuthEmailDelivery = Effect.fnUntraced(function* <A>(
@@ -43,10 +45,8 @@ function authEmailDeliveryError(): APIError {
   })
 }
 
-/** Awaits an email the caller is waiting on, so the response reports its outcome. `request` is the
- * one Better Auth passed to its callback, absent for requestless server API calls. */
+/** Awaits an email the caller is waiting on, so the response reports its outcome. */
 export function deliverBlockingAuthEmail(
-  request: Request | undefined,
   send: Effect.Effect<void, EmailDeliveryError>,
 ): Promise<void> {
   // Capture the caller's delivery scope before deferring to the transaction's after-commit hook.
@@ -66,7 +66,6 @@ export function deliverBlockingAuthEmail(
         Effect.tapError((error) =>
           Effect.sync(() => {
             if (scope) scope.error = error
-            if (request) failedAuthEmailRequests.set(request, error)
           }),
         ),
       ),
@@ -74,10 +73,8 @@ export function deliverBlockingAuthEmail(
   )
 }
 
-/** Fails the response when a blocking authentication email could not be delivered. */
-export function assertAuthEmailDelivered(request: Request | undefined): void {
-  const error = request && failedAuthEmailRequests.get(request)
-  if (!error) return
-  failedAuthEmailRequests.delete(request)
-  throw error
+/** Rethrows a failed send after Better Auth's `runInBackgroundOrAwait` has caught it. */
+export function assertAuthEmailDelivered(): void {
+  const error = blockingAuthEmailContext.getStore()?.error
+  if (error) throw error
 }

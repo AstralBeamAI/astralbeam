@@ -1,8 +1,9 @@
-import { mkdir, readFile, realpath, rename, rm, writeFile } from "node:fs/promises"
+import { mkdir, readFile, realpath, rename, rm, rmdir, writeFile } from "node:fs/promises"
 import { isIPv4 } from "node:net"
 import { homedir } from "node:os"
 import { dirname, join, sep } from "node:path"
 import { cwd, env, pid, platform, stderr } from "node:process"
+import { setTimeout as sleep } from "node:timers/promises"
 import { terminalSafe } from "./output.ts"
 
 export const DEFAULT_API_URL = "https://astralbeam.ai/api"
@@ -125,6 +126,31 @@ export async function writeConfig(config: ConfigFile): Promise<void> {
   } catch (error) {
     await rm(temporaryPath, { force: true })
     throw error
+  }
+}
+
+/** Serializes read-modify-write operations across CLI processes. Readers can use atomic snapshots. */
+export async function withLockedConfig<A>(update: (config: ConfigFile) => Promise<A>): Promise<A> {
+  const lockPath = `${configPath()}.lock`
+  await mkdir(dirname(lockPath), { recursive: true, mode: 0o700 })
+  const deadline = performance.now() + 3_000
+  for (;;) {
+    try {
+      await mkdir(lockPath, { mode: 0o700 })
+      break
+    } catch (error) {
+      if (!(error instanceof Error && "code" in error && error.code === "EEXIST")) throw error
+      if (performance.now() >= deadline)
+        throw new Error(
+          `AstralBeam login bindings are locked. Retry shortly, or remove ${lockPath} after confirming no other AstralBeam CLI process is updating the bindings.`,
+        )
+      await sleep(25)
+    }
+  }
+  try {
+    return await update(await readConfig())
+  } finally {
+    await rmdir(lockPath)
   }
 }
 

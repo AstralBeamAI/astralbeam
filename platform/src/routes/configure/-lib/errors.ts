@@ -37,3 +37,11 @@ export class OperatorLoginRateLimited extends Schema.TaggedError<
     return `Too many sign-in attempts; try again in ${this.retryAfterSeconds} seconds.`
   }
 }
+
+export class PlatformUpdateMigrationFailed extends Schema.TaggedError<
+  PlatformUpdateMigrationFailed,
+  { readonly brand: unique symbol }
+>()("PlatformUpdateMigrationFailed", {}, { httpApiStatus: 500 }) {
+  override readonly message =
+    "The update was not installed because migrations did not finish. Some migrations may have applied. Check the server logs, resolve the migration failure, and retry."
+}

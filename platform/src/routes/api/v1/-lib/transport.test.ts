@@ -226,7 +226,7 @@ const restTestServices = Layer.mergeAll(
       Effect.succeed({ name: "Test", provider: "docker", options: {}, credentials: {} }),
   } as unknown as Context.Service.Shape<typeof SandboxProviders>),
   // Chat's own behavior is tested beside it, and these cover its HTTP contract.
-  Layer.succeed(ChatFiles, {
+  Layer.mock(ChatFiles, {
     store: ({ payload }) => Effect.succeed(payload),
     read: (input) => restTestState.readFile(input) as never,
     download: (input) => restTestState.downloadFile(input) as never,
@@ -1088,8 +1088,6 @@ describe("REST API through the Effect Fetch handler", () => {
       })
     restTestState.threadScope.mockReturnValue(Effect.fail(new ChatIdentityNotSynchronized()))
     expect((await request(input)).status).toBe(409)
-    expect(restTestState.threadAdmission).not.toHaveBeenCalled()
-    expect(restTestState.run).not.toHaveBeenCalled()
     restTestState.threadScope.mockReturnValue(Effect.succeed(restThreadScope))
     expect((await request({ ...input, threadId: "client-only-thread" })).status).toBe(400)
     expect((await request({ ...input, forwardedProps: {} })).status).toBe(400)

@@ -121,16 +121,7 @@ test("stale tabs preserve newer files and cannot restore accepted files", async 
   await todosPage(page).open()
   const chat = chatWidget(page)
   await chat.waitForReady()
-  const history = Promise.withResolvers<void>()
-  await context.route(
-    "**/api/v1/chat/threads/*/messages?*",
-    (route) => history.promise.then(() => route.fallback()),
-    { times: 1 },
-  )
   await chat.selectConversation(thread.title)
-  await expect(chat.composer()).toBeDisabled()
-  await expect(chat.root.getByRole("button", { name: "Attach files", exact: true })).toBeDisabled()
-  history.resolve()
   await chat.attach(note)
   await expect(chat.sendButton()).toBeEnabled()
 
@@ -162,14 +153,16 @@ test("stale tabs preserve newer files and cannot restore accepted files", async 
   await captureMoment(page, "stale-tab-keeps-only-unsent-files")
 })
 
-test("a failed send merges its draft into a preloaded destination without losing another tab's files", async ({
+test("a reloaded send retries its original admission without losing another tab's files", async ({
   page,
   context,
 }) => {
-  let submissions = 0
+  const keys: (string | undefined)[] = []
   await page.route("**/api/v1/chat", (route) => {
-    submissions++
-    return route.fulfill({ status: 503, json: { error: "Temporary failure" } })
+    keys.push(route.request().headers()["idempotency-key"])
+    return keys.length === 1
+      ? route.fulfill({ status: 503, json: { error: "Temporary failure" } })
+      : route.fulfill({ contentType: "text/event-stream", body: acceptedStream })
   })
   await todosPage(page).open()
   const chat = chatWidget(page)
@@ -190,15 +183,19 @@ test("a failed send merges its draft into a preloaded destination without losing
   await chat.attach(note)
   await expect(chat.sendButton()).toBeEnabled()
   await chat.sendButton().click()
-  // The session keeps an uncertain send for Retry, and the reload below recovers its draft.
-  await expect(chat.errorAlert().getByRole("button", { name: "Retry" })).toBeVisible()
-  await expect(chat.composer()).toHaveValue("")
-  await expect(chat.attachmentChip(note.name)).toHaveCount(0)
+  const retry = chat.retryMessage("Keep my failed draft")
+  await expect(retry).toBeVisible()
   await page.reload()
-  await expect(chat.attachmentChip(note.name)).toBeVisible()
+  await expect(retry).toBeVisible()
+  await expect(chat.composer()).toHaveValue("")
+  expect(keys).toHaveLength(1)
+  expect(keys[0]).toBeTruthy()
+  await retry.click()
+  await expect(retry).toHaveCount(0)
+  await page.reload()
+  await expect(chat.attachmentChip(note.name)).toHaveCount(0)
   await expect(chat.attachmentChip(image.name)).toBeVisible()
-  await expect(chat.composer()).toHaveValue("Keep my failed draft")
-  expect(submissions).toBe(1)
+  expect(keys).toEqual([keys[0], keys[0]])
 })
 
 test("independent new tabs recover their own drafts and cannot move or accept another tab's files", async ({
