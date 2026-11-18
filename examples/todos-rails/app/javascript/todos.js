@@ -1,10 +1,11 @@
 import { mountAstralBeamChat } from "@astralbeam/sdk/client"
 import { bindAppearanceButtons, csrfToken, tokenRequest } from "astralbeam_config"
 
-// The page and the agent change todos through TodosController's JSON API, then redraw from the server.
+// The page and the agent change todos through TodosController's JSON API and redraw from its results.
 const app = document.getElementById("app")
 let todos = JSON.parse(app.dataset.todos)
 const cards = new Set()
+let pendingChange = Promise.resolve()
 
 async function request(method, path, todo) {
   const response = await fetch(path, {
@@ -18,11 +19,20 @@ async function request(method, path, todo) {
   return body
 }
 
-async function change(method, path, todo) {
-  const result = await request(method, path, todo)
-  todos = await request("GET", "/todos")
-  render()
-  return result
+function change(method, { id, ...fields }) {
+  const path = id === undefined ? "/todos" : `/todos/${id}`
+  const operation = pendingChange.then(async () => {
+    const result = await request(method, path, method === "DELETE" ? undefined : fields)
+    if (method === "DELETE") {
+      todos = todos.filter((todo) => todo.id !== id)
+    } else {
+      todos = [...todos.filter((todo) => todo.id !== result.id), result].sort((a, b) => a.id - b.id)
+    }
+    render()
+    return result
+  })
+  pendingChange = operation.catch(() => undefined)
+  return operation
 }
 
 function todoId(id) {
@@ -36,7 +46,7 @@ function fill(element, todo) {
   const text = element.querySelector("span")
   checkbox.checked = todo?.completed ?? false
   checkbox.disabled = !todo
-  checkbox.addEventListener("change", () => change("PATCH", `/todos/${todo.id}`, { completed: !todo.completed }))
+  checkbox.addEventListener("change", () => change("PATCH", { id: todo.id, completed: !todo.completed }))
   text.textContent = todo?.text ?? "Deleted todo"
   text.classList.toggle("todo-done", Boolean(todo?.completed))
   return element
@@ -54,7 +64,7 @@ function render() {
 document.getElementById("new-todo").addEventListener("submit", async (event) => {
   event.preventDefault()
   const form = event.currentTarget
-  await change("POST", "/todos", { text: form.elements.text.value })
+  await change("POST", { text: form.elements.text.value })
   form.reset()
 })
 
@@ -83,7 +93,7 @@ const chat = mountAstralBeamChat(document.getElementById("astralbeam-chat"), {
         },
         required: ["text"]
       },
-      execute: async ({ text, completed }) => ({ created: await change("POST", "/todos", { text, completed }) })
+      execute: async ({ text, completed }) => ({ created: await change("POST", { text, completed }) })
     },
     update_todo: {
       metadata: { title: "Update a todo" },
@@ -98,7 +108,7 @@ const chat = mountAstralBeamChat(document.getElementById("astralbeam-chat"), {
         required: ["id"]
       },
       execute: async ({ id, text, completed }) => ({
-        updated: await change("PATCH", `/todos/${todoId(id)}`, { text, completed })
+        updated: await change("PATCH", { id: todoId(id), text, completed })
       })
     },
     delete_todo: {
@@ -110,8 +120,9 @@ const chat = mountAstralBeamChat(document.getElementById("astralbeam-chat"), {
         required: ["id"]
       },
       execute: async ({ id }) => {
-        await change("DELETE", `/todos/${todoId(id)}`)
-        return { deleted: { id: todoId(id) } }
+        const deleted = { id: todoId(id) }
+        await change("DELETE", deleted)
+        return { deleted }
       }
     }
   },

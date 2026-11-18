@@ -129,10 +129,6 @@ for (const viewport of [
       expect(astro!.x + astro!.width).toBeLessThanOrEqual(viewport.width + 1)
       expect(astro!.y + astro!.height).toBeLessThanOrEqual(viewport.height + 1)
     }
-    await page.getByRole("combobox", { name: "Priority", exact: true }).selectOption("Urgent")
-    await expect(page.getByRole("combobox", { name: "Priority", exact: true })).toHaveValue(
-      "Urgent",
-    )
     await page.screenshot({
       path: testInfo.outputPath(`issue-${viewport.width}-${viewport.zoom}.png`),
       animations: "disabled",
@@ -178,5 +174,9 @@ test("tabs share edits without fighting over their workspace URLs", async ({ pag
   await expect(page.getByRole("combobox", { name: "Workspace", exact: true })).toHaveValue(acme)
   await other.goto(`/${acme}/issues/${sso}`)
   await expect(other.getByRole("combobox", { name: "Priority", exact: true })).toHaveValue("Urgent")
-  await other.close()
+  const astro = page.getByRole("button", { name: "Astro", exact: true })
+  await astro.click()
+  await other.getByRole("combobox", { name: "Priority", exact: true }).selectOption("High")
+  await expect(page.getByRole("combobox", { name: "Priority", exact: true })).toHaveValue("High")
+  await expect(astro).toHaveAttribute("aria-expanded", "false")
 })

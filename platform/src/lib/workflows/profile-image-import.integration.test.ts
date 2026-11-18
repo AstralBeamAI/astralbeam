@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest"
 
 import { getAuthDatabase } from "@/db/database"
 import { user } from "@/db/schema/authentication"
+import { fileObject } from "@/db/schema/files"
 import { member, organization } from "@/db/schema/organizations"
 import { ImageSources } from "@/lib/storage/image-source.server"
 import { InvalidImage } from "@/lib/storage/errors"
@@ -101,19 +102,18 @@ describe.skipIf(!databaseUrl)("Organization profile files", () => {
         ),
       )
       await db.update(member).set({ avatarFileId: manual.id }).where(eq(member.id, first.memberId))
-      const [original] = await db.select().from(member).where(eq(member.id, first.memberId))
       fixture.source = () => Promise.reject(new InvalidImage())
       await runtime.runPromise(profileImageImport.execute(input))
       expect(
         (await db.select().from(member).where(eq(member.id, first.memberId)))[0]!.avatarFileId,
-      ).toBe(original!.avatarFileId)
+      ).toBe(manual.id)
       fixture.source = () => Promise.resolve(image)
       await runtime.runPromise(profileImageImport.execute(input))
       const memberships = await db.select().from(member).where(eq(member.userId, first.userId))
       expect(memberships.every((membership) => membership.avatarFileId !== null)).toBe(true)
       expect(
         memberships.find((membership) => membership.id === first.memberId)!.avatarFileId,
-      ).not.toBe(original!.avatarFileId)
+      ).not.toBe(manual.id)
       expect(memberships[0]!.avatarFileId).not.toBe(memberships[1]!.avatarFileId)
       await expect(
         db
@@ -121,6 +121,39 @@ describe.skipIf(!databaseUrl)("Organization profile files", () => {
           .set({ avatarFileId: memberships[0]!.avatarFileId })
           .where(eq(member.id, memberships[1]!.id)),
       ).rejects.toThrow()
+    } finally {
+      await runtime.dispose()
+    }
+  })
+
+  test("retires the image displaced by a concurrent import", async () => {
+    const { userId, memberId, organizationId } = await createProfileMember()
+    const runtime = ManagedRuntime.make(profileLayer)
+    const fetching = Promise.withResolvers<void>()
+    let started = 0
+    fixture.source = async () => {
+      if (++started === 2) fetching.resolve()
+      await fetching.promise
+      return image
+    }
+    try {
+      await runtime.runPromise(
+        Effect.forEach(
+          [1, 2],
+          (index) =>
+            profileImageImport.execute({ userId, imageUrl: `https://images.example/${index}.png` }),
+          { concurrency: "unbounded" },
+        ),
+      )
+      const [membership] = await db.select().from(member).where(eq(member.id, memberId))
+      const files = await db
+        .select()
+        .from(fileObject)
+        .where(eq(fileObject.organizationId, organizationId))
+      expect(files.find(({ id }) => id === membership?.avatarFileId)?.status).toBe("stored")
+      expect(
+        files.filter(({ id }) => id !== membership?.avatarFileId).map(({ status }) => status),
+      ).toEqual(["purging"])
     } finally {
       await runtime.dispose()
     }

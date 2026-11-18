@@ -56,6 +56,22 @@ describe("usage limit windows", () => {
     )
   })
 
+  it("ends fixed short windows after usage during repeated and skipped local times", () => {
+    const quarterHour = {
+      windowType: "fixed",
+      windowCount: 15,
+      windowUnit: "minute",
+      timeZone: "America/New_York",
+    } as const
+    expect(usageLimitWindowEnd(quarterHour, at("2026-11-01T06:30:00Z"))).toEqual(
+      at("2026-11-01T06:45:00Z"),
+    )
+    const fortyFiveMinutes = { ...quarterHour, windowCount: 45 }
+    expect(usageLimitWindowEnd(fortyFiveMinutes, at("2026-03-08T06:55:00Z"))).toEqual(
+      at("2026-03-08T07:00:00Z"),
+    )
+  })
+
   it("ends rolling windows one duration after first use, clamping month ends", () => {
     const rolling = { windowType: "rolling", timeZone: null } as const
     expect(

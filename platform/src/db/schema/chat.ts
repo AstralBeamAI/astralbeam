@@ -39,6 +39,7 @@ const ChatMessageMetadataSchema = Schema.Struct({
       agentId: Schema.optional(Schema.NullOr(Schema.String)),
       initiatorTenantUserId: Schema.optional(ApiUuidSchema),
       clientId: Schema.optional(ApiUuidSchema),
+      clientMessageId: Schema.optional(ApiUuidSchema),
       providerId: Schema.optional(Schema.String),
       providerType: Schema.optional(Schema.String),
       protocol: Schema.optional(Schema.String),

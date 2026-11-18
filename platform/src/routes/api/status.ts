@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { count } from "drizzle-orm"
 import { Effect } from "effect"
 
 import { Database } from "@/db/database"
@@ -8,11 +7,11 @@ import { runRouteEffect } from "@/lib/runtime/server-fn.server"
 
 /**
  * Liveness probe that stays reachable without a session and never reads, logs, or parses a
- * request. It counts organization rows only to confirm the database answers.
+ * request. A bounded organization query checks that the database and table are available.
  */
 const statusResponse = Effect.gen(function* () {
   const db = yield* Database
-  yield* db.select({ value: count() }).from(organization)
+  yield* db.select({ id: organization.id }).from(organization).limit(1)
   return Response.json({ status: "ok" })
 }).pipe(
   Effect.catchCause(() =>

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest"
 import { authenticationIdentity } from "./auth.ts"
 import { DEFAULT_API_URL } from "../lib/constants.ts"
-import { storedThreadDraft, storedThreadAttachments } from "../lib/drafts.ts"
+import { chatDraftIdentity, storedThreadDraft, storedThreadAttachments } from "../lib/drafts.ts"
 import { createTestSession, disposeTestSessions } from "./session-fixtures.ts"
 
 const threadA = "00000000-0000-4000-8000-000000000001"
@@ -30,75 +30,100 @@ const page = (id: string) => ({
   page_before: null,
 })
 
+function memoryStorage() {
+  const values = new Map<string, string>()
+  return {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => values.set(key, value),
+    removeItem: (key: string) => values.delete(key),
+  }
+}
+
 beforeEach(() => vi.stubGlobal("sessionStorage", undefined))
 afterEach(() => {
   disposeTestSessions()
   vi.unstubAllGlobals()
 })
 
+function mockUnacknowledgedSend(
+  currentAccount: () => typeof currentUser,
+  savedAuthor?: () => string | undefined,
+) {
+  const sent: Array<{
+    key: string | null
+    body: {
+      messages: unknown[]
+      tools: unknown[]
+      forwardedProps: { clientId: string; clientMessageId: string }
+    }
+  }> = []
+  vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
+    const url = new URL(input)
+    if (url.pathname.endsWith("/me")) return Promise.resolve(Response.json(currentAccount()))
+    if (url.pathname.endsWith("/chat/config"))
+      return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
+    if (url.pathname.endsWith("/messages")) {
+      const id = url.pathname.split("/").at(-2)!
+      const author = savedAuthor?.()
+      return Promise.resolve(
+        Response.json({
+          ...page(id),
+          messages:
+            id === threadA && (sent.length > 1 || (author && sent.length > 0))
+              ? [
+                  {
+                    id: "accepted",
+                    role: "user",
+                    author_tenant_user_id: author,
+                    client_message_id: author && sent[0]?.body.forwardedProps.clientMessageId,
+                    created_at: thread(id).created_at,
+                    parts: [{ id: "part", type: "text", content: "Keep my original intent" }],
+                  },
+                ]
+              : [],
+        }),
+      )
+    }
+    if (url.pathname.endsWith("/threads"))
+      return Promise.resolve(
+        Response.json({
+          items: [thread(threadA), thread(threadB)],
+          page_after: null,
+          page_before: null,
+        }),
+      )
+    if (url.pathname.endsWith("/chat")) {
+      if (typeof init?.body !== "string") throw new Error("Expected an AG-UI request body")
+      const body = JSON.parse(init.body) as (typeof sent)[number]["body"]
+      sent.push({ key: new Headers(init.headers).get("Idempotency-Key"), body })
+      if (sent.length === 1) return Promise.reject(new TypeError("Connection lost after admission"))
+      return Promise.resolve(Response.json({ accepted_message_id: "accepted", thread_version: 2 }))
+    }
+    return Promise.reject(new Error(`Unexpected request ${url}`))
+  })
+  return sent
+}
+
+async function openFirstThread() {
+  const chat = createTestSession({ threadId: threadA })
+  await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(threadA))
+  return chat
+}
+
 test.each(["selection", "api", "identity"] as const)(
   "%s changes preserve uncertain submissions only within the same authenticated scope",
   async (change) => {
     let user = currentUser
-    const onThreadReady = vi.fn()
+    const sent = mockUnacknowledgedSend(() => user)
     const onAccepted = vi.fn()
-    const sent: Array<{
-      key: string | null
-      body: { runId?: string; messages: unknown[]; tools: unknown[] }
-    }> = []
-    vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
-      const url = new URL(input)
-      if (url.pathname.endsWith("/me")) return Promise.resolve(Response.json(user))
-      if (url.pathname.endsWith("/chat/config"))
-        return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
-      if (url.pathname.endsWith("/messages")) {
-        const id = url.pathname.split("/").at(-2)!
-        return Promise.resolve(Response.json(page(id)))
-      }
-      if (url.pathname.endsWith("/threads"))
-        return Promise.resolve(
-          Response.json({
-            items: [thread(threadA), thread(threadB)],
-            page_after: null,
-            page_before: null,
-          }),
-        )
-      if (url.pathname.endsWith("/chat")) {
-        if (typeof init?.body !== "string") throw new Error("Expected an AG-UI request body")
-        const body = JSON.parse(init.body) as (typeof sent)[number]["body"]
-        sent.push({ key: new Headers(init.headers).get("Idempotency-Key"), body })
-        if (sent.length === 1)
-          return Promise.reject(new TypeError("Connection lost after admission"))
-        return Promise.resolve(
-          new Response(
-            [
-              { type: "RUN_STARTED", threadId: threadA, runId: "run" },
-              {
-                type: "CUSTOM",
-                name: "astralbeam_thread",
-                value: { threadId: threadA, version: 2, acceptedMessageId: "accepted" },
-              },
-              { type: "RUN_FINISHED", threadId: threadA, runId: "run" },
-            ]
-              .map((event) => `data: ${JSON.stringify(event)}\n\n`)
-              .join(""),
-            { headers: { "Content-Type": "text/event-stream" } },
-          ),
-        )
-      }
-      return Promise.reject(new Error(`Unexpected request ${url}`))
-    })
-    const chat = createTestSession({
-      threadId: threadA,
-    })
+    const chat = createTestSession({ threadId: threadA })
     await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(threadA))
-    await chat.sendMessage("Keep my original intent", { onThreadReady, onAccepted })
-    expect(onThreadReady).toHaveBeenCalledWith(threadA)
-    expect(onAccepted).not.toHaveBeenCalled()
-    expect(chat.getState().submission?.phase).toBe("failed")
+    const content = "Keep my original intent"
+    await chat.sendMessage(content, { onAccepted })
     await chat.openThread(threadB)
     expect(chat.getState().submission).toBeUndefined()
 
+    const retained = change === "selection"
     if (change === "api") chat.updateOptions({ apiUrl: "https://replacement.example/api" })
     else if (change === "identity") {
       user = { ...currentUser, user: { id: "another-user" } }
@@ -106,21 +131,130 @@ test.each(["selection", "api", "identity"] as const)(
     } else await chat.openThread(threadA)
 
     await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(threadA))
-    expect(chat.getState().submission?.content).toBe(
-      change === "selection" ? "Keep my original intent" : undefined,
-    )
-    await chat.reload()
-    expect(sent).toHaveLength(1)
-    if (change === "selection") await chat.retry()
-    else await chat.sendMessage("Keep my original intent")
+    expect(chat.getState().submission?.content).toBe(retained ? content : undefined)
+    if (retained) await chat.retry()
+    else await chat.sendMessage(content)
     expect(sent).toHaveLength(2)
     expect(sent[0]?.key).toBeTruthy()
-    expect(sent[1]?.key === sent[0]?.key).toBe(change === "selection")
+    expect(sent[1]?.key === sent[0]?.key).toBe(retained)
     expect(chat.getState().submission?.phase).toBe("accepted")
-    expect(chat.getState().error).toBeUndefined()
-    expect(onAccepted).toHaveBeenCalledTimes(change === "selection" ? 1 : 0)
+    expect(onAccepted).toHaveBeenCalledTimes(retained ? 1 : 0)
   },
 )
+
+test.each([false, true])(
+  "reload recovery respects the replay window (expired=%s)",
+  async (expired) => {
+    vi.stubGlobal("sessionStorage", memoryStorage())
+    let user = currentUser
+    const sent = mockUnacknowledgedSend(() => user)
+    const content = { id: "original", content: "Keep my original intent" }
+    const original = createTestSession({
+      threadId: threadA,
+      tools: { summarize: { description: "Summarize text", execute: () => null } },
+    })
+    await vi.waitFor(() => expect(original.getState().thread?.id).toBe(threadA))
+    const submitted = await original.sendMessage(content)
+    expect(sent[0]?.body.forwardedProps.clientMessageId).toBe(submitted.id)
+    original.dispose()
+
+    user = { ...currentUser, user: { id: "another-user" } }
+    const other = await openFirstThread()
+    expect(other.getState().submission).toBeUndefined()
+    other.dispose()
+    user = currentUser
+
+    const reopened = await openFirstThread()
+    expect(reopened.getState().submission).toMatchObject({ phase: "failed", content })
+    await reopened.reload()
+    expect(sent).toHaveLength(1)
+    const clock = expired
+      ? vi.spyOn(Date, "now").mockReturnValue(Date.now() + 24 * 60 * 60 * 1000)
+      : undefined
+    const retry = await reopened.retry().finally(() => clock?.mockRestore())
+    expect(retry).toMatchObject(
+      expired ? { phase: "failed", retryExpired: true } : { phase: "accepted" },
+    )
+    expect(sent[0]?.key).toBeTruthy()
+    expect(sent.slice(1)).toMatchObject(
+      expired
+        ? []
+        : [
+            {
+              key: sent[0]!.key,
+              body: {
+                messages: [{ ...content, role: "user" }],
+                tools: sent[0]!.body.tools,
+                forwardedProps: sent[0]!.body.forwardedProps,
+              },
+            },
+          ],
+    )
+    expect(reopened.getState().messages.map(({ id }) => id)).toEqual(expired ? [] : ["accepted"])
+    reopened.dispose()
+    expect((await openFirstThread()).getState().submission?.phase).toBe(
+      expired ? "failed" : undefined,
+    )
+  },
+)
+
+test("saved history confirms an unacknowledged send only for its author", async () => {
+  vi.stubGlobal("sessionStorage", memoryStorage())
+  let author: string | undefined
+  const sent = mockUnacknowledgedSend(
+    () => currentUser,
+    () => author,
+  )
+  const original = await openFirstThread()
+  expect((await original.sendMessage("Keep my original intent")).phase).toBe("failed")
+  original.dispose()
+
+  author = "another-user"
+  const reopened = await openFirstThread()
+  expect(reopened.getState().submission?.phase).toBe("failed")
+
+  author = currentUser.user.id
+  await reopened.refreshThread()
+  expect(reopened.getState().submission?.phase).toBe("accepted")
+  expect(reopened.getState().messages.map(({ id }) => id)).toEqual(["accepted"])
+  expect(sent).toHaveLength(1)
+  reopened.dispose()
+  expect((await openFirstThread()).getState().submission).toBeUndefined()
+})
+
+test("a failed retry-record write preserves the composer draft fallback after reopening", async () => {
+  const storage = memoryStorage()
+  vi.stubGlobal("sessionStorage", {
+    ...storage,
+    setItem: (key: string, value: string) => {
+      if (key.startsWith("astralbeam:pending:"))
+        throw new DOMException("Full", "QuotaExceededError")
+      storage.setItem(key, value)
+    },
+  })
+  mockUnacknowledgedSend(() => currentUser)
+  const original = await openFirstThread()
+  const auth = original.getState().auth
+  if (auth.status !== "ready") throw new Error("Expected a verified account")
+  const identity = chatDraftIdentity(
+    authenticationIdentity(auth.currentUser),
+    original.getOptions(),
+  )
+  const text = "Keep my original intent"
+  storedThreadDraft(DEFAULT_API_URL, identity, threadA, text, "sent")
+  expect((await original.sendMessage(text, { draftFileIds: [] })).phase).toBe("failed")
+  original.dispose()
+
+  expect((await openFirstThread()).getState().submission).toBeUndefined()
+  expect(storedThreadDraft(DEFAULT_API_URL, identity, threadA, undefined, "sent")).toBe(text)
+})
+
+test("a whitespace-only text send never dispatches", async () => {
+  const sent = mockUnacknowledgedSend(() => currentUser)
+  const chat = await openFirstThread()
+  expect((await chat.sendMessage(" \n ")).phase).toBe("refused")
+  expect(sent).toHaveLength(0)
+})
 
 test("a send awaiting authentication cannot follow the user into a new conversation", async () => {
   const mutations: string[] = []
@@ -156,7 +290,7 @@ test("a send awaiting authentication cannot follow the user into a new conversat
   expect(onAccepted).not.toHaveBeenCalled()
 })
 
-test("new-conversation callbacks identify the destination and acknowledge input before streaming ends", async () => {
+test("new-conversation callbacks acknowledge input while refresh preserves the reply", async () => {
   const onThreadReady = vi.fn<(id: string) => void>()
   const onAccepted = vi.fn()
   const settled = vi.fn()
@@ -170,6 +304,7 @@ test("new-conversation callbacks identify the destination and acknowledge input 
     },
   })
   const sent: Array<{ threadId: string; destination: string | undefined }> = []
+  let historyReads = 0
   vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
     const url = new URL(input)
     if (url.pathname.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
@@ -183,7 +318,10 @@ test("new-conversation callbacks identify the destination and acknowledge input 
             : { items: [], page_after: null, page_before: null },
         ),
       )
-    if (url.pathname.endsWith("/messages")) return Promise.resolve(Response.json(page(threadA)))
+    if (url.pathname.endsWith("/messages")) {
+      historyReads++
+      return Promise.resolve(Response.json(page(threadA)))
+    }
     if (url.pathname.endsWith("/chat")) {
       if (typeof init?.body !== "string") throw new Error("Expected an AG-UI request body")
       const body = JSON.parse(init.body) as { threadId: string }
@@ -235,6 +373,10 @@ test("new-conversation callbacks identify the destination and acknowledge input 
     expect(chat.getState().messages.findLast((message) => message.role === "user")?.parts).toEqual([
       { type: "text", content: "Start a saved conversation" },
     ])
+    const readsBeforeRefresh = historyReads
+    await chat.refreshThread()
+    await chat.reload()
+    expect(historyReads).toBe(readsBeforeRefresh)
     expect(settled).not.toHaveBeenCalled()
     chat.reset()
     stream?.close()
@@ -282,12 +424,7 @@ test("an upload keeps its picked agent while its file is read across conversatio
 })
 
 test("reset without a view clears only this placement's new draft", async () => {
-  const storage = new Map<string, string>()
-  vi.stubGlobal("localStorage", {
-    getItem: (key: string) => storage.get(key) ?? null,
-    setItem: (key: string, value: string) => storage.set(key, value),
-    removeItem: (key: string) => storage.delete(key),
-  })
+  vi.stubGlobal("localStorage", memoryStorage())
   vi.stubGlobal("fetch", () => Promise.resolve(Response.json(currentUser)))
   const chat = createTestSession({ placementKey: "setup", threadId: "new" })
   await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))

@@ -253,7 +253,7 @@ test("a failed send keeps one Retry across navigation, and later drafts survive 
   control.next = "unavailable"
   await chat.composer().fill("Keep this failed message")
   await chat.composer().press("Enter")
-  const retry = chat.errorAlert().getByRole("button", { name: "Retry" })
+  const retry = chat.retryMessage("Keep this failed message")
   await expect(retry).toBeVisible()
   await expect(chat.composer()).toHaveValue("")
   await chat.selectConversation(other.title)

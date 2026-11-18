@@ -5,6 +5,8 @@ services:
       - "127.0.0.1:${MAILPIT_WEB_HOST_PORT:-8025}:8025"
 
   astralbeam:
+    # Keep database setup on loopback inside the isolated development network.
+    network_mode: service:pgbouncer
     environment:
       RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:-development}
       RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:-development-only-storage-key}
@@ -29,6 +31,7 @@ services:
     depends_on:
       pgbouncer:
         condition: service_healthy
+        restart: true
       valkey:
         condition: service_healthy
       mailpit:

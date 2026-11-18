@@ -50,8 +50,11 @@ export function replaceablePlatformBinary(): string {
   return process.execPath
 }
 
-/** Replaces the running binary with a newer release after checking its SHA256SUMS entry. */
-export async function installPlatformRelease(version: string): Promise<void> {
+/** Installs a verified release after any required preparation succeeds. */
+export async function installPlatformRelease(
+  version: string,
+  prepare?: (binary: string) => Promise<boolean>,
+): Promise<boolean> {
   const binaryPath = replaceablePlatformBinary()
   if (comparePlatformVersions(version, PLATFORM_VERSION) < 0) {
     throw new Error(`downgrading to ${version} is not supported, because migrations stay applied`)
@@ -81,10 +84,11 @@ export async function installPlatformRelease(version: string): Promise<void> {
     throw new Error(`v${version} ${asset} does not match its SHA256SUMS entry`)
   }
   const downloadDirectory = mkdtempSync(`${binaryPath}.upgrade-`)
-  const downloadPath = join(downloadDirectory, "binary")
+  const downloadPath = join(downloadDirectory, asset)
   try {
     writeFileSync(downloadPath, bytes, { flag: "wx" })
     chmodSync(downloadPath, 0o755)
+    if (prepare && !(await prepare(downloadPath))) return false
     // Windows cannot overwrite a running executable, but it can rename one.
     if (process.platform === "win32") renameSync(binaryPath, `${binaryPath}.old`)
     try {
@@ -93,6 +97,7 @@ export async function installPlatformRelease(version: string): Promise<void> {
       if (process.platform === "win32") renameSync(`${binaryPath}.old`, binaryPath)
       throw error
     }
+    return true
   } finally {
     rmSync(downloadDirectory, { recursive: true, force: true })
   }

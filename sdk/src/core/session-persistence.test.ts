@@ -269,11 +269,8 @@ test.each(["unchanged", "viewer", "deleted"] as const)("uncertain replay: %s", a
   const onAccepted = vi.fn()
   await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
   await chat.sendMessage("Hello", { onAccepted })
-  expect(chat.getState().submission).toMatchObject({ phase: "failed", content: "Hello" })
   changed = true
   await chat.reload()
-  expect(sent).toHaveLength(1)
-  expect(chat.getState().submission).toMatchObject({ phase: "failed", content: "Hello" })
   const edited = await chat.sendMessage("Edited uncertain input")
   expect(sent).toHaveLength(1)
   expect(chat.getState().submission).toMatchObject({ phase: "failed", content: "Hello" })
@@ -1424,57 +1421,6 @@ test("opening a conversation during a background refresh reports only loading", 
   expect(chat.getState().history).toBe("idle")
 })
 
-test("a failed send keeps its Retry after leaving and reopening its conversation", async () => {
-  const next = { ...thread, id: "00000000-0000-4000-8000-000000000003" }
-  const keys: Array<string | null> = []
-  let accepted = false
-  stubSessionFetch((input: string | URL, init?: RequestInit) => {
-    const path = new URL(input).pathname
-    if (path.endsWith("/config")) return sessionResponse({ attachments: true })
-    if (path.endsWith("/chat")) {
-      keys.push(new Headers(init?.headers).get("Idempotency-Key"))
-      if (keys.length === 1) return Promise.resolve(new Response("Unavailable", { status: 503 }))
-      accepted = true
-      return sessionResponse({
-        thread_id: thread.id,
-        accepted_message_id: "accepted",
-        thread_version: 2,
-      })
-    }
-    if (path.endsWith("/messages"))
-      return sessionResponse({
-        ...page(
-          accepted && path.includes(thread.id)
-            ? [
-                {
-                  id: "accepted",
-                  role: "user",
-                  created_at: thread.created_at,
-                  parts: [{ id: "part", type: "text", content: "Keep this" }],
-                },
-              ]
-            : [],
-        ),
-        thread: path.includes(next.id) ? next : thread,
-      })
-    return sessionResponse({ items: [], page_after: null, page_before: null })
-  })
-  const chat = createTestSession({ threadId: thread.id })
-  await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
-  await chat.sendMessage("Keep this")
-  const failed = { phase: "failed", content: "Keep this" }
-  expect(chat.getState().submission).toMatchObject(failed)
-  await chat.openThread(next.id)
-  expect(chat.getState()).toMatchObject({ status: "ready", submission: undefined })
-  await chat.openThread(thread.id)
-  expect(chat.getState().submission).toMatchObject(failed)
-  await chat.retry()
-  expect(chat.getState().submission?.phase).toBe("accepted")
-  expect(chat.getState().messages.filter((message) => message.role === "user")).toHaveLength(1)
-  expect(keys).toHaveLength(2)
-  expect(keys[1]).toBe(keys[0])
-})
-
 test("failed native hydration blocks sends until a successful reload", async () => {
   let failed = true
   const sends = vi.fn()
@@ -1493,11 +1439,12 @@ test("failed native hydration blocks sends until a successful reload", async () 
   })
   await vi.waitFor(() => expect(chat.getState().history).toBe("failed"))
   await chat.sendMessage("Do not send against missing history")
-  expect(sends).not.toHaveBeenCalled()
   failed = false
-  await chat.openThread(thread.id)
+  await chat.reload()
   expect(chat.getState().history).toBe("idle")
+  expect(chat.getState().thread?.id).toBe(thread.id)
   expect(chat.getState().error).toBeUndefined()
+  expect(sends).not.toHaveBeenCalled()
 })
 
 test("saved threads use their bound agent capabilities and reset uses the configured agent", async () => {

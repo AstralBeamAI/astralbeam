@@ -1,6 +1,7 @@
 import { memo, useEffect, useRef } from "react"
-import type { UIMessage } from "@tanstack/ai-client"
+import { normalizeToUIMessage, type UIMessage } from "@tanstack/ai-client"
 import { WarningCircleIcon } from "@phosphor-icons/react"
+import { Button } from "@/widget/components/ui/button"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/widget/components/ui/empty"
 import { Marker, MarkerContent, MarkerIcon } from "@/widget/components/ui/marker"
 import { Message, MessageContent } from "@/widget/components/ui/message"
@@ -16,6 +17,7 @@ import { Spinner } from "@/widget/components/ui/spinner"
 import { DEFAULT_EMPTY_DESCRIPTION, DEFAULT_EMPTY_HEADLINE } from "../../lib/constants.ts"
 import type { WidgetDefinition } from "../../lib/types.ts"
 import type { SavedMessageMetadata } from "../../core/threads.ts"
+import type { ChatSubmission } from "../../core/session.ts"
 import type { QuestionnaireAnswer } from "../lib/types.ts"
 import { AssistantPart } from "./assistant-part.tsx"
 import { PartErrorBoundary } from "./part-error-boundary.tsx"
@@ -24,6 +26,8 @@ import { UserMessageBody } from "./user-message-body.tsx"
 interface ChatTranscriptProps {
   readOnly?: boolean | undefined
   messages: readonly UIMessage[]
+  submission?: ChatSubmission | undefined
+  onRetrySubmission?: (() => Promise<unknown>) | undefined
   /** Name of the host's empty-state slot; when set, it replaces the default empty state. */
   emptySlot?: string | undefined
   /** Headline of the empty transcript; defaults to `DEFAULT_EMPTY_HEADLINE`. */
@@ -79,6 +83,7 @@ const TranscriptMessage = memo(function TranscriptMessage({
   activeSlots,
   interactiveToolIds,
   onQuestionnaireAnswers,
+  onRetrySubmission,
 }: Pick<
   ChatTranscriptProps,
   | "currentTenantUserId"
@@ -88,6 +93,7 @@ const TranscriptMessage = memo(function TranscriptMessage({
   | "activeSlots"
   | "interactiveToolIds"
   | "onQuestionnaireAnswers"
+  | "onRetrySubmission"
 > & { message: UIMessage; streaming: boolean; readOnly: boolean; latestTurn: boolean }) {
   const saved = message.metadata?.astralbeam as SavedMessageMetadata | undefined
   const active =
@@ -124,6 +130,22 @@ const TranscriptMessage = memo(function TranscriptMessage({
               </PartErrorBoundary>
             ))
           )}
+          {onRetrySubmission && (
+            <div className="flex flex-wrap items-center justify-end gap-x-2 text-xs">
+              <span role="alert" className="text-destructive">
+                Couldn’t confirm delivery.
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="xs"
+                className="any-pointer-coarse:min-h-8"
+                onClick={() => void onRetrySubmission()}
+              >
+                Retry
+              </Button>
+            </div>
+          )}
           {message.role === "assistant" && saved?.state === "interrupted" && (
             <Marker>
               <MarkerIcon>
@@ -153,6 +175,8 @@ const TranscriptMessage = memo(function TranscriptMessage({
 export function ChatTranscript({
   readOnly = false,
   messages,
+  submission,
+  onRetrySubmission,
   emptySlot,
   emptyHeadline,
   emptyDescription,
@@ -194,7 +218,39 @@ export function ChatTranscript({
       element.removeEventListener("scroll", loadEarlier)
     }
   }, [hasOlder, loadingOlder, loadingHistory, messages, onLoadOlder])
-  const shown = messages.filter(hasVisibleContent)
+  let shown = messages.filter(hasVisibleContent)
+  let failedMessage: UIMessage | undefined
+  if (submission) {
+    // Use the exact submission identity. Another tab can send the same text and files.
+    const isOptimistic = (message: UIMessage) =>
+      message.metadata?.astralbeamSubmissionId === submission.id
+    const saved = shown.findLast((message) => {
+      const metadata = message.metadata?.astralbeam as SavedMessageMetadata | undefined
+      return (
+        message.role === "user" &&
+        metadata?.clientMessageId === submission.id &&
+        metadata.authorTenantUserId === currentTenantUserId
+      )
+    })
+    const local = shown.findLast(isOptimistic)
+    const target = saved ?? local
+    if (local) shown = shown.filter((message) => message === target || !isOptimistic(message))
+    if (submission.phase === "failed" && currentTenantUserId && !readOnly) {
+      failedMessage =
+        target ??
+        normalizeToUIMessage(
+          {
+            role: "user",
+            content:
+              typeof submission.content === "string"
+                ? submission.content
+                : submission.content.content,
+          },
+          () => submission.id,
+        )
+      if (!target) shown.push(failedMessage)
+    }
+  }
   const turnStart = shown.findLastIndex((message) => message.role === "user")
   if (loadingHistory && messages.length === 0) {
     return (
@@ -206,7 +262,7 @@ export function ChatTranscript({
       </div>
     )
   }
-  if (messages.length === 0 && !hasOlder) {
+  if (messages.length === 0 && !failedMessage && !hasOlder) {
     if (emptySlot) {
       // The host's own empty state; the wrapper gives the projected content the full height.
       return (
@@ -258,6 +314,7 @@ export function ChatTranscript({
                 activeSlots={activeSlots}
                 interactiveToolIds={interactiveToolIds}
                 onQuestionnaireAnswers={onQuestionnaireAnswers}
+                onRetrySubmission={message === failedMessage ? onRetrySubmission : undefined}
               />
             ))}
             {awaitingReply && (

@@ -172,6 +172,14 @@ export function chatWidget(page: Page) {
       return root.getByRole("alert")
     },
 
+    retryMessage(text: string): Locator {
+      return root
+        .locator('[data-slot="message"][data-align="end"]', {
+          has: page.getByText(text, { exact: true }),
+        })
+        .getByRole("button", { name: "Retry", exact: true })
+    },
+
     /**
      * Waits for a settled turn: more assistant turns than `previousCount` and an idle widget.
      *

@@ -1,7 +1,7 @@
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router"
-import { authQueryKeys } from "@better-auth-ui/core"
+import { authQueryKeys, ensureSession } from "@better-auth-ui/core"
 import { organizationQueryKeys } from "@better-auth-ui/core/plugins/organization"
-import { useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useEffect } from "react"
 
 import { PublicNavbar } from "@/components/navbar"
@@ -38,18 +38,26 @@ function OrganizationLayout() {
   const { access, organization } = Route.useRouteContext()
   const landingOrganizationId = access.status === "ready" ? access.organizationId : null
   const queryClient = useQueryClient()
+  const switchScope = `active-organization:${access.userId}`
+  const { mutate: setActive } = useMutation({
+    mutationKey: [switchScope],
+    scope: { id: switchScope },
+    mutationFn: async (organizationId: string) => {
+      const session = await ensureSession(queryClient, authClient)
+      if (session?.user.id !== access.userId) return
+      await authClient.organization.setActive({ organizationId, fetchOptions: { throw: true } })
+      await queryClient.invalidateQueries({ queryKey: authQueryKeys.session })
+    },
+  })
 
-  // Reading never moves the session's active organization, so a rendered page does, and `/` and
-  // the user settings pages then follow the organization last shown.
+  // A pending switch can overwrite the session even if it still matches the route now.
   useEffect(() => {
-    if (landingOrganizationId === organization.organizationId) return
-    void authClient.organization.setActive({
-      organizationId: organization.organizationId,
-      fetchOptions: {
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: authQueryKeys.session }),
-      },
-    })
-  }, [landingOrganizationId, organization.organizationId, queryClient])
+    if (
+      landingOrganizationId !== organization.organizationId ||
+      queryClient.isMutating({ mutationKey: [switchScope], exact: true }) > 0
+    )
+      setActive(organization.organizationId)
+  }, [landingOrganizationId, organization.organizationId, queryClient, setActive, switchScope])
 
   return (
     <AppShell organization={organization}>

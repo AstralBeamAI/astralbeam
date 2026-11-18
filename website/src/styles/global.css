@@ -1769,11 +1769,9 @@ main {
     border: 1px solid var(--border-strong);
     box-shadow: 0 18px 40px var(--shadow);
   }
-  /* column-reverse rather than reordered markup: the panel puts the sign-in link
-     nearest the button it drops from, while the bar keeps its source order. */
   .hud-nav[data-open] {
     display: flex;
-    flex-direction: column-reverse;
+    flex-direction: column;
   }
   .hud-nav a {
     padding: 0.7rem 0.75rem;

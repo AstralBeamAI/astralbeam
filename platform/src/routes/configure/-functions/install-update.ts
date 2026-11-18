@@ -1,13 +1,13 @@
 import { spawn } from "node:child_process"
-import process from "node:process"
 
 import { createServerFn } from "@tanstack/react-start"
 import { Effect, Schema } from "effect"
 
 import { installPlatformRelease } from "@/lib/runtime/platform-release.server"
-import { effectHandler } from "@/lib/runtime/server-fn.server"
+import { effectHandler, exposeError } from "@/lib/runtime/server-fn.server"
 import { toValidationSchema } from "@/lib/schemas"
 import { configureMiddleware } from "../-lib/configure-middleware"
+import { PlatformUpdateMigrationFailed } from "../-lib/errors"
 
 const InstallUpdateInput = Schema.Struct({
   version: Schema.String.check(Schema.isPattern(/^\d+\.\d+\.\d+$/)),
@@ -43,19 +43,21 @@ async function restartSystemdService(name: string): Promise<"restarted" | "missi
   return code === 0 ? "restarted" : "failed"
 }
 
-/** Replaces the release binary, applies its migrations, and restarts the named service. */
+/** Applies the candidate release's migrations before replacing the binary and restarting. */
 export const installUpdate = createServerFn({ method: "POST" })
   .middleware([configureMiddleware])
   .validator(toValidationSchema(InstallUpdateInput))
   .handler(
     effectHandler(({ data }) =>
       Effect.gen(function* () {
-        yield* Effect.promise(() => installPlatformRelease(data.version))
-        // The new binary carries the new migrations. It inherits the resolved DATABASE_URL, including
-        // the running embedded PostgreSQL connection.
-        const { code } = yield* Effect.promise(() => runCommand(process.execPath, ["migrate"]))
-        if (code !== 0) return yield* Effect.die(new Error(`migrate exited with code ${code}`))
+        const installed = yield* Effect.promise(() =>
+          installPlatformRelease(data.version, async (candidate) => {
+            const { code } = await runCommand(candidate, ["migrate"])
+            return code === 0
+          }),
+        )
+        if (!installed) return yield* new PlatformUpdateMigrationFailed()
         return yield* Effect.promise(() => restartSystemdService(data.serviceName))
-      }),
+      }).pipe(Effect.catchTag("PlatformUpdateMigrationFailed", exposeError)),
     ),
   )
