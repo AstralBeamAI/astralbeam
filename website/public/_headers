@@ -41,7 +41,7 @@
 /demo/unpaid-returns.xlsx
   Cache-Control: public, max-age=300, must-revalidate
 
-/favicon.png
+/favicon.ico
   Cache-Control: public, max-age=300, must-revalidate
 
 /og-image.png

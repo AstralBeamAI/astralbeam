@@ -9,7 +9,7 @@ export const Route = createFileRoute("/og-image.png")({
   server: {
     handlers: {
       GET: createPngHandler(async () => {
-        const logo = await renderSiteLogo(150, { opaque: false })
+        const logo = await renderSiteLogo(150)
         return sharp(new TextEncoder().encode(socialCardSvg()))
           .composite([{ input: logo, left: 984, top: 75 }])
           .removeAlpha()
