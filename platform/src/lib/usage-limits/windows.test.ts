@@ -66,7 +66,8 @@ describe("usage limit windows", () => {
     expect(usageLimitWindowEnd(quarterHour, at("2026-11-01T06:30:00Z"))).toEqual(
       at("2026-11-01T06:45:00Z"),
     )
-    expect(usageLimitWindowEnd(quarterHour, at("2026-03-08T06:55:00Z"))).toEqual(
+    const fortyFiveMinutes = { ...quarterHour, windowCount: 45 }
+    expect(usageLimitWindowEnd(fortyFiveMinutes, at("2026-03-08T06:55:00Z"))).toEqual(
       at("2026-03-08T07:00:00Z"),
     )
   })

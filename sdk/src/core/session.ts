@@ -378,7 +378,7 @@ export function createAstralBeamChat(
   // Only these moves are legal, so a late report cannot reopen a settled send.
   const nextPhases: Record<ChatSubmission["phase"], readonly ChatSubmission["phase"][]> = {
     submitting: ["accepted", "failed", "refused"],
-    failed: ["submitting"],
+    failed: ["submitting", "accepted"],
     accepted: [],
     refused: [],
   }
@@ -1148,6 +1148,20 @@ export function createAstralBeamChat(
             // TanStack leaves local messages unchanged for an empty hydration page.
             // An empty saved thread must remove rejected optimistic input.
             if (messages.length === 0) next.setMessagesManually([])
+            const pending = submission
+            const { auth } = state
+            if (
+              pending?.phase === "failed" &&
+              auth.status === "ready" &&
+              currentRead() &&
+              history.messages.some(
+                (message) =>
+                  message.role === "user" &&
+                  message.client_message_id === pending.id &&
+                  message.author_tenant_user_id === auth.currentUser.user.id,
+              )
+            )
+              acceptSubmission()
           }
           // Foreground execution has no replay stream to join. Pending interactions remain
           // application-owned because several turns can wait independently in one thread.
@@ -1212,9 +1226,10 @@ export function createAstralBeamChat(
             executableToolCallIds?: string[]
           }
           if (state.thread?.id === event.threadId) {
-            if (event.acceptedMessage && submission?.phase === "submitting")
-              replaceAcceptedMessage(event.acceptedMessage)
-            if (event.acceptedMessageId) acceptSubmission()
+            if (submission?.phase === "submitting") {
+              if (event.acceptedMessage) replaceAcceptedMessage(event.acceptedMessage)
+              if (event.acceptedMessageId) acceptSubmission()
+            }
             if (event.saved)
               for (const id of event.executableToolCallIds ?? []) {
                 if (!liveToolCalls.has(id)) toolResults.delete(toolResultKey(id))
@@ -1633,11 +1648,13 @@ export function createAstralBeamChat(
       if (!ownsAttempt(attempt)) return project(sent)
       scopeCompletedToolCalls()
       if (!(await waitToDispatch(attempt))) return project(sent)
-      const content = typeof sent.content === "string" ? { content: sent.content } : sent.content
-      await attempt.client.sendMessage({
-        ...content,
-        metadata: { ...content.metadata, astralbeamSubmissionId: sent.id },
-      })
+      if (typeof sent.content !== "string" || sent.content.trim()) {
+        const content = typeof sent.content === "string" ? { content: sent.content } : sent.content
+        await attempt.client.sendMessage({
+          ...content,
+          metadata: { ...content.metadata, astralbeamSubmissionId: sent.id },
+        })
+      }
       if (!currentAttempt(attempt)) return project(sent)
       endUnaccepted(sent, attempt.client.getError())
       if (currentAttempt(attempt)) await refreshThread(false)

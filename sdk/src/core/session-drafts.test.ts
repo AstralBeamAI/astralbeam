@@ -45,7 +45,10 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-function mockUnacknowledgedSend(currentAccount: () => typeof currentUser) {
+function mockUnacknowledgedSend(
+  currentAccount: () => typeof currentUser,
+  savedAuthor?: () => string | undefined,
+) {
   const sent: Array<{
     key: string | null
     body: {
@@ -61,15 +64,18 @@ function mockUnacknowledgedSend(currentAccount: () => typeof currentUser) {
       return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
     if (url.pathname.endsWith("/messages")) {
       const id = url.pathname.split("/").at(-2)!
+      const author = savedAuthor?.()
       return Promise.resolve(
         Response.json({
           ...page(id),
           messages:
-            id === threadA && sent.length > 1
+            id === threadA && (sent.length > 1 || (author && sent.length > 0))
               ? [
                   {
                     id: "accepted",
                     role: "user",
+                    author_tenant_user_id: author,
+                    client_message_id: author && sent[0]?.body.forwardedProps.clientMessageId,
                     created_at: thread(id).created_at,
                     parts: [{ id: "part", type: "text", content: "Keep my original intent" }],
                   },
@@ -96,6 +102,12 @@ function mockUnacknowledgedSend(currentAccount: () => typeof currentUser) {
     return Promise.reject(new Error(`Unexpected request ${url}`))
   })
   return sent
+}
+
+async function openFirstThread() {
+  const chat = createTestSession({ threadId: threadA })
+  await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(threadA))
+  return chat
 }
 
 test.each(["selection", "api", "identity"] as const)(
@@ -137,11 +149,6 @@ test.each([false, true])(
     let user = currentUser
     const sent = mockUnacknowledgedSend(() => user)
     const content = { id: "original", content: "Keep my original intent" }
-    const open = async () => {
-      const chat = createTestSession({ threadId: threadA })
-      await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(threadA))
-      return chat
-    }
     const original = createTestSession({
       threadId: threadA,
       tools: { summarize: { description: "Summarize text", execute: () => null } },
@@ -152,12 +159,12 @@ test.each([false, true])(
     original.dispose()
 
     user = { ...currentUser, user: { id: "another-user" } }
-    const other = await open()
+    const other = await openFirstThread()
     expect(other.getState().submission).toBeUndefined()
     other.dispose()
     user = currentUser
 
-    const reopened = await open()
+    const reopened = await openFirstThread()
     expect(reopened.getState().submission).toMatchObject({ phase: "failed", content })
     await reopened.reload()
     expect(sent).toHaveLength(1)
@@ -185,9 +192,42 @@ test.each([false, true])(
     )
     expect(reopened.getState().messages.map(({ id }) => id)).toEqual(expired ? [] : ["accepted"])
     reopened.dispose()
-    expect((await open()).getState().submission?.phase).toBe(expired ? "failed" : undefined)
+    expect((await openFirstThread()).getState().submission?.phase).toBe(
+      expired ? "failed" : undefined,
+    )
   },
 )
+
+test("saved history confirms an unacknowledged send only for its author", async () => {
+  vi.stubGlobal("sessionStorage", memoryStorage())
+  let author: string | undefined
+  const sent = mockUnacknowledgedSend(
+    () => currentUser,
+    () => author,
+  )
+  const original = await openFirstThread()
+  expect((await original.sendMessage("Keep my original intent")).phase).toBe("failed")
+  original.dispose()
+
+  author = "another-user"
+  const reopened = await openFirstThread()
+  expect(reopened.getState().submission?.phase).toBe("failed")
+
+  author = currentUser.user.id
+  await reopened.refreshThread()
+  expect(reopened.getState().submission?.phase).toBe("accepted")
+  expect(reopened.getState().messages.map(({ id }) => id)).toEqual(["accepted"])
+  expect(sent).toHaveLength(1)
+  reopened.dispose()
+  expect((await openFirstThread()).getState().submission).toBeUndefined()
+})
+
+test("a whitespace-only text send never dispatches", async () => {
+  const sent = mockUnacknowledgedSend(() => currentUser)
+  const chat = await openFirstThread()
+  expect((await chat.sendMessage(" \n ")).phase).toBe("refused")
+  expect(sent).toHaveLength(0)
+})
 
 test("a send awaiting authentication cannot follow the user into a new conversation", async () => {
   const mutations: string[] = []

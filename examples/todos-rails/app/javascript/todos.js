@@ -5,6 +5,7 @@ import { bindAppearanceButtons, csrfToken, tokenRequest } from "astralbeam_confi
 const app = document.getElementById("app")
 let todos = JSON.parse(app.dataset.todos)
 const cards = new Set()
+let pendingChange = Promise.resolve()
 
 async function request(method, path, todo) {
   const response = await fetch(path, {
@@ -18,16 +19,20 @@ async function request(method, path, todo) {
   return body
 }
 
-async function change(method, { id, ...fields }) {
+function change(method, { id, ...fields }) {
   const path = id === undefined ? "/todos" : `/todos/${id}`
-  const result = await request(method, path, method === "DELETE" ? undefined : fields)
-  if (method === "DELETE") {
-    todos = todos.filter((todo) => todo.id !== id)
-  } else {
-    todos = [...todos.filter((todo) => todo.id !== result.id), result].sort((a, b) => a.id - b.id)
-  }
-  render()
-  return result
+  const operation = pendingChange.then(async () => {
+    const result = await request(method, path, method === "DELETE" ? undefined : fields)
+    if (method === "DELETE") {
+      todos = todos.filter((todo) => todo.id !== id)
+    } else {
+      todos = [...todos.filter((todo) => todo.id !== result.id), result].sort((a, b) => a.id - b.id)
+    }
+    render()
+    return result
+  })
+  pendingChange = operation.catch(() => undefined)
+  return operation
 }
 
 function todoId(id) {

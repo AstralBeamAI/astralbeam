@@ -183,6 +183,11 @@ test("directory bindings and environment credentials resolve and verify the Orga
   expect(fetch).toHaveBeenCalledTimes(2)
 
   process.chdir(nested)
+  respondWith(organization)
+  await withLockedConfig(async () => {
+    expect(await cli("--json", "auth", "status")).toBe(0)
+  })
+
   const environmentOrganization = { ...organization, id: "01990a5d-0000-7000-8000-000000000012" }
   vi.stubEnv("ASTRALBEAM_API_KEY", API_KEY.replace(ORGANIZATION_ID, environmentOrganization.id))
   respondWith(environmentOrganization)
