@@ -1,4 +1,4 @@
-import { AstralBeamChat, type AstralBeamChatCore, defineWidget } from "@astralbeam/sdk/react"
+import { AstralBeamChat, type AstralBeamChatProps, defineWidget } from "@astralbeam/sdk/react"
 import {
   ArrowUpRightIcon,
   CheckIcon,
@@ -12,13 +12,15 @@ import { demoStore } from "@/lib/store.ts"
 import { Avatar, PriorityIcon, StatusIcon } from "./issue-bits.tsx"
 
 export function Astro({
-  chat,
+  tools,
+  visitorId,
   workspace,
   resizeContainer,
   onOpen,
   onClose,
 }: {
-  chat: AstralBeamChatCore
+  tools: AstralBeamChatProps["tools"]
+  visitorId: string
   workspace: Workspace
   resizeContainer?: (() => HTMLElement | null) | undefined
   onOpen: (issue: Issue) => void
@@ -26,7 +28,14 @@ export function Astro({
 }) {
   return (
     <AstralBeamChat
-      chat={chat}
+      apiUrl={import.meta.env.VITE_ASTRALBEAM_API_URL || "https://astralbeam.ai/api"}
+      agentId={import.meta.env.VITE_ASTRALBEAM_AGENT_ID || undefined}
+      fetchAstralBeamToken={{
+        url: "/api/astralbeam/token",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workspaceId: workspace.id, visitorId }),
+      }}
+      tools={tools}
       resizeContainer={resizeContainer}
       title="Astro"
       onClose={onClose}
