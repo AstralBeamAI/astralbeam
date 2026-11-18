@@ -7,13 +7,15 @@ index 0053c834e8bd45c29660cb7e521361ca07c72abc..355bf000fe3b316d537a98b74aa93d43
 +				debug: false,
 +				stream: false
 diff --git a/src/summarizer.ts b/src/summarizer.ts
-index df85a63607493daac11107eccca6233177ad280b..4608850afe28abff6e29de21666c12db789cae01 100644
+index df85a63607493daac11107eccca6233177ad280b..538bb4dee4dbf8aecafb5e2ade224fb2ed1dee10 100644
 --- a/src/summarizer.ts
 +++ b/src/summarizer.ts
-@@ -243,6 +243,7 @@ export function conversationSummarizer(options: {
+@@ -243,6 +243,9 @@ export function conversationSummarizer(options: {
          abortController: controller,
          // A thread of its own: the summary call is not a turn of the conversation.
          threadId: `${input.threadId}:compaction`,
++        // Remove once the summarizer forwards the debug option.
++        // https://github.com/TanStack/ai/issues/2188
 +        debug: false,
          stream: false,
        })
