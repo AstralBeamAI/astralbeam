@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest"
 import { authenticationIdentity } from "./auth.ts"
 import { DEFAULT_API_URL } from "../lib/constants.ts"
-import { storedThreadDraft, storedThreadAttachments } from "../lib/drafts.ts"
+import { chatDraftIdentity, storedThreadDraft, storedThreadAttachments } from "../lib/drafts.ts"
 import { createTestSession, disposeTestSessions } from "./session-fixtures.ts"
 
 const threadA = "00000000-0000-4000-8000-000000000001"
@@ -220,6 +220,33 @@ test("saved history confirms an unacknowledged send only for its author", async 
   expect(sent).toHaveLength(1)
   reopened.dispose()
   expect((await openFirstThread()).getState().submission).toBeUndefined()
+})
+
+test("a failed retry-record write preserves the composer draft fallback after reopening", async () => {
+  const storage = memoryStorage()
+  vi.stubGlobal("sessionStorage", {
+    ...storage,
+    setItem: (key: string, value: string) => {
+      if (key.startsWith("astralbeam:pending:"))
+        throw new DOMException("Full", "QuotaExceededError")
+      storage.setItem(key, value)
+    },
+  })
+  mockUnacknowledgedSend(() => currentUser)
+  const original = await openFirstThread()
+  const auth = original.getState().auth
+  if (auth.status !== "ready") throw new Error("Expected a verified account")
+  const identity = chatDraftIdentity(
+    authenticationIdentity(auth.currentUser),
+    original.getOptions(),
+  )
+  const text = "Keep my original intent"
+  storedThreadDraft(DEFAULT_API_URL, identity, threadA, text, "sent")
+  expect((await original.sendMessage(text, { draftFileIds: [] })).phase).toBe("failed")
+  original.dispose()
+
+  expect((await openFirstThread()).getState().submission).toBeUndefined()
+  expect(storedThreadDraft(DEFAULT_API_URL, identity, threadA, undefined, "sent")).toBe(text)
 })
 
 test("a whitespace-only text send never dispatches", async () => {

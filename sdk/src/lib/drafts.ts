@@ -143,9 +143,9 @@ export function storedPendingSubmission(
     const storage = globalThis.sessionStorage
     if (!storage) return
     if (change && "save" in change) {
-      if (isRecoverableContent(change.save.content))
-        storage.setItem(key, JSON.stringify(change.save))
-      return
+      if (!isRecoverableContent(change.save.content)) return
+      storage.setItem(key, JSON.stringify(change.save))
+      return change.save
     }
     const pending = JSON.parse(storage.getItem(key) ?? "null") as PendingSubmission | null
     if (change) {

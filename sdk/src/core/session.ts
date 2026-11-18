@@ -963,8 +963,8 @@ export function createAstralBeamChat(
       sent.delivery = { ...dispatch, scope }
       if (scope) {
         const { id, key, content } = sent
-        storedPendingSubmission(scope, { save: { id, key, content, ...dispatch } })
-        if (dispatch.draftFileIds)
+        const saved = storedPendingSubmission(scope, { save: { id, key, content, ...dispatch } })
+        if (saved && dispatch.draftFileIds)
           storedThreadDraft(scope.apiUrl, scope.identity, scope.threadId, "", "sent")
       }
     }

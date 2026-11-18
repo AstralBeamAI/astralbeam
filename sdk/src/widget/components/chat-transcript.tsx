@@ -219,7 +219,7 @@ export function ChatTranscript({
     }
   }, [hasOlder, loadingOlder, loadingHistory, messages, onLoadOlder])
   let shown = messages.filter(hasVisibleContent)
-  let retryMessage: UIMessage | undefined
+  let failedMessage: UIMessage | undefined
   if (submission) {
     // Use the exact submission identity. Another tab can send the same text and files.
     const isOptimistic = (message: UIMessage) =>
@@ -235,8 +235,8 @@ export function ChatTranscript({
     const local = shown.findLast(isOptimistic)
     const target = saved ?? local
     if (local) shown = shown.filter((message) => message === target || !isOptimistic(message))
-    if (onRetrySubmission) {
-      retryMessage =
+    if (submission.phase === "failed" && currentTenantUserId && !readOnly) {
+      failedMessage =
         target ??
         normalizeToUIMessage(
           {
@@ -248,7 +248,7 @@ export function ChatTranscript({
           },
           () => submission.id,
         )
-      if (!target) shown.push(retryMessage)
+      if (!target) shown.push(failedMessage)
     }
   }
   const turnStart = shown.findLastIndex((message) => message.role === "user")
@@ -262,7 +262,7 @@ export function ChatTranscript({
       </div>
     )
   }
-  if (messages.length === 0 && !retryMessage && !hasOlder) {
+  if (messages.length === 0 && !failedMessage && !hasOlder) {
     if (emptySlot) {
       // The host's own empty state; the wrapper gives the projected content the full height.
       return (
@@ -314,7 +314,7 @@ export function ChatTranscript({
                 activeSlots={activeSlots}
                 interactiveToolIds={interactiveToolIds}
                 onQuestionnaireAnswers={onQuestionnaireAnswers}
-                onRetrySubmission={message === retryMessage ? onRetrySubmission : undefined}
+                onRetrySubmission={message === failedMessage ? onRetrySubmission : undefined}
               />
             ))}
             {awaitingReply && (

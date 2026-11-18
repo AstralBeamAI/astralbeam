@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router"
-import { authQueryKeys, getSession } from "@better-auth-ui/core"
+import { authQueryKeys, ensureSession } from "@better-auth-ui/core"
 import { organizationQueryKeys } from "@better-auth-ui/core/plugins/organization"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useEffect } from "react"
@@ -43,7 +43,8 @@ function OrganizationLayout() {
     mutationKey: [switchScope],
     scope: { id: switchScope },
     mutationFn: async (organizationId: string) => {
-      if (getSession(queryClient, authClient)?.user.id !== access.userId) return
+      const session = await ensureSession(queryClient, authClient)
+      if (session?.user.id !== access.userId) return
       await authClient.organization.setActive({ organizationId, fetchOptions: { throw: true } })
       await queryClient.invalidateQueries({ queryKey: authQueryKeys.session })
     },
