@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router"
 
+import astralbeamLightLogoUrl from "@/assets/astralbeam-logo-light.svg?url&no-inline"
 import { palette } from "@/brand/palette"
-import { siteMetadata, siteUrl } from "@/lib/site"
+import { siteMetadata } from "@/lib/site"
 
-const iconSize = `${siteMetadata.icon.size}x${siteMetadata.icon.size}`
 const manifest = {
   id: "/",
   name: siteMetadata.name,
@@ -16,9 +16,9 @@ const manifest = {
   theme_color: palette.dark.background.srgbHex,
   icons: [
     {
-      src: siteUrl(siteMetadata.icon.path),
-      sizes: iconSize,
-      type: "image/png",
+      src: astralbeamLightLogoUrl,
+      sizes: "any",
+      type: "image/svg+xml",
       purpose: "any",
     },
   ],

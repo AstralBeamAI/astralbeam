@@ -19,10 +19,6 @@ export const siteMetadata = {
     discord: "https://discord.gg/suehFycUvW",
     x: "https://x.com/AstralBeamAI",
   },
-  icon: {
-    path: "/favicon.png",
-    size: 512,
-  },
   socialImage: {
     path: "/og-image.png",
     width: 1200,
