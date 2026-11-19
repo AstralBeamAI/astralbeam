@@ -1,5 +1,4 @@
 import { and, eq, getTableColumns, sql } from "drizzle-orm"
-import { createSelectSchema } from "drizzle-orm/effect-schema"
 import { Context, Effect, Equal, Layer, Result, Schema, Struct } from "effect"
 import { SecureRandom } from "effect/crypto"
 
@@ -8,8 +7,12 @@ import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials"
 import { decryptDatabaseValue } from "@/db/lib/encryption"
 import { deleteWithOptimisticLock, updateWithOptimisticLock } from "@/db/lib/optimistic-locking"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate"
-import { sandboxProvider, SandboxProviderCredentialsPayloadSchema } from "@/db/schema/organizations"
-import { LockVersionSchema, UuidV7Schema } from "@/lib/schemas"
+import {
+  sandboxProvider,
+  SandboxProviderCredentialsPayloadSchema,
+  SandboxProviderRowSchema,
+} from "@/db/schema/organizations"
+import { UuidV7Schema } from "@/lib/schemas"
 import { runSandboxConnectionTest } from "./connection-test.server.ts"
 import { isSandboxProviderEnabled } from "./availability.server.ts"
 import {
@@ -29,20 +32,9 @@ import {
   SandboxProviderIdSchema,
   SandboxProviderNameSchema,
   type SandboxProviderOptions,
-  SandboxProviderOptionsSchema,
   type SandboxTestMetadata,
   SandboxTestMetadataSchema,
 } from "./schemas.ts"
-
-const SandboxProviderRowSchema = createSelectSchema(sandboxProvider, {
-  id: UuidV7Schema,
-  organizationId: UuidV7Schema,
-  name: SandboxProviderNameSchema,
-  providerType: SandboxProviderIdSchema,
-  options: SandboxProviderOptionsSchema,
-  lastTest: Schema.NullOr(SandboxTestMetadataSchema),
-  lockVersion: LockVersionSchema,
-}).mapFields(({ credentials: _credentials, ...fields }) => fields)
 
 type SandboxProviderRow = typeof SandboxProviderRowSchema.Type
 

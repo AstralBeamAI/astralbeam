@@ -1,5 +1,4 @@
 import { and, asc, count, desc, eq, gt, inArray, or } from "drizzle-orm"
-import { createSelectSchema } from "drizzle-orm/effect-schema"
 import { Clock, Context, DateTime, Effect, Layer, Schema } from "effect"
 
 import { Database } from "@/db/database"
@@ -7,8 +6,7 @@ import { deleteWithOptimisticLock, updateWithOptimisticLock } from "@/db/lib/opt
 import { mapDatabaseErrors } from "@/db/lib/sqlstate"
 import { chatThread } from "@/db/schema/chat"
 import { tenant, tenantUser } from "@/db/schema/organizations"
-import { usageLimit, usageLimitCounter } from "@/db/schema/usage-limits"
-import { DisplayNameSchema, LockVersionSchema, UuidV7Schema } from "@/lib/schemas"
+import { usageLimit, usageLimitCounter, UsageLimitRowSchema } from "@/db/schema/usage-limits"
 import {
   type UsageSubject,
   usageCounterIncrement,
@@ -19,19 +17,10 @@ import { UsageLimitChanged, UsageLimitNotFound, UsageLimitReached } from "./erro
 import {
   formatUsageLimitId,
   parseUsageLimitId,
-  TimeZoneSchema,
   USAGE_LIMIT_SUBJECTS_PAGE_SIZE,
   type UsageLimitFields,
 } from "./schemas.ts"
 import { usageLimitWindowEnd } from "./windows.ts"
-
-const UsageLimitRowSchema = createSelectSchema(usageLimit, {
-  id: UuidV7Schema,
-  organizationId: UuidV7Schema,
-  name: DisplayNameSchema,
-  timeZone: Schema.NullOr(TimeZoneSchema),
-  lockVersion: LockVersionSchema,
-})
 
 /** A usage limit row. The dashboard addresses it by public ID, and enforcement by row ID. */
 export type UsageLimit = typeof UsageLimitRowSchema.Type

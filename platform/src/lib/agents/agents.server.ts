@@ -1,15 +1,19 @@
 import { and, eq, sql } from "drizzle-orm"
-import { createSelectSchema } from "drizzle-orm/effect-schema"
 import { Context, Effect, Layer, Schema } from "effect"
 
 import { Database } from "@/db/database"
 import { deleteWithOptimisticLock, updateWithOptimisticLock } from "@/db/lib/optimistic-locking"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate"
-import { agent, agentModel, organizationConfiguration } from "@/db/schema/organizations"
+import {
+  agent,
+  agentModel,
+  AgentRowSchema,
+  organizationConfiguration,
+} from "@/db/schema/organizations"
 import { SandboxProviderIdSchema, SandboxProviderNameSchema } from "@/lib/sandboxes/schemas"
 import { getAvailableSandboxProviderIds } from "@/lib/sandboxes/availability.server"
 import { ModelProviders, type ModelChoice } from "@/lib/model-providers/model-providers.server"
-import { LockVersionSchema, UuidV7Schema } from "@/lib/schemas"
+import { UuidV7Schema } from "@/lib/schemas"
 import {
   AgentChanged,
   AgentModelInvalid,
@@ -17,22 +21,7 @@ import {
   AgentNotFound,
   AgentSandboxProviderInvalid,
 } from "./errors.ts"
-import {
-  type AgentFields,
-  AgentNameSchema,
-  AgentSystemPromptSchema,
-  formatAgentId,
-  parseAgentId,
-} from "./schemas.ts"
-
-const AgentRowSchema = createSelectSchema(agent, {
-  id: UuidV7Schema,
-  organizationId: UuidV7Schema,
-  name: AgentNameSchema,
-  systemPrompt: AgentSystemPromptSchema,
-  sandboxProviderId: Schema.NullOr(UuidV7Schema),
-  lockVersion: LockVersionSchema,
-})
+import { type AgentFields, formatAgentId, parseAgentId } from "./schemas.ts"
 
 /** An agent as the dashboard sees it, addressed by its public ID. */
 export type Agent = typeof AgentRowSchema.Type & { readonly modelIds: readonly string[] }

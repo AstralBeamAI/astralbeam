@@ -1,4 +1,4 @@
-import { boolean, index, text, uniqueIndex, primaryKey, snakeCase, uuid } from "drizzle-orm/pg-core"
+import { boolean, index, uniqueIndex, primaryKey, snakeCase, uuid } from "drizzle-orm/pg-core"
 
 import {
   caseInsensitiveText,
@@ -6,6 +6,7 @@ import {
   timestamps,
   timestampWithTimeZone,
   uuidV7,
+  text,
 } from "../lib/columns.ts"
 
 export const user = snakeCase.table(

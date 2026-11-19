@@ -1,7 +1,7 @@
-import { text, uniqueIndex, primaryKey, snakeCase } from "drizzle-orm/pg-core"
+import { uniqueIndex, primaryKey, snakeCase } from "drizzle-orm/pg-core"
 import { Schema } from "effect"
 
-import { encryptedJson, timestamps, uuidV7 } from "../lib/columns.ts"
+import { encryptedJson, timestamps, uuidV7, text } from "../lib/columns.ts"
 
 export const ConfigValuePayloadSchema = Schema.Struct({
   key: Schema.String,

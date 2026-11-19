@@ -156,7 +156,7 @@ Indexes support thread activity, participant access, parent traversal, turn look
 
 ## JSON contracts and stored examples
 
-Both JSONB columns use `schemaJsonb(EffectSchema)`. The Drizzle codec validates ordinary reads, writes, and relational reads. Raw SQL bypasses these codecs, so this is application-boundary enforcement rather than a PostgreSQL JSON Schema constraint.
+Both JSONB columns use `jsonb({ schema })`. The Drizzle codec validates ordinary reads, writes, and relational reads. Raw SQL bypasses these codecs, so this is application-boundary enforcement rather than a PostgreSQL JSON Schema constraint.
 
 Format versions are embedded in JSON. Unsupported versions fail explicitly rather than becoming empty content. Metadata has an explicit allowlist, while part payloads use a discriminated union with JSON extension fields. Stored values are bounded. Credentials, JWTs, service instances, callbacks, and entire resolved provider configuration objects do not belong in either column.
 

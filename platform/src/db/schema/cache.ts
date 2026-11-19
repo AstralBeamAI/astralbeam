@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm"
-import { check, index, text, uniqueIndex, primaryKey, snakeCase } from "drizzle-orm/pg-core"
+import { check, index, uniqueIndex, primaryKey, snakeCase } from "drizzle-orm/pg-core"
 
-import { timestamps, timestampWithTimeZone, uuidV7 } from "../lib/columns.ts"
+import { timestamps, timestampWithTimeZone, uuidV7, text } from "../lib/columns.ts"
 
 export const DATABASE_CACHE_NAMESPACE_MAX_LENGTH = 64
 export const DATABASE_CACHE_KEY_MAX_LENGTH = 512
