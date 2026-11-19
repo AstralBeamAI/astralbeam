@@ -48,6 +48,8 @@ Web access lets the agent search and read public pages. Choose an OpenAI Respons
 
 Web search uses the selected provider's native tools. Citation formatting and paused-search behavior follow its TanStack adapter. OpenRouter's native adapter does not accept inline PDF attachments. Tenant users cannot enable Web access themselves. Provider charges may include web-tool fees.
 
+With the official OpenAI Responses endpoint, enabling **Web access** makes long chats use a text summary for compaction. See [automatic compaction](./models.md#automatic-compaction) for provider options.
+
 ## Sandboxes
 
 Enable **Sandbox**, select a connection, and save. The first tool call provisions a workspace for that agent, conversation, and tenant user. Saved attachments are copied into it for the run.
@@ -72,6 +74,4 @@ Owners and developers can create, edit, and delete agents. Viewers cannot access
 
 ## Long conversations
 
-Agents automatically summarize older context as their model window fills up. The full conversation and attachments stay saved and visible, but summaries can lose details. Summary calls count toward the same usage limits as chat replies.
-
-Custom models need token limits configured in Models. Thresholds and recent-context retention are managed automatically.
+Agents automatically compact older context using the default model's token limits. Configure limits for custom models under **Models**. See [automatic compaction](./models.md#automatic-compaction) for what people see and how the provider affects compaction.
