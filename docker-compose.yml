@@ -20,7 +20,7 @@ x-valkey-env: &valkey-env
 
 services:
   postgres:
-    image: postgres:18.7@sha256:37586cb420551a1d64a424c5d02e93642692499f70919dda80e4bdafbb0a9533
+    image: postgres:18.7
     restart: unless-stopped
     environment:
       <<: *postgres-env
@@ -32,7 +32,7 @@ services:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
 
   pgbouncer:
-    image: edoburu/pgbouncer:v1.26.1-p0@sha256:488422e38cff912895d0d65d8963fcd306e6ac589a724398b6eb8e294e94d624
+    image: edoburu/pgbouncer:v1.26.1-p0
     restart: unless-stopped
     environment:
       <<: *pgbouncer-env
@@ -47,7 +47,7 @@ services:
         - PGPASSWORD="$${DB_PASSWORD}" psql --host 127.0.0.1 --username "$${DB_USER}" --dbname "$${HEALTHCHECK_DB}" --tuples-only --no-align --command "select 1" | grep -qx 1
 
   valkey:
-    image: valkey/valkey:9.1.4@sha256:3ab0eca823ebbf0fe352476ebac330ac9e5f14b592b9a954eab296d341e81b0e
+    image: valkey/valkey:9.1.4
     restart: unless-stopped
     command: ["valkey-server", "--save", "60", "1", "--loglevel", "warning"]
     environment:
@@ -60,7 +60,7 @@ services:
       test: ["CMD", "valkey-cli", "ping"]
 
   mailpit:
-    image: axllent/mailpit:v1.34.0@sha256:23a2ef85bc50853ab3093645d1d64679afd8887e89da5e48a88940c172591a4e
+    image: axllent/mailpit:v1.34.0
     restart: unless-stopped
     environment:
       MP_DATABASE: /data/mailpit.db

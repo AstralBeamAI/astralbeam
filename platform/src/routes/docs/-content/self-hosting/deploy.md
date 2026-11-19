@@ -161,7 +161,7 @@ docker compose -f docker-compose.production.yml up --detach --wait
 
 Open http://localhost:4510/configure and [complete setup](#complete-setup). Configure email before inviting the owner. The stack binds to localhost and stores files at `/var/lib/astralbeam/storage` in its persistent volume. Its HTTP, verification, and Turnstile defaults are for local evaluation.
 
-To upgrade, [back up](./operations.md#backups-and-restore), set `ASTRALBEAM_VERSION` to the new release in `.env`, rerun the startup command, and apply pending migrations. `docker compose -f docker-compose.production.yml down` preserves data. **Adding `--volumes` deletes the database and files.** If existing uploads are at the volume root, stop Platform, back up, and move them into `storage/`, preserving ownership.
+To upgrade, [back up](./operations.md#backups-and-restore) and review the new release's Compose file for service image tag updates. Apply those updates while preserving your local settings. Set `ASTRALBEAM_VERSION` to the new release in `.env`, rerun the startup command, and apply pending migrations. `docker compose -f docker-compose.production.yml down` preserves data. **Adding `--volumes` deletes the database and files.** If existing uploads are at the volume root, stop Platform, back up, and move them into `storage/`, preserving ownership.
 
 ### Existing services
 
