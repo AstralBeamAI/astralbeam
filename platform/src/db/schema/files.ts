@@ -2,14 +2,13 @@ import {
   bigint,
   index,
   pgEnum,
-  text,
   uniqueIndex,
   primaryKey,
   snakeCase,
   uuid,
 } from "drizzle-orm/pg-core"
 
-import { timestamps, uuidV7 } from "../lib/columns.ts"
+import { timestamps, uuidV7, text } from "../lib/columns.ts"
 import { organizationForeignKey } from "./organizations.ts"
 
 // pending: upload not yet verified. stored: uploaded and verified, with or without an attachment.

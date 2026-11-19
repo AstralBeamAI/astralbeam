@@ -1,11 +1,12 @@
-import { index, text, unique, primaryKey, snakeCase, uuid } from "drizzle-orm/pg-core"
+import { index, unique, primaryKey, snakeCase, uuid } from "drizzle-orm/pg-core"
 import {
   deferrableForeignKey,
   encryptedJson,
   lockVersion,
-  schemaJsonb,
+  jsonb,
   timestamps,
   uuidV7,
+  text,
 } from "../lib/columns.ts"
 import type { OrganizationId, TenantId, TenantUserId } from "./organizations.ts"
 import { organizationForeignKey, tenantUserForeignKey } from "./organizations.ts"
@@ -17,7 +18,7 @@ export const mcpServer = snakeCase.table(
     organizationId: uuid().$type<OrganizationId>().notNull(),
     id: uuidV7(),
     endpointUrl: text().notNull(),
-    authConfig: schemaJsonb(McpStoredAuthConfigSchema).notNull(),
+    authConfig: jsonb({ schema: McpStoredAuthConfigSchema }).notNull(),
     ...timestamps(),
   },
   (t) => [

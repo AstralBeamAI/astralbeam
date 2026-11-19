@@ -4,7 +4,6 @@ import {
   check,
   index,
   integer,
-  text,
   uniqueIndex,
   primaryKey,
   snakeCase,
@@ -16,7 +15,6 @@ import * as Schema from "effect/Schema"
 import {
   isProviderCredentials,
   SandboxProviderCredentialsSchema,
-  type SandboxProviderId,
   SandboxProviderIdSchema,
   SandboxProviderOptionsSchema,
   SandboxTestMetadataSchema,
@@ -24,20 +22,22 @@ import {
 import {
   ModelProviderCredentialsPayloadSchema,
   ModelConfigurationSchema,
-  type ModelProviderType,
-  type ModelProviderApi,
+  ModelProviderFieldsSchema,
 } from "@/lib/model-providers/schemas.ts"
-import { UuidV7Schema } from "@/lib/schemas.ts"
+import { DisplayNameSchema, UuidV7Schema } from "@/lib/schemas.ts"
+import { AgentSystemPromptSchema } from "@/lib/agents/schemas.ts"
 
 import {
   caseInsensitiveText,
+  createSelectSchema,
   deferrableForeignKey,
   encryptedJson,
-  schemaJsonb,
+  jsonb,
   lockVersion,
   timestamps,
   timestampWithTimeZone,
   uuidV7,
+  text,
 } from "../lib/columns.ts"
 import {
   ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS,
@@ -164,19 +164,21 @@ export const apiKey = snakeCase.table(
   ],
 )
 
+const sandboxProviderColumns = {
+  id: uuidV7(),
+  organizationId: uuidV7({ generated: false }).notNull(),
+  name: caseInsensitiveText({ schema: DisplayNameSchema }).notNull(),
+  providerType: text({ enum: SandboxProviderIdSchema.literals }).notNull(),
+  options: jsonb({ schema: SandboxProviderOptionsSchema }).notNull(),
+  credentials: encryptedJson({ schema: SandboxProviderCredentialsPayloadSchema }),
+  lastTest: jsonb({ schema: SandboxTestMetadataSchema }),
+  lockVersion: lockVersion(),
+  ...timestamps(),
+}
+
 export const sandboxProvider = snakeCase.table(
   "sandbox_provider",
-  {
-    id: uuidV7(),
-    organizationId: uuid().notNull(),
-    name: caseInsensitiveText().notNull(),
-    providerType: text().$type<SandboxProviderId>().notNull(),
-    options: schemaJsonb(SandboxProviderOptionsSchema).notNull(),
-    credentials: encryptedJson({ schema: SandboxProviderCredentialsPayloadSchema }),
-    lastTest: schemaJsonb(SandboxTestMetadataSchema),
-    lockVersion: lockVersion(),
-    ...timestamps(),
-  },
+  sandboxProviderColumns,
   (table) => [
     primaryKey({
       name: "sandbox_provider_pkey",
@@ -187,14 +189,19 @@ export const sandboxProvider = snakeCase.table(
   ],
 )
 
+export const SandboxProviderRowSchema = createSelectSchema(
+  sandboxProvider,
+  sandboxProviderColumns,
+).mapFields(({ credentials: _credentials, ...fields }) => fields)
+
 export const modelProvider = snakeCase.table(
   "model_provider",
   {
     id: uuidV7(),
     organizationId: uuid().notNull(),
     name: caseInsensitiveText().notNull(),
-    providerType: text().$type<ModelProviderType>().notNull(),
-    api: text().$type<ModelProviderApi>().notNull(),
+    providerType: text({ enum: ModelProviderFieldsSchema.fields.providerType.literals }).notNull(),
+    api: text({ enum: ModelProviderFieldsSchema.fields.api.literals }).notNull(),
     baseUrl: text().notNull(),
     credentials: encryptedJson({ schema: ModelProviderCredentialsPayloadSchema }),
     lockVersion: lockVersion(),
@@ -215,7 +222,7 @@ export const providerModel = snakeCase.table(
     modelProviderId: uuid().notNull(),
     modelId: text().notNull(),
     name: text().notNull(),
-    configuration: schemaJsonb(ModelConfigurationSchema),
+    configuration: jsonb({ schema: ModelConfigurationSchema }),
     ...timestamps(),
   },
   (table) => [
@@ -234,42 +241,42 @@ export const providerModel = snakeCase.table(
   ],
 )
 
-export const agent = snakeCase.table(
-  "agent",
-  {
-    id: uuidV7(),
-    organizationId: uuid().notNull(),
-    name: caseInsensitiveText().notNull(),
-    systemPrompt: text().notNull(),
-    // Agent capability policy the chat endpoint enforces; the SDK can narrow it, never grant it.
-    attachmentsEnabled: boolean().notNull().default(true),
-    webAccessEnabled: boolean().notNull().default(false),
-    // Optional so a new organization has a usable agent before anyone configures a provider,
-    // which cannot be saved until its connection test passes.
-    sandboxProviderId: uuid(),
-    lockVersion: lockVersion(),
-    ...timestamps(),
-  },
-  (table) => [
-    primaryKey({ name: "agent_pkey", columns: [table.organizationId, table.id] }),
-    index("agent_organization_id_sandbox_provider_id_idx").on(
-      table.organizationId,
-      table.sandboxProviderId,
-    ),
-    // The name is the only human-readable handle left once the ID is opaque.
-    uniqueIndex("agent_organization_id_name_uidx").on(table.organizationId, table.name),
-    check(
-      "agent_system_prompt_length_check",
-      sql`char_length(${table.systemPrompt}) between 1 and 32768`,
-    ),
-    deferrableForeignKey({
-      name: "agent_organization_id_sandbox_provider_id_fk",
-      columns: [table.organizationId, table.sandboxProviderId],
-      foreignColumns: [sandboxProvider.organizationId, sandboxProvider.id],
-    }).onDelete("no action"),
-    organizationForeignKey(table),
-  ],
-)
+const agentColumns = {
+  id: uuidV7(),
+  organizationId: uuidV7({ generated: false }).notNull(),
+  name: caseInsensitiveText({ schema: DisplayNameSchema }).notNull(),
+  systemPrompt: text({ schema: AgentSystemPromptSchema }).notNull(),
+  // Agent capability policy the chat endpoint enforces; the SDK can narrow it, never grant it.
+  attachmentsEnabled: boolean().notNull().default(true),
+  webAccessEnabled: boolean().notNull().default(false),
+  // Optional so a new organization has a usable agent before anyone configures a provider,
+  // which cannot be saved until its connection test passes.
+  sandboxProviderId: uuidV7({ generated: false }),
+  lockVersion: lockVersion(),
+  ...timestamps(),
+}
+
+export const agent = snakeCase.table("agent", agentColumns, (table) => [
+  primaryKey({ name: "agent_pkey", columns: [table.organizationId, table.id] }),
+  index("agent_organization_id_sandbox_provider_id_idx").on(
+    table.organizationId,
+    table.sandboxProviderId,
+  ),
+  // The name is the only human-readable handle left once the ID is opaque.
+  uniqueIndex("agent_organization_id_name_uidx").on(table.organizationId, table.name),
+  check(
+    "agent_system_prompt_length_check",
+    sql`char_length(${table.systemPrompt}) between 1 and 32768`,
+  ),
+  deferrableForeignKey({
+    name: "agent_organization_id_sandbox_provider_id_fk",
+    columns: [table.organizationId, table.sandboxProviderId],
+    foreignColumns: [sandboxProvider.organizationId, sandboxProvider.id],
+  }).onDelete("no action"),
+  organizationForeignKey(table),
+])
+
+export const AgentRowSchema = createSelectSchema(agent, agentColumns)
 
 export const agentModel = snakeCase.table(
   "agent_model",
@@ -346,7 +353,7 @@ export const tenant = snakeCase.table(
     id: uuidV7().$type<TenantId>(),
     externalId: text().notNull(),
     name: text(),
-    metadata: schemaJsonb(Schema.JsonObject).default({}).notNull(),
+    metadata: jsonb({ schema: Schema.JsonObject }).default({}).notNull(),
     ...timestamps(),
   },
   (table) => [
@@ -371,7 +378,7 @@ export const tenantUser = snakeCase.table(
     externalId: text().notNull(),
     name: text(),
     admin: boolean().default(false).notNull(),
-    metadata: schemaJsonb(Schema.JsonObject).default({}).notNull(),
+    metadata: jsonb({ schema: Schema.JsonObject }).default({}).notNull(),
     ...timestamps(),
   },
   (table) => [

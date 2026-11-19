@@ -5,7 +5,6 @@ import {
   index,
   integer,
   pgEnum,
-  text,
   uniqueIndex,
   uuid,
   type AnyPgColumn,
@@ -17,10 +16,11 @@ import {
 import { ApiUuidSchema, UuidV7Schema } from "@/lib/schemas.ts"
 import {
   deferrableForeignKey,
-  schemaJsonb,
+  jsonb,
   lockVersion,
   timestamps,
   uuidV7,
+  text,
 } from "../lib/columns.ts"
 import { fileObject } from "./files.ts"
 import type { OrganizationId, TenantId, TenantUserId } from "@/db/schema/organizations"
@@ -233,7 +233,7 @@ export const chatMessage = snakeCase.table(
     state: chatMessageStateEnum().notNull(),
     // Versioned, validated provenance, provider continuation, and input tool declarations. The current invocation ID fences producer writes.
     // Credentials are excluded. Visible content belongs in message parts, and provider context is derived separately.
-    metadata: schemaJsonb(ChatMessageMetadataSchema).notNull(),
+    metadata: jsonb({ schema: ChatMessageMetadataSchema }).notNull(),
     // Lifecycle on the initiating user message. Its accepted content remains complete throughout execution.
     turnState: chatMessageTurnStateEnum(),
     ...timestamps(),
@@ -306,7 +306,7 @@ export const chatMessagePart = snakeCase.table(
     position: integer().notNull(),
     // Versioned content for text, reasoning, attachments, widgets, tool decisions, or accepted tool results.
     // Original uploads and tool declarations remain here. This table is not limited to tool-related content.
-    payload: schemaJsonb(ChatMessagePartPayloadSchema).notNull(),
+    payload: jsonb({ schema: ChatMessagePartPayloadSchema }).notNull(),
     // Where this tool decision should execute. Specific responders are recorded in chat_tool_response.
     executionLocation: chatMessagePartExecutionLocationEnum(),
     ...timestamps(),
