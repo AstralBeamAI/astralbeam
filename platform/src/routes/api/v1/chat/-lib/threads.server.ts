@@ -10,7 +10,12 @@ import {
 } from "effect/http-api"
 
 import { APP_HANDLE } from "@/lib/constants.ts"
-import { LockVersionSchema, NonEmptyStringSchema, ApiUuidSchema } from "@/lib/schemas.ts"
+import {
+  ApiUuidSchema,
+  LockVersionSchema,
+  NonEmptyStringSchema,
+  UuidV7Schema,
+} from "@/lib/schemas.ts"
 import { TenantUserIdSchema } from "@/db/schema/organizations"
 import { tenantUserEmail } from "@/lib/tenants/schemas.ts"
 import type { ApiV1 } from "../../-lib/contract.server"
@@ -28,7 +33,7 @@ const threadRole = Schema.Literals(["viewer", "member", "manager"])
 const toolExecutionLocation = Schema.Literals(["server_api", "sandbox", "browser"])
 const threadDate = Schema.DateFromString.pipe(Schema.annotateEncoded({ format: "date-time" }))
 const threadTitle = NonEmptyStringSchema.check(Schema.isMaxLength(200))
-const threadParams = { id: ApiUuidSchema }
+const threadParams = { id: UuidV7Schema }
 const participantParams = { ...threadParams, tenantUserId: TenantUserIdSchema }
 const threadSearchQuery = Schema.Struct({
   ...restPaginationQuery.fields,
@@ -46,11 +51,11 @@ const threadVersionQuery = Schema.Struct({
 })
 
 const ChatThreadRecordSchema = Schema.Struct({
-  id: ApiUuidSchema,
+  id: UuidV7Schema,
   title: Schema.NullOr(Schema.String),
   agentId: Schema.NullOr(Schema.String),
   lockVersion: LockVersionSchema,
-  currentLeafMessageId: Schema.NullOr(ApiUuidSchema),
+  currentLeafMessageId: Schema.NullOr(UuidV7Schema),
   role: threadRole,
   writerActive: Schema.Boolean,
   createdAt: threadDate,
@@ -89,16 +94,16 @@ const chatTenantUserRecord = Schema.Struct({
 )
 
 export const chatMessageRecord = Schema.Struct({
-  id: ApiUuidSchema,
+  id: UuidV7Schema,
   role: Schema.Literals(["user", "assistant", "tool"]),
   state: Schema.Literals(["draft", "complete", "interrupted"]),
-  parentMessageId: Schema.NullOr(ApiUuidSchema),
+  parentMessageId: Schema.NullOr(UuidV7Schema),
   parts: Schema.Array(Schema.JsonObject),
-  authorTenantUserId: Schema.NullOr(ApiUuidSchema),
+  authorTenantUserId: Schema.NullOr(UuidV7Schema),
   clientMessageId: Schema.optionalKey(ApiUuidSchema),
-  sourceAssistantMessageId: Schema.NullOr(ApiUuidSchema),
-  sourceToolPartId: Schema.NullOr(Schema.String),
-  responseTargetId: Schema.NullOr(Schema.String),
+  sourceAssistantMessageId: Schema.NullOr(UuidV7Schema),
+  sourceToolPartId: Schema.NullOr(ApiUuidSchema),
+  responseTargetId: Schema.NullOr(ApiUuidSchema),
   createdAt: threadDate,
 }).pipe(
   Schema.annotate({ identifier: "ChatMessage" }),
@@ -114,11 +119,11 @@ export const chatMessageRecord = Schema.Struct({
 )
 
 const chatPendingInteraction = Schema.Struct({
-  sourceMessageId: ApiUuidSchema,
-  sourcePartId: Schema.String,
-  responseTargetId: Schema.String,
+  sourceMessageId: UuidV7Schema,
+  sourcePartId: ApiUuidSchema,
+  responseTargetId: ApiUuidSchema,
   toolCallId: Schema.String,
-  targetTenantUserId: Schema.NullOr(ApiUuidSchema),
+  targetTenantUserId: Schema.NullOr(UuidV7Schema),
   targetClientId: Schema.NullOr(ApiUuidSchema),
   executionLocation: toolExecutionLocation,
 }).pipe(
@@ -196,8 +201,8 @@ const setParticipantInput = Schema.Struct({
   Schema.encodeKeys({ lockVersion: "expected_version" }),
 )
 const chatToolResultInput = Schema.Struct({
-  sourceMessageId: ApiUuidSchema,
-  sourcePartId: NonEmptyStringSchema,
+  sourceMessageId: UuidV7Schema,
+  sourcePartId: ApiUuidSchema,
   responseTargetId: ApiUuidSchema,
   outcome: Schema.Literals(["succeeded", "failed", "skipped", "unknown"]),
   output: Schema.Json,

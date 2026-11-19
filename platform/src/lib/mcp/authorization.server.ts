@@ -1,3 +1,4 @@
+import { SecureRandom } from "effect/crypto"
 import { createHash, randomBytes } from "node:crypto"
 import { and, eq, sql } from "drizzle-orm"
 import { Cause, Clock, Context, Effect, Layer, Option, Redacted, Result, Schema } from "effect"
@@ -186,7 +187,7 @@ const makeMcpAuthorization = Effect.gen(function* () {
     const attempt: McpAttemptReference = {
       organizationId: connection.organizationId,
       tenantId: connection.tenantId,
-      id: crypto.randomUUID(),
+      id: SecureRandom.uuidV7Unsafe(),
       connectionId: connection.id,
     }
     const payload: McpAttemptEnvelope = {

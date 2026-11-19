@@ -1,3 +1,4 @@
+import { SecureRandom } from "effect/crypto"
 import { OrganizationIdSchema, TenantIdSchema, TenantUserIdSchema } from "@/db/schema/organizations"
 import {
   EventType,
@@ -20,13 +21,13 @@ import { managedChatDelivery, managedChatMiddleware } from "./stream"
 const managedStreamClaim: ChatWriterClaim = {
   scope: {
     organizationId: OrganizationIdSchema.make("019a0000-0000-7000-8000-000000000001"),
-    tenantId: TenantIdSchema.make(crypto.randomUUID()),
-    tenantUserId: TenantUserIdSchema.make(crypto.randomUUID()),
+    tenantId: TenantIdSchema.make(SecureRandom.uuidV7Unsafe()),
+    tenantUserId: TenantUserIdSchema.make(SecureRandom.uuidV7Unsafe()),
   },
-  threadId: crypto.randomUUID(),
-  assistantMessageId: crypto.randomUUID(),
-  inputMessageId: crypto.randomUUID(),
-  invocationId: crypto.randomUUID(),
+  threadId: SecureRandom.uuidV7Unsafe(),
+  assistantMessageId: SecureRandom.uuidV7Unsafe(),
+  inputMessageId: SecureRandom.uuidV7Unsafe(),
+  invocationId: SecureRandom.uuidV7Unsafe(),
 }
 
 function managedProviderResponse(tool: boolean) {
@@ -77,7 +78,7 @@ async function exerciseManagedStream(options: {
   const saved: ChatMessagePayload[] = []
   const results: ChatToolResolution[] = []
   const prompts: unknown[] = []
-  const nextAssistantId = crypto.randomUUID()
+  const nextAssistantId = SecureRandom.uuidV7Unsafe()
   let requests = 0
   let executed = 0
   let bufferedSnapshots = 0
@@ -160,7 +161,7 @@ async function exerciseManagedStream(options: {
   const managed = {
     claim: managedStreamClaim,
     threadVersion: 1,
-    clientId: crypto.randomUUID(),
+    clientId: SecureRandom.uuidV7Unsafe(),
   }
   const bridge = managedChatMiddleware({
     managed,

@@ -158,54 +158,40 @@ export class Mailer extends Context.Service<
       })
 
       return Mailer.of({
-        sendVerification: Effect.fn("Mailer.sendVerification")(function* (
-          data: BetterAuthLinkEmailData,
-        ) {
-          yield* deliver("email-verification", (context) => verificationEmailMessage(data, context))
-        }),
-        sendResetPassword: Effect.fn("Mailer.sendResetPassword")(function* (
-          data: BetterAuthLinkEmailData,
-        ) {
-          yield* deliver("reset-password", (context) => resetPasswordEmailMessage(data, context))
-        }),
-        sendPasswordChanged: Effect.fn("Mailer.sendPasswordChanged")(function* (
-          data: PasswordChangedEmailData,
-        ) {
-          yield* deliver("password-changed", (context) =>
-            passwordChangedEmailMessage(data, context),
-          )
-        }),
-        sendAccountExists: Effect.fn("Mailer.sendAccountExists")(function* (
-          data: AccountExistsEmailData,
-        ) {
-          yield* deliver("account-exists", (context) => accountExistsEmailMessage(data, context))
-        }),
-        sendOrganizationInvitation: Effect.fn("Mailer.sendOrganizationInvitation")(function* (
-          data: OrganizationInvitationEmailData,
-        ) {
-          yield* deliver("organization-invitation", (context) =>
-            organizationInvitationEmailMessage(data, context),
-          )
-        }),
-        sendOrganizationDeleted: Effect.fn("Mailer.sendOrganizationDeleted")(function* (
-          data: OrganizationDeletedEmailData,
-        ) {
-          yield* deliver("organization-deleted", (context) =>
-            organizationDeletedEmailMessage(data, context),
-          )
-        }),
-        sendWelcome: Effect.fn("Mailer.sendWelcome")(function* (data: WelcomeEmailData) {
-          yield* deliver("welcome", (context) => welcomeEmailMessage(data, context))
-        }),
-        sendSupportRequest: Effect.fn("Mailer.sendSupportRequest")(function* (
-          data: SupportRequestEmailData,
-        ) {
-          yield* deliver("support-request", (context) => supportRequestEmailMessage(data, context))
-        }),
-        testConnection: Effect.fn("Mailer.testConnection")(function* (
-          input: EmailProviderConnectionInput,
-        ) {
-          return yield* providers.testConnection(input).pipe(
+        sendVerification: Effect.fn("Mailer.sendVerification")((data: BetterAuthLinkEmailData) =>
+          deliver("email-verification", (context) => verificationEmailMessage(data, context)),
+        ),
+        sendResetPassword: Effect.fn("Mailer.sendResetPassword")((data: BetterAuthLinkEmailData) =>
+          deliver("reset-password", (context) => resetPasswordEmailMessage(data, context)),
+        ),
+        sendPasswordChanged: Effect.fn("Mailer.sendPasswordChanged")(
+          (data: PasswordChangedEmailData) =>
+            deliver("password-changed", (context) => passwordChangedEmailMessage(data, context)),
+        ),
+        sendAccountExists: Effect.fn("Mailer.sendAccountExists")((data: AccountExistsEmailData) =>
+          deliver("account-exists", (context) => accountExistsEmailMessage(data, context)),
+        ),
+        sendOrganizationInvitation: Effect.fn("Mailer.sendOrganizationInvitation")(
+          (data: OrganizationInvitationEmailData) =>
+            deliver("organization-invitation", (context) =>
+              organizationInvitationEmailMessage(data, context),
+            ),
+        ),
+        sendOrganizationDeleted: Effect.fn("Mailer.sendOrganizationDeleted")(
+          (data: OrganizationDeletedEmailData) =>
+            deliver("organization-deleted", (context) =>
+              organizationDeletedEmailMessage(data, context),
+            ),
+        ),
+        sendWelcome: Effect.fn("Mailer.sendWelcome")((data: WelcomeEmailData) =>
+          deliver("welcome", (context) => welcomeEmailMessage(data, context)),
+        ),
+        sendSupportRequest: Effect.fn("Mailer.sendSupportRequest")(
+          (data: SupportRequestEmailData) =>
+            deliver("support-request", (context) => supportRequestEmailMessage(data, context)),
+        ),
+        testConnection: Effect.fn("Mailer.testConnection")((input: EmailProviderConnectionInput) =>
+          providers.testConnection(input).pipe(
             Effect.as<EmailProviderConnectionResult>({ ok: true }),
             Effect.catchTag("EmailConnectionFailed", (error) =>
               Effect.succeed<EmailProviderConnectionResult>({
@@ -213,8 +199,8 @@ export class Mailer extends Context.Service<
                 error: error.message || "Connection test failed",
               }),
             ),
-          )
-        }),
+          ),
+        ),
       })
     }),
   )

@@ -5,7 +5,7 @@ import { Context, Duration, Effect, Layer } from "effect"
 import { RateLimiter } from "effect/persistence"
 
 import { Database } from "@/db/database"
-import { rateLimit } from "@/db/schema"
+import { rateLimit } from "@/db/schema/rate-limit"
 
 const DATABASE_RATE_LIMIT_KEY_PREFIX = "effect-rate-limit:"
 
@@ -77,7 +77,6 @@ export class DatabaseRateLimiter extends Context.Service<
             set: {
               count: sql<number>`case when ${rateLimit.lastRequest} <= ${now} then 1 else least(${rateLimit.count}::bigint + 1, ${maximumCount})::integer end`,
               lastRequest: sql<number>`case when ${rateLimit.lastRequest} <= ${now} then ${windowExpiresAt} else ${rateLimit.lastRequest} end`,
-              updatedAt: sql`now()`,
             },
           })
           .returning({

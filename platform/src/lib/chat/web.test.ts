@@ -1,3 +1,4 @@
+import { SecureRandom } from "effect/crypto"
 import { OrganizationIdSchema, TenantIdSchema, TenantUserIdSchema } from "@/db/schema/organizations"
 import {
   EventType,
@@ -194,13 +195,13 @@ async function exerciseNativeWeb(provider: "openai" | "anthropic", application: 
   const claim: ChatWriterClaim = {
     scope: {
       organizationId: OrganizationIdSchema.make("019a0000-0000-7000-8000-000000000001"),
-      tenantId: TenantIdSchema.make(crypto.randomUUID()),
-      tenantUserId: TenantUserIdSchema.make(crypto.randomUUID()),
+      tenantId: TenantIdSchema.make(SecureRandom.uuidV7Unsafe()),
+      tenantUserId: TenantUserIdSchema.make(SecureRandom.uuidV7Unsafe()),
     },
-    threadId: crypto.randomUUID(),
-    inputMessageId: crypto.randomUUID(),
-    assistantMessageId: crypto.randomUUID(),
-    invocationId: crypto.randomUUID(),
+    threadId: SecureRandom.uuidV7Unsafe(),
+    inputMessageId: SecureRandom.uuidV7Unsafe(),
+    assistantMessageId: SecureRandom.uuidV7Unsafe(),
+    invocationId: SecureRandom.uuidV7Unsafe(),
   }
   const managed = { claim, threadVersion: 1, clientId: "browser" }
   const history: ModelMessage[] = [
@@ -215,7 +216,7 @@ async function exerciseNativeWeb(provider: "openai" | "anthropic", application: 
       }),
     assertActive: () => Effect.void,
     nextDraft: ({ claim: previous }: { claim: ChatWriterClaim }) =>
-      Effect.succeed({ ...previous, assistantMessageId: crypto.randomUUID() }),
+      Effect.succeed({ ...previous, assistantMessageId: SecureRandom.uuidV7Unsafe() }),
     appendToolResults: ({ results }: { results: ChatToolResolution[] }) =>
       Effect.sync(() => {
         applicationResults.push(...results)
@@ -310,7 +311,7 @@ test.each(["openai", "anthropic"] as const)(
     const records: Parameters<typeof projectChatModelHistory>[0] = [
       { id: claim.assistantMessageId, role: "assistant", state: "complete", payload },
       ...applicationResults.map((result) => ({
-        id: crypto.randomUUID(),
+        id: SecureRandom.uuidV7Unsafe(),
         role: "tool" as const,
         state: "complete" as const,
         sourceAssistantMessageId: result.assistantMessageId,

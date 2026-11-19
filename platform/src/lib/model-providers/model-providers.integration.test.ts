@@ -1,3 +1,4 @@
+import { SecureRandom } from "effect/crypto"
 import { and, eq, sql } from "drizzle-orm"
 import { Deferred, Effect, Fiber } from "effect"
 import { FetchHttpClient } from "effect/http"
@@ -21,6 +22,7 @@ import {
   agentModel,
   configTable,
   modelProvider,
+  providerModel,
   organization,
   organizationConfiguration,
 } from "@/db/schema"
@@ -415,11 +417,20 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
     )
     const modelId = providers.find((provider) => provider.id === id)!.models[0]!.id
     const otherModelId = providers.find((provider) => provider.id !== id)!.models[0]!.id
+    await db.insert(providerModel).values({
+      organizationId,
+      modelProviderId: id,
+      modelId: "damaged-model",
+      name: "Damaged configuration",
+    })
+    await db.execute(
+      sql`update provider_model set configuration = '{}'::jsonb where organization_id = ${organizationId} and model_provider_id = ${id} and model_id = 'damaged-model'`,
+    )
     await db.execute(
       sql`update model_provider set credentials = 'corrupt', updated_at = now() where organization_id = ${organizationId} and id = ${id}`,
     )
     for (const request of [
-      { organizationId: crypto.randomUUID(), id, lockVersion: 0, modelId },
+      { organizationId: SecureRandom.uuidV7Unsafe(), id, lockVersion: 0, modelId },
       { organizationId, id, lockVersion: 0, modelId: otherModelId },
       { organizationId, id, lockVersion: 1, modelId },
     ]) {
@@ -434,6 +445,18 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
       ).pipe(Effect.flip),
     )
     expect(unreadable._tag).toBe("ModelProviderUnreadable")
+    await runAppEffect(
+      saveIntegrationProvider(organizationId, { id, lockVersion: 0, apiKey: "replacement-secret" }),
+    )
+    expect(
+      await runAppEffect(
+        Effect.flatMap(ModelProviders, (service) => service.get({ organizationId, id })),
+      ),
+    ).toMatchObject({
+      credentialsReadable: true,
+      apiKeyHint: "cret",
+      lockVersion: 1,
+    })
   })
 
   test("requires the key again when a connection moves to another URL or provider type", async () => {
@@ -452,6 +475,24 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
       )
       expect(refused._tag).toBe("ModelProviderKeyMissing")
     }
+    await db.execute(
+      sql`update provider_model set configuration = '{}'::jsonb where organization_id = ${organizationId} and model_provider_id = ${id}`,
+    )
+    await runAppEffect(
+      saveIntegrationProvider(organizationId, {
+        id,
+        lockVersion: 0,
+        providerType: "anthropic",
+        api: "anthropic-messages",
+        baseUrl: "https://api.anthropic.com",
+        apiKey: "replacement-secret",
+      }),
+    )
+    expect(
+      await runAppEffect(
+        Effect.flatMap(ModelProviders, (service) => service.get({ organizationId, id })),
+      ),
+    ).toMatchObject({ providerType: "anthropic", credentialsReadable: true, lockVersion: 1 })
   })
 
   test("deletes an unassigned provider even when its encrypted key is unreadable", async () => {

@@ -15,7 +15,7 @@ import {
   restPaginationQuery,
   restResourceSecurity,
 } from "./shared.server"
-import { ApiUuidSchema } from "@/lib/schemas.ts"
+import { UuidV7Schema } from "@/lib/schemas.ts"
 import { TenantIdSchema } from "@/db/schema/organizations"
 import { chatMessageRecord, messageResource } from "../chat/-lib/threads.server"
 import type { DirectoryThreadRecord } from "@/lib/chat/threads/threads"
@@ -24,7 +24,7 @@ const directoryThreadDate = Schema.DateFromString.pipe(
   Schema.annotateEncoded({ format: "date-time" }),
 )
 const directoryThreadRecord = Schema.Struct({
-  id: ApiUuidSchema,
+  id: UuidV7Schema,
   tenantId: TenantIdSchema,
   tenantName: Schema.NullOr(Schema.String),
   tenantExternalId: Schema.String,
@@ -58,7 +58,7 @@ const directoryThreadQuery = Schema.Struct({
 }).check(
   Schema.makeFilter((query) => query.page_after === undefined || query.page_before === undefined),
 )
-const directoryThreadParams = { tenantId: TenantIdSchema, id: ApiUuidSchema }
+const directoryThreadParams = { tenantId: TenantIdSchema, id: UuidV7Schema }
 
 export const threadDirectoryApi = HttpApiGroup.make("threadDirectory", { topLevel: true })
   .add(

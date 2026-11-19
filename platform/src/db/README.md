@@ -14,7 +14,7 @@ Tenant services, chat and MCP scopes, and usage-limit subjects use `Organization
 - `schema/` contains responsibility-named domain table and relation modules.
 - `migrations/` contains generated migration SQL, Drizzle snapshots, and optional TypeScript data migrations.
 
-`schema/tables.ts` is the table-only namespace shared by Drizzle and adapters. `schema/relations.ts` creates the base relation definition, adds Better Auth's generated-shape and chat relation parts, and exports the single composition root passed to `drizzle()`.
+`schema/tables.ts` is the table-only namespace shared by Drizzle and adapters. `schema/relations.ts` defines the query relations used by application code, Better Auth and codec regression tests in one `defineRelations` callback.
 
 ## Query from server-only code
 
@@ -140,17 +140,9 @@ PostgreSQL requires an added enum value to be committed before use. Put `ALTER T
 
 Both sources ship in the binary and appear in `/configure`. Migrations are tracked by name, without checking for changes to applied files or imported dependencies. To run more work after a migration is applied, add a new migration. Direct `drizzle-kit migrate` skips TypeScript and records the migration as applied, so use the application commands above.
 
-## Relations v2 composition
+## Query relations
 
-The relation composition root always spreads `baseRelations` first and then each responsibility-named relation part. Better Auth core and its organization plugin remain together in the generated-shape `authRelations` part.
-
-When adding a domain such as billing or projects:
-
-1. Add its tables to a responsibility-named schema module and re-export them from `schema/tables.ts`.
-2. Define one relation part, such as `billingRelations`, with `defineRelationsPart(schema, ...)`.
-3. Spread that part after `baseRelations` in `databaseRelations`.
-
-Each source table must be owned by exactly one relation part. Two parts defining the same source table would allow a later object spread to silently replace relationships from the earlier part. See Drizzle's [Relations v2 part ordering](https://orm.drizzle.team/docs/relations#relations-parts).
+Add tables to their domain schema module and re-export them from `schema/tables.ts`. Add query relations in `schema/relations.ts` when a caller needs them. Query relations do not create foreign keys. Preserve complete scoped identities in `from`/`to`, and retain Better Auth's relation names because its adapter uses joins.
 
 ## PostgreSQL cache
 

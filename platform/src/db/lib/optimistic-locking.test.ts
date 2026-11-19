@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect"
 import { describe, expect, test } from "vitest"
 
 import type { EffectDatabase } from "@/db/database"
-import { lockVersion, uuidV7PrimaryKey } from "./columns.ts"
+import { lockVersion, uuidV7 } from "./columns.ts"
 import {
   deleteWithOptimisticLock,
   OptimisticLockError,
@@ -12,7 +12,7 @@ import {
 } from "./optimistic-locking.ts"
 
 const lockedRecord = snakeCase.table("locked_record", {
-  id: uuidV7PrimaryKey(),
+  id: uuidV7().primaryKey(),
   name: text().notNull(),
   lockVersion: lockVersion(),
 })

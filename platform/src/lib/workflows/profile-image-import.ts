@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm"
+import { SecureRandom } from "effect/crypto"
 import { Effect, Schema } from "effect"
 import { Activity, Workflow } from "effect/workflow"
 
@@ -14,7 +15,7 @@ import { StoredFiles } from "@/lib/storage/stored-files.server"
 const profileImageImport = Workflow.make("ProfileImageImport/v3", {
   payload: { userId: UuidV7Schema, imageUrl: Schema.String },
   // A fresh execution lets a later login refresh the same source URL.
-  idempotencyKey: () => crypto.randomUUID(),
+  idempotencyKey: () => SecureRandom.uuidV7Unsafe(),
 })
 
 export const profileImageImportWorkflowLayer = profileImageImport.toLayer((input) =>

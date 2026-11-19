@@ -1,4 +1,5 @@
 import type { Schema } from "effect"
+import type { CONFIG_DEFINITIONS } from "./registry.ts"
 
 // The non-secret slice of the database-backed runtime configuration that the client may see.
 export interface PublicConfig {
@@ -11,56 +12,12 @@ export interface PublicConfig {
   hasWebsite: boolean
 }
 
-export type ConfigKey =
-  | "dogfood_organization_id"
-  | "dogfood_api_key"
-  | "dogfood_pending_setup"
-  | "app_base_url"
-  | "trust_proxy"
-  | "client_ip_headers"
-  | "better_auth_secret"
-  | "google_client_id"
-  | "google_client_secret"
-  | "github_client_id"
-  | "github_client_secret"
-  | "turnstile_site_key"
-  | "turnstile_secret_key"
-  | "email_provider"
-  | "email_from_address"
-  | "smtp_host"
-  | "smtp_port"
-  | "smtp_security"
-  | "smtp_username"
-  | "smtp_password"
-  | "resend_api_key"
-  | "aws_region"
-  | "aws_access_key_id"
-  | "aws_secret_access_key"
-  | "privacy_policy_url"
-  | "terms_of_service_url"
-  | "support_email_address"
-  | "website_url"
-  | "allow_private_model_endpoints"
-  | "default_openai_api_key"
-  | "storage_provider"
-  | "storage_directory"
-  | "s3_endpoint"
-  | "s3_region"
-  | "s3_bucket"
-  | "s3_access_key_id"
-  | "s3_secret_access_key"
-  | "s3_path_style"
-  | "otel_exporter_otlp_endpoint"
-  | "otel_exporter_otlp_headers"
-  | "otel_exporter_otlp_traces_headers"
-  | "otel_logs_exporter"
-  | "otel_sdk_disabled"
-  | "otel_resource_attributes"
+export type ConfigKey = (typeof CONFIG_DEFINITIONS)[number]["key"]
 
-export interface ConfigDefinition {
+export interface ConfigDefinition<Key extends string = ConfigKey> {
   /** System-managed database-only value, never editable or revealable through generic configuration. */
   systemManaged?: true
-  key: ConfigKey
+  key: Key
   group:
     | "General"
     | "Authentication"

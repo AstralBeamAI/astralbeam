@@ -1,8 +1,8 @@
+import { SecureRandom } from "effect/crypto"
 import { convertMessagesToModelMessages, normalizeToUIMessage } from "@tanstack/ai"
 import { type Cause, Effect, Exit, JsonSchema, Schema, SchemaRepresentation } from "effect"
 
-import { NonEmptyStringSchema } from "@/lib/schemas"
-import { ApiUuidSchema } from "@/lib/tenants/schemas"
+import { ApiUuidSchema, NonEmptyStringSchema, UuidV7Schema } from "@/lib/schemas"
 import { Agents } from "@/lib/agents/agents.server"
 import { SandboxProviders } from "@/lib/sandboxes/providers.server"
 import { UsageLimits } from "@/lib/usage-limits/usage-limits.server"
@@ -80,7 +80,7 @@ const managedUserParts = Schema.Array(
         }),
         Schema.Struct({
           type: Schema.Literal("file"),
-          value: ApiUuidSchema,
+          value: UuidV7Schema,
           mimeType: Schema.optionalKey(Schema.String),
         }),
       ]),
@@ -92,7 +92,7 @@ const managedUserParts = Schema.Array(
 const chatAdmissionOperation = {
   name: "ChatAdmission/v1",
   parameters: Schema.Struct({
-    id: ApiUuidSchema,
+    id: UuidV7Schema,
     parts: Schema.Array(Schema.JsonObject),
     tools: Schema.Array(Schema.JsonObject),
     clientId: ApiUuidSchema,
@@ -121,7 +121,7 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
   const threads = yield* ChatThreads
   const agents = yield* Agents
   const { params, scope } = input
-  const id = yield* Schema.decodeEffect(ApiUuidSchema)(params.threadId).pipe(
+  const id = yield* Schema.decodeEffect(UuidV7Schema)(params.threadId).pipe(
     Effect.mapError(() => new ChatThreadInvalid()),
   )
   const options = yield* Schema.decodeUnknownEffect(managedChatOptions)(params.forwardedProps).pipe(
@@ -153,7 +153,7 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
   const normalizedParts = yield* Effect.try({
     try: () =>
       normalizeToUIMessage(convertMessagesToModelMessages(params.messages)[0]!, () =>
-        crypto.randomUUID(),
+        SecureRandom.uuidV7Unsafe(),
       ).parts.map(chatStoredJson),
     catch: () => new ChatThreadInvalid(),
   })
@@ -240,7 +240,7 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
         cache: newUploads,
         payload: {
           version: 1,
-          parts: parts.map((part) => ({ ...part, id: crypto.randomUUID() })),
+          parts: parts.map((part) => ({ ...part, id: SecureRandom.uuidV7Unsafe() })),
           tools,
           provenance: {
             clientId: options.clientId,
@@ -397,7 +397,7 @@ export const resolveManagedChatTools = Effect.fn("resolveManagedChatTools")(func
         version: 1,
         parts: [
           {
-            id: crypto.randomUUID(),
+            id: SecureRandom.uuidV7Unsafe(),
             type: "tool-result",
             toolCallId: part.toolCallId,
             outcome: result.outcome,
@@ -422,7 +422,7 @@ export const managedChatRunParams = Effect.fn("managedChatRunParams")(function* 
   const tools = (admission.inputMessage.payload.tools ?? []) as ChatParams["tools"]
   return {
     threadId: claim.threadId,
-    runId: params?.runId ?? crypto.randomUUID(),
+    runId: params?.runId ?? SecureRandom.uuidV7Unsafe(),
     ...(params?.parentRunId === undefined ? {} : { parentRunId: params.parentRunId }),
     messages: [],
     tools,

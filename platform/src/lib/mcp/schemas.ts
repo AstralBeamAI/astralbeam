@@ -28,6 +28,7 @@ export type McpReference = typeof McpReferenceSchema.Type
 export const McpAttemptReferenceSchema = Schema.Struct({
   ...McpReferenceSchema.fields,
   connectionId: UuidV7Schema,
+  // An OAuth popup opened before UUIDv7 generation still carries its cached UUIDv4 attempt.
   id: Schema.String.check(Schema.isUUID()),
 })
 export type McpAttemptReference = typeof McpAttemptReferenceSchema.Type

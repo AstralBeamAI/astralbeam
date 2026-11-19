@@ -1,7 +1,7 @@
-import { snakeCase, text, uniqueIndex } from "drizzle-orm/pg-core"
+import { text, uniqueIndex, primaryKey, snakeCase } from "drizzle-orm/pg-core"
 import { Schema } from "effect"
 
-import { encryptedJson, timestamps, uuidV7PrimaryKey } from "../lib/columns.ts"
+import { encryptedJson, timestamps, uuidV7 } from "../lib/columns.ts"
 
 export const ConfigValuePayloadSchema = Schema.Struct({
   key: Schema.String,
@@ -12,10 +12,13 @@ export const ConfigValuePayloadSchema = Schema.Struct({
 export const configTable = snakeCase.table(
   "config",
   {
-    id: uuidV7PrimaryKey(),
+    id: uuidV7(),
     key: text().notNull(),
     value: encryptedJson({ schema: ConfigValuePayloadSchema }).notNull(),
     ...timestamps(),
   },
-  (table) => [uniqueIndex("config_key_uidx").on(table.key)],
+  (table) => [
+    primaryKey({ name: "config_pkey", columns: [table.id] }),
+    uniqueIndex("config_key_uidx").on(table.key),
+  ],
 )

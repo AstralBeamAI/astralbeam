@@ -1,27 +1,13 @@
-import { defineRelations, defineRelationsPart } from "drizzle-orm"
+import { defineRelations } from "drizzle-orm"
 
 import * as schema from "./tables.ts"
 
-const baseRelations = defineRelations(schema)
-
-const authRelations = defineRelationsPart(schema, (relations) => ({
+export const databaseRelations = defineRelations(schema, (relations) => ({
   user: {
-    sessions: relations.many.session({
-      from: relations.user.id,
-      to: relations.session.userId,
-    }),
-    accounts: relations.many.account({
-      from: relations.user.id,
-      to: relations.account.userId,
-    }),
-    members: relations.many.member({
-      from: relations.user.id,
-      to: relations.member.userId,
-    }),
-    invitations: relations.many.invitation({
-      from: relations.user.id,
-      to: relations.invitation.inviterId,
-    }),
+    sessions: relations.many.session(),
+    accounts: relations.many.account(),
+    members: relations.many.member(),
+    invitations: relations.many.invitation(),
   },
   session: {
     user: relations.one.user({
@@ -40,45 +26,32 @@ const authRelations = defineRelationsPart(schema, (relations) => ({
       from: relations.organization.id,
       to: relations.agent.organizationId,
     }),
-    apiKeys: relations.many.apiKey({
-      from: relations.organization.id,
-      to: relations.apiKey.organizationId,
+    apiKeys: relations.many.apiKey(),
+    members: relations.many.member(),
+    invitations: relations.many.invitation(),
+    configuration: relations.one.organizationConfiguration(),
+    sandboxProviders: relations.many.sandboxProvider(),
+    tenants: relations.many.tenant(),
+  },
+  agent: {
+    models: relations.many.agentModel({
+      from: [relations.agent.organizationId, relations.agent.id],
+      to: [relations.agentModel.organizationId, relations.agentModel.agentId],
     }),
-    members: relations.many.member({
-      from: relations.organization.id,
-      to: relations.member.organizationId,
+  },
+  agentModel: {
+    model: relations.one.providerModel({
+      from: [relations.agentModel.organizationId, relations.agentModel.providerModelId],
+      to: [relations.providerModel.organizationId, relations.providerModel.id],
     }),
-    invitations: relations.many.invitation({
-      from: relations.organization.id,
-      to: relations.invitation.organizationId,
-    }),
-    configuration: relations.one.organizationConfiguration({
-      from: relations.organization.id,
-      to: relations.organizationConfiguration.organizationId,
-    }),
-    modelProviders: relations.many.modelProvider({
-      from: relations.organization.id,
-      to: relations.modelProvider.organizationId,
-    }),
-    providerModels: relations.many.providerModel({
-      from: relations.organization.id,
-      to: relations.providerModel.organizationId,
-    }),
-    agentModels: relations.many.agentModel({
-      from: relations.organization.id,
-      to: relations.agentModel.organizationId,
-    }),
-    sandboxProviders: relations.many.sandboxProvider({
-      from: relations.organization.id,
-      to: relations.sandboxProvider.organizationId,
-    }),
-    tenants: relations.many.tenant({
-      from: relations.organization.id,
-      to: relations.tenant.organizationId,
-    }),
-    usageLimits: relations.many.usageLimit({
-      from: relations.organization.id,
-      to: relations.usageLimit.organizationId,
+  },
+  modelProvider: {
+    models: relations.many.providerModel(),
+  },
+  providerModel: {
+    provider: relations.one.modelProvider({
+      from: [relations.providerModel.organizationId, relations.providerModel.modelProviderId],
+      to: [relations.modelProvider.organizationId, relations.modelProvider.id],
     }),
   },
   apiKey: {
@@ -99,24 +72,10 @@ const authRelations = defineRelationsPart(schema, (relations) => ({
       to: relations.organization.id,
     }),
   },
-  usageLimit: {
-    organization: relations.one.organization({
-      from: relations.usageLimit.organizationId,
-      to: relations.organization.id,
-    }),
-    counters: relations.many.usageLimitCounter({
-      from: [relations.usageLimit.organizationId, relations.usageLimit.id],
-      to: [relations.usageLimitCounter.organizationId, relations.usageLimitCounter.usageLimitId],
-    }),
-  },
   tenant: {
     organization: relations.one.organization({
       from: relations.tenant.organizationId,
       to: relations.organization.id,
-    }),
-    tenantUsers: relations.many.tenantUser({
-      from: [relations.tenant.organizationId, relations.tenant.id],
-      to: [relations.tenantUser.organizationId, relations.tenantUser.tenantId],
     }),
   },
   tenantUser: {
@@ -145,92 +104,8 @@ const authRelations = defineRelationsPart(schema, (relations) => ({
       to: relations.user.id,
     }),
   },
-}))
-
-const chatRelations = defineRelationsPart(schema, (relations) => ({
-  chatThread: {
-    tenant: relations.one.tenant({
-      from: [relations.chatThread.organizationId, relations.chatThread.tenantId],
-      to: [relations.tenant.organizationId, relations.tenant.id],
-    }),
-    participants: relations.many.chatParticipant({
-      from: [
-        relations.chatThread.organizationId,
-        relations.chatThread.tenantId,
-        relations.chatThread.id,
-      ],
-      to: [
-        relations.chatParticipant.organizationId,
-        relations.chatParticipant.tenantId,
-        relations.chatParticipant.threadId,
-      ],
-    }),
-    messages: relations.many.chatMessage({
-      from: [
-        relations.chatThread.organizationId,
-        relations.chatThread.tenantId,
-        relations.chatThread.id,
-      ],
-      to: [
-        relations.chatMessage.organizationId,
-        relations.chatMessage.tenantId,
-        relations.chatMessage.threadId,
-      ],
-    }),
-  },
-  chatParticipant: {
-    thread: relations.one.chatThread({
-      from: [
-        relations.chatParticipant.organizationId,
-        relations.chatParticipant.tenantId,
-        relations.chatParticipant.threadId,
-      ],
-      to: [
-        relations.chatThread.organizationId,
-        relations.chatThread.tenantId,
-        relations.chatThread.id,
-      ],
-    }),
-    tenantUser: relations.one.tenantUser({
-      from: [
-        relations.chatParticipant.organizationId,
-        relations.chatParticipant.tenantId,
-        relations.chatParticipant.tenantUserId,
-      ],
-      to: [
-        relations.tenantUser.organizationId,
-        relations.tenantUser.tenantId,
-        relations.tenantUser.id,
-      ],
-    }),
-  },
   chatMessage: {
-    thread: relations.one.chatThread({
-      from: [
-        relations.chatMessage.organizationId,
-        relations.chatMessage.tenantId,
-        relations.chatMessage.threadId,
-      ],
-      to: [
-        relations.chatThread.organizationId,
-        relations.chatThread.tenantId,
-        relations.chatThread.id,
-      ],
-    }),
-    parts: relations.many.chatMessagePart({
-      from: [
-        relations.chatMessage.organizationId,
-        relations.chatMessage.tenantId,
-        relations.chatMessage.threadId,
-        relations.chatMessage.id,
-      ],
-      to: [
-        relations.chatMessagePart.organizationId,
-        relations.chatMessagePart.tenantId,
-        relations.chatMessagePart.threadId,
-        relations.chatMessagePart.messageId,
-      ],
-    }),
+    parts: relations.many.chatMessagePart(),
   },
   chatMessagePart: {
     message: relations.one.chatMessage({
@@ -247,20 +122,7 @@ const chatRelations = defineRelationsPart(schema, (relations) => ({
         relations.chatMessage.id,
       ],
     }),
-    responses: relations.many.chatToolResponse({
-      from: [
-        relations.chatMessagePart.organizationId,
-        relations.chatMessagePart.tenantId,
-        relations.chatMessagePart.threadId,
-        relations.chatMessagePart.id,
-      ],
-      to: [
-        relations.chatToolResponse.organizationId,
-        relations.chatToolResponse.tenantId,
-        relations.chatToolResponse.threadId,
-        relations.chatToolResponse.toolPartId,
-      ],
-    }),
+    responses: relations.many.chatToolResponse(),
   },
   chatToolResponse: {
     toolPart: relations.one.chatMessagePart({
@@ -277,26 +139,5 @@ const chatRelations = defineRelationsPart(schema, (relations) => ({
         relations.chatMessagePart.id,
       ],
     }),
-    resultMessage: relations.one.chatMessage({
-      from: [
-        relations.chatToolResponse.organizationId,
-        relations.chatToolResponse.tenantId,
-        relations.chatToolResponse.threadId,
-        relations.chatToolResponse.resultMessageId,
-      ],
-      to: [
-        relations.chatMessage.organizationId,
-        relations.chatMessage.tenantId,
-        relations.chatMessage.threadId,
-        relations.chatMessage.id,
-      ],
-    }),
   },
 }))
-
-// Relation parts follow the base definition, and each source table belongs to one part. https://orm.drizzle.team/docs/relations#relations-parts
-export const databaseRelations = {
-  ...baseRelations,
-  ...authRelations,
-  ...chatRelations,
-}

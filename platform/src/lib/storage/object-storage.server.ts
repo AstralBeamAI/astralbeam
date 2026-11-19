@@ -180,22 +180,37 @@ export class ObjectStorage extends Context.Service<
             abortSignal,
           }),
         ).pipe(Effect.asVoid)
+      const putStorageObject = (
+        client: S3Client,
+        bucket: string,
+        input: { key: string; bytes: Uint8Array; contentType: string },
+      ) =>
+        storageRequest((abortSignal) =>
+          client.send(
+            new PutObjectCommand({
+              Bucket: bucket,
+              Key: input.key,
+              Body: input.bytes,
+              ContentType: input.contentType,
+            }),
+            { abortSignal },
+          ),
+        ).pipe(Effect.asVoid)
+      const headStorageObject = (client: S3Client, bucket: string, key: string) =>
+        storageRequest(async (abortSignal) => {
+          const object = await client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }), {
+            abortSignal,
+          })
+          return {
+            size: Schema.decodeUnknownSync(Schema.Natural)(object.ContentLength),
+            contentType: object.ContentType ?? "application/octet-stream",
+          }
+        })
 
       return ObjectStorage.of({
         put: Effect.fn("ObjectStorage.put")((input) =>
           withStorage(
-            (client, connection) =>
-              storageRequest((abortSignal) =>
-                client.send(
-                  new PutObjectCommand({
-                    Bucket: connection.bucket,
-                    Key: input.key,
-                    Body: input.bytes,
-                    ContentType: input.contentType,
-                  }),
-                  { abortSignal },
-                ),
-              ).pipe(Effect.asVoid),
+            (client, connection) => putStorageObject(client, connection.bucket, input),
             (directory, signal) => putFileSystemObject({ ...input, directory, signal }),
           ),
         ),
@@ -208,19 +223,7 @@ export class ObjectStorage extends Context.Service<
         ),
         head: Effect.fn("ObjectStorage.head")((input) =>
           withStorage(
-            (client, connection) =>
-              storageRequest(async (abortSignal) => {
-                const object = await client.send(
-                  new HeadObjectCommand({ Bucket: connection.bucket, Key: input.key }),
-                  { abortSignal },
-                )
-                return {
-                  size: Schema.decodeUnknownSync(
-                    Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
-                  )(object.ContentLength),
-                  contentType: object.ContentType ?? "application/octet-stream",
-                }
-              }),
+            (client, connection) => headStorageObject(client, connection.bucket, input.key),
             (directory) => headFileSystemObject({ ...input, directory }),
           ),
         ),
@@ -256,25 +259,15 @@ export class ObjectStorage extends Context.Service<
               const key = `connection-tests/${crypto.randomUUID()}`
               const bytes = crypto.getRandomValues(new Uint8Array(32))
               yield* Effect.gen(function* () {
-                yield* storageRequest((abortSignal) =>
-                  client.send(
-                    new PutObjectCommand({
-                      Bucket: connection.bucket,
-                      Key: key,
-                      Body: bytes,
-                      ContentType: "application/octet-stream",
-                    }),
-                    { abortSignal },
-                  ),
-                )
-                const object = yield* storageRequest((abortSignal) =>
-                  client.send(new HeadObjectCommand({ Bucket: connection.bucket, Key: key }), {
-                    abortSignal,
-                  }),
-                )
+                yield* putStorageObject(client, connection.bucket, {
+                  key,
+                  bytes,
+                  contentType: "application/octet-stream",
+                })
+                const object = yield* headStorageObject(client, connection.bucket, key)
                 const actual = yield* readObjectBytes(client, connection.bucket, key, bytes.length)
                 if (
-                  object.ContentLength !== bytes.length ||
+                  object.size !== bytes.length ||
                   !bytes.every((value, index) => actual[index] === value)
                 )
                   return yield* new StorageUnavailable()
@@ -286,11 +279,7 @@ export class ObjectStorage extends Context.Service<
                 ),
               )
               yield* removeObject(client, connection.bucket, key)
-              yield* storageRequest((abortSignal) =>
-                client.send(new HeadObjectCommand({ Bucket: connection.bucket, Key: key }), {
-                  abortSignal,
-                }),
-              ).pipe(
+              yield* headStorageObject(client, connection.bucket, key).pipe(
                 Effect.matchEffect({
                   onFailure: (error) =>
                     error._tag === "StorageObjectMissing" ? Effect.void : Effect.fail(error),

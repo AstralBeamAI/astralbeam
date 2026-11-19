@@ -6,10 +6,10 @@ import {
   integer,
   numeric,
   pgEnum,
-  primaryKey,
-  snakeCase,
   text,
   unique,
+  primaryKey,
+  snakeCase,
   uuid,
 } from "drizzle-orm/pg-core"
 
@@ -22,23 +22,18 @@ import {
 } from "../lib/columns.ts"
 import { chatThread } from "./chat.ts"
 import type { OrganizationId, TenantId, TenantUserId } from "./organizations.ts"
-import { organization, tenant, tenantUser } from "./organizations.ts"
+import { organizationForeignKey, tenantForeignKey, tenantUserForeignKey } from "./organizations.ts"
+import {
+  USAGE_LIMIT_SCOPES,
+  USAGE_LIMIT_METRICS,
+  USAGE_LIMIT_WINDOW_TYPES,
+  USAGE_LIMIT_WINDOW_UNITS,
+} from "@/lib/usage-limits/schemas"
 
-const usageLimitScopeEnum = pgEnum("usage_limit_scope", [
-  "global",
-  "tenant",
-  "tenant_user",
-  "thread",
-])
-const usageLimitMetricEnum = pgEnum("usage_limit_metric", ["tokens", "spend"])
-const usageLimitWindowTypeEnum = pgEnum("usage_limit_window_type", ["fixed", "rolling"])
-const usageLimitWindowUnitEnum = pgEnum("usage_limit_window_unit", [
-  "minute",
-  "hour",
-  "day",
-  "week",
-  "month",
-])
+const usageLimitScopeEnum = pgEnum("usage_limit_scope", USAGE_LIMIT_SCOPES)
+const usageLimitMetricEnum = pgEnum("usage_limit_metric", USAGE_LIMIT_METRICS)
+const usageLimitWindowTypeEnum = pgEnum("usage_limit_window_type", USAGE_LIMIT_WINDOW_TYPES)
+const usageLimitWindowUnitEnum = pgEnum("usage_limit_window_unit", USAGE_LIMIT_WINDOW_UNITS)
 
 /**
  * A token or spend budget over a window, counted per scope subject. Default limits apply to every chat
@@ -81,10 +76,7 @@ export const usageLimit = snakeCase.table(
       "usage_limit_global_default_check",
       sql`${table.scope} <> 'global' or ${table.appliesByDefault}`,
     ),
-    deferrableForeignKey({
-      columns: [table.organizationId],
-      foreignColumns: [organization.id],
-    }).onDelete("cascade"),
+    organizationForeignKey(table),
   ],
 )
 
@@ -129,16 +121,8 @@ export const usageLimitCounter = snakeCase.table(
       columns: [table.organizationId, table.usageLimitId],
       foreignColumns: [usageLimit.organizationId, usageLimit.id],
     }).onDelete("cascade"),
-    deferrableForeignKey({
-      name: "usage_limit_counter_tenant_fk",
-      columns: [table.organizationId, table.tenantId],
-      foreignColumns: [tenant.organizationId, tenant.id],
-    }).onDelete("cascade"),
-    deferrableForeignKey({
-      name: "usage_limit_counter_tenant_user_fk",
-      columns: [table.organizationId, table.tenantId, table.tenantUserId],
-      foreignColumns: [tenantUser.organizationId, tenantUser.tenantId, tenantUser.id],
-    }).onDelete("cascade"),
+    tenantForeignKey(table, { name: "usage_limit_counter_tenant_fk" }).onDelete("cascade"),
+    tenantUserForeignKey(table, { name: "usage_limit_counter_tenant_user_fk" }).onDelete("cascade"),
     deferrableForeignKey({
       name: "usage_limit_counter_thread_fk",
       columns: [table.organizationId, table.tenantId, table.threadId],

@@ -1,4 +1,4 @@
-import { index, primaryKey, snakeCase, text, unique, uuid } from "drizzle-orm/pg-core"
+import { index, text, unique, primaryKey, snakeCase, uuid } from "drizzle-orm/pg-core"
 import {
   deferrableForeignKey,
   encryptedJson,
@@ -8,7 +8,7 @@ import {
   uuidV7,
 } from "../lib/columns.ts"
 import type { OrganizationId, TenantId, TenantUserId } from "./organizations.ts"
-import { organization, tenantUser } from "./organizations.ts"
+import { organizationForeignKey, tenantUserForeignKey } from "./organizations.ts"
 import { McpCredentialEnvelopeSchema, McpStoredAuthConfigSchema } from "@/lib/mcp/schemas.ts"
 
 export const mcpServer = snakeCase.table(
@@ -23,12 +23,10 @@ export const mcpServer = snakeCase.table(
   (t) => [
     primaryKey({ columns: [t.organizationId, t.id] }),
     unique("mcp_server_endpoint_uidx").on(t.organizationId, t.endpointUrl),
-    deferrableForeignKey({
-      columns: [t.organizationId],
-      foreignColumns: [organization.id],
-    }).onDelete("cascade"),
+    organizationForeignKey(t),
   ],
 )
+
 export const mcpConnection = snakeCase.table(
   "mcp_connection",
   {
@@ -50,10 +48,7 @@ export const mcpConnection = snakeCase.table(
       t.mcpServerId,
     ),
     index("mcp_connection_server_idx").on(t.organizationId, t.mcpServerId),
-    deferrableForeignKey({
-      columns: [t.organizationId, t.tenantId, t.tenantUserId],
-      foreignColumns: [tenantUser.organizationId, tenantUser.tenantId, tenantUser.id],
-    }).onDelete("cascade"),
+    tenantUserForeignKey(t).onDelete("cascade"),
     deferrableForeignKey({
       columns: [t.organizationId, t.mcpServerId],
       foreignColumns: [mcpServer.organizationId, mcpServer.id],

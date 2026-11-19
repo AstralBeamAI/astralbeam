@@ -20,7 +20,7 @@ import {
 } from "@/lib/chat/constants"
 import type { ChatPrincipal } from "@/lib/chat/types"
 import { UsageLimits } from "@/lib/usage-limits/usage-limits.server"
-import { ApiUuidSchema } from "@/lib/tenants/schemas"
+import { UuidV7Schema } from "@/lib/schemas"
 import { reportFailure } from "@/lib/runtime/failure-report.server"
 import { readRequestJson } from "@/routes/api/-lib/request-body.server"
 import { consumeRestRateLimit } from "../../-lib/auth.server"
@@ -58,7 +58,7 @@ export const checkChatUsageLimits = Effect.fn("checkChatUsageLimits")(function* 
   })
   if (limits.length === 0) return
   // Admission rejects a malformed thread ID, so only per-conversation limits skip it here.
-  const threadId = Schema.is(ApiUuidSchema)(input.threadId) ? input.threadId : undefined
+  const threadId = Schema.is(UuidV7Schema)(input.threadId) ? input.threadId : undefined
   yield* usageLimits.check({ limits, subject: { ...input.scope, threadId } })
 })
 

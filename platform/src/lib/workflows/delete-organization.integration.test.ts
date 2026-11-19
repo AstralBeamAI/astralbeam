@@ -1,3 +1,4 @@
+import { SecureRandom } from "effect/crypto"
 import type { OrganizationId, TenantId } from "@/db/schema/organizations"
 import { TenantIdSchema, OrganizationIdSchema } from "@/db/schema/organizations"
 import { and, eq, getTableName, sql } from "drizzle-orm"
@@ -282,7 +283,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
     return deleteOrganization
       .execute({
         organizationId,
-        operationId: crypto.randomUUID(),
+        operationId: SecureRandom.uuidV7Unsafe(),
         organizationName: "deleted",
         ownerUserIds: [],
       })

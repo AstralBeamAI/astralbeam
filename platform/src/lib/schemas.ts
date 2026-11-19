@@ -45,7 +45,12 @@ export function enumSchema<const Values extends readonly string[]>(values: Value
 export const UUID_V7_PATTERN = "[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"
 
 export const UuidV7Schema = Schema.String.pipe(
-  Schema.check(Schema.isUUID(7, { message: "Must be a valid UUID v7" })),
+  Schema.check(
+    Schema.isUUID(7, {
+      message: "Must be a valid UUID v7",
+      toJsonSchema: () => ({ format: "uuid" }),
+    }),
+  ),
 )
 
 export const LockVersionSchema = Schema.Int.check(

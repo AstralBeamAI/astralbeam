@@ -1,3 +1,4 @@
+import { SecureRandom } from "effect/crypto"
 import { OrganizationIdSchema, TenantIdSchema, TenantUserIdSchema } from "@/db/schema/organizations"
 import { APP_HANDLE } from "@/lib/constants"
 import { ChatFiles } from "@/lib/chat/attachments/attachments"
@@ -104,7 +105,7 @@ const chatTestExecution = {
     },
     threadId: "conversation",
     inputMessageId: "01990a5d-ac96-774b-b942-6b13c85384cd",
-    invocationId: crypto.randomUUID(),
+    invocationId: SecureRandom.uuidV7Unsafe(),
     assistantMessageId: "draft",
   },
   threadVersion: 2,

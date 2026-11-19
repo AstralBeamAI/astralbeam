@@ -1,3 +1,4 @@
+import { SecureRandom } from "effect/crypto"
 import { createServerFn } from "@tanstack/react-start"
 import { Effect, Schema } from "effect"
 import { SqlClient } from "effect/sql"
@@ -42,7 +43,7 @@ export const requestOrganizationDeletion = createServerFn({ method: "POST" })
               yield* deleteOrganization.execute(
                 {
                   organizationId,
-                  operationId: crypto.randomUUID(),
+                  operationId: SecureRandom.uuidV7Unsafe(),
                   organizationName,
                   ownerUserIds,
                 },
