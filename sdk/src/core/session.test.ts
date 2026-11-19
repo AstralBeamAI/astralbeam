@@ -5,6 +5,7 @@ import type { UIMessage } from "@tanstack/ai-client"
 
 import { ASK_QUESTIONNAIRE_TOOL } from "./protocol.ts"
 import { chatTestToken, createTestSession, disposeTestSessions } from "./session-fixtures.ts"
+import { newUuid } from "./threads.ts"
 
 const currentUser = {
   scope: "tenant",
@@ -34,6 +35,21 @@ beforeEach(() => {
 afterEach(() => {
   disposeTestSessions()
   vi.unstubAllGlobals()
+})
+
+test("generates the RFC 9562 UUIDv7 timestamp, version, and variant", () => {
+  const clock = vi.spyOn(Date, "now").mockReturnValue(1645557742000)
+  vi.stubGlobal("crypto", {
+    getRandomValues: (bytes: Uint8Array) => {
+      bytes.set([0, 0, 0, 0, 0, 0, 0xcc, 0xc3, 0x58, 0xc4, 0xdc, 0x0c, 0x0c, 0x07, 0x39, 0x8f])
+      return bytes
+    },
+  })
+  try {
+    expect(newUuid()).toBe("017f22e2-79b0-7cc3-98c4-dc0c0c07398f")
+  } finally {
+    clock.mockRestore()
+  }
 })
 
 test("rejected authentication reaches callbacks before sending and recovers", async () => {

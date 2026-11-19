@@ -44,7 +44,12 @@ export type ChatToolCallPart = Extract<UIMessage["parts"][number], { type: "tool
 
 export function newUuid(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(16))
-  bytes[6] = (bytes[6]! & 15) | 64
+  // UUIDv7 starts with a big-endian millisecond timestamp. https://www.rfc-editor.org/rfc/rfc9562.html#section-5.7
+  const timestamp = Date.now()
+  const view = new DataView(bytes.buffer)
+  view.setUint16(0, Math.floor(timestamp / 0x1_0000_0000))
+  view.setUint32(2, timestamp)
+  bytes[6] = (bytes[6]! & 15) | 112
   bytes[8] = (bytes[8]! & 63) | 128
   const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`

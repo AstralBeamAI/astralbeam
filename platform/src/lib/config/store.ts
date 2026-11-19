@@ -1,12 +1,11 @@
 import { eq, inArray, sql } from "drizzle-orm"
-import { Effect, Option, Result } from "effect"
+import { Effect, Result } from "effect"
 
 import type { EffectDatabase } from "@/db/database"
 import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials"
 import { decryptDatabaseValue } from "@/db/lib/encryption"
 import { sqlState } from "@/db/lib/sqlstate"
-import { configTable } from "@/db/schema"
-import { ConfigValuePayloadSchema } from "@/db/schema/config"
+import { configTable, ConfigValuePayloadSchema } from "@/db/schema/config"
 import { CONFIG_DEFINITIONS, decodeConfigValue, findConfigDefinition } from "./registry.ts"
 import type { ConfigKey, ConfigStorageEntry, ConfigValues } from "./types.ts"
 
@@ -22,53 +21,28 @@ export interface DatabaseConfigState {
   readonly values: ConfigValues
 }
 
-type StoredConfigRow = {
-  readonly key: string
-  readonly payload: Option.Option<typeof ConfigValuePayloadSchema.Type>
-  readonly usedFallbackKey: boolean
+const configReadColumns = {
+  key: configTable.key,
+  storedValue: sql<string>`${configTable.value}::text`,
 }
 
-function decryptStoredConfigRow(row: { key: string; storedValue: string }): StoredConfigRow {
+function decryptStoredConfigRow(row: { key: string; storedValue: string }) {
   const decrypted = decryptDatabaseValue({
     storedValue: row.storedValue,
     schema: ConfigValuePayloadSchema,
     keyring: getDatabaseEncryptionKeyring(),
   })
   return {
-    key: row.key,
-    payload: Result.isSuccess(decrypted) ? Option.some(decrypted.success.value) : Option.none(),
+    value:
+      Result.isSuccess(decrypted) && decrypted.success.value.key === row.key
+        ? decrypted.success.value.value
+        : undefined,
     usedFallbackKey: Result.isSuccess(decrypted) && decrypted.success.usedFallbackKey,
   }
 }
 
-/** A value decrypted for another key, or failing its definition, is ignored and logged by key. */
-const decodeStoredConfigRows = Effect.fnUntraced(function* (rows: readonly StoredConfigRow[]) {
-  const values: ConfigValues = {}
-  const rowsByKey = new Map(rows.map((row) => [row.key, row]))
-  for (const definition of CONFIG_DEFINITIONS) {
-    const row = rowsByKey.get(definition.key)
-    if (!row) continue
-    const value = Option.flatMap(
-      Option.filter(row.payload, (payload) => payload.key === row.key),
-      (payload) => Result.getSuccess(decodeConfigValue(definition, payload.value)),
-    )
-    if (Option.isSome(value)) values[definition.key] = value.value
-    else {
-      yield* Effect.logWarning("Ignoring invalid stored config value").pipe(
-        Effect.annotateLogs({ key: definition.key }),
-      )
-    }
-  }
-  return values
-})
-
-function storageEntry(row: StoredConfigRow, values: ConfigValues): ConfigStorageEntry {
-  const definition = findConfigDefinition(row.key)
-  if (Option.isNone(row.payload) || (definition && values[definition.key] === undefined)) {
-    return { key: row.key, storageStatus: "unreadable" }
-  }
-  return row.usedFallbackKey ? { key: row.key, storageStatus: "fallback-key" } : { key: row.key }
-}
+const warnInvalidConfigValue = (key: string) =>
+  Effect.logWarning("Ignoring invalid stored config value").pipe(Effect.annotateLogs({ key }))
 
 /** Reads stored values without environment overrides, treating a missing table as empty. */
 export const readDatabaseConfig = Effect.fnUntraced(function* (
@@ -76,7 +50,7 @@ export const readDatabaseConfig = Effect.fnUntraced(function* (
   excludedKeys: readonly ConfigKey[] = [],
 ) {
   const stored = yield* db
-    .select({ key: configTable.key, storedValue: sql<string>`${configTable.value}::text` })
+    .select(configReadColumns)
     .from(configTable)
     .where(
       inArray(
@@ -85,19 +59,30 @@ export const readDatabaseConfig = Effect.fnUntraced(function* (
       ),
     )
     .pipe(
-      Effect.asSome,
       Effect.catchIf(
         (error) => sqlState(error) === "42P01",
-        () => Effect.succeedNone,
+        () => Effect.succeed(null),
       ),
       Effect.orDie,
     )
-  const rows = Option.getOrElse(stored, () => []).map(decryptStoredConfigRow)
-  const values = yield* decodeStoredConfigRows(rows)
-  return {
-    rows: Option.isSome(stored) ? rows.map((row) => storageEntry(row, values)) : null,
-    values,
-  } satisfies DatabaseConfigState
+  const values: ConfigValues = {}
+  if (stored === null) return { rows: null, values } satisfies DatabaseConfigState
+  const rows: ConfigStorageEntry[] = []
+  for (const row of stored) {
+    const { key } = row
+    const definition = findConfigDefinition(key)
+    if (!definition) continue
+    const { value, usedFallbackKey } = decryptStoredConfigRow(row)
+    const decoded = value === undefined ? undefined : decodeConfigValue(definition, value)
+    if (decoded && Result.isSuccess(decoded)) {
+      values[definition.key] = decoded.success
+      rows.push(usedFallbackKey ? { key, storageStatus: "fallback-key" } : { key })
+    } else {
+      yield* warnInvalidConfigValue(key)
+      rows.push({ key, storageStatus: "unreadable" })
+    }
+  }
+  return { rows, values } satisfies DatabaseConfigState
 })
 
 export const readDatabaseConfigValue = Effect.fn("readDatabaseConfigValue")(function* (
@@ -105,22 +90,14 @@ export const readDatabaseConfigValue = Effect.fn("readDatabaseConfigValue")(func
   key: string,
 ) {
   const rows = yield* db
-    .select({ key: configTable.key, storedValue: sql<string>`${configTable.value}::text` })
+    .select(configReadColumns)
     .from(configTable)
     .where(eq(configTable.key, key))
     .pipe(Effect.orDie)
   if (!rows[0]) return null
-  const payload = Option.filter(
-    decryptStoredConfigRow(rows[0]).payload,
-    (payload) => payload.key === key,
-  )
-  if (Option.isNone(payload)) {
-    yield* Effect.logWarning("Ignoring invalid stored config value").pipe(
-      Effect.annotateLogs({ key }),
-    )
-    return null
-  }
-  return payload.value.value
+  const { value } = decryptStoredConfigRow(rows[0])
+  if (value === undefined) yield* warnInvalidConfigValue(key)
+  return value ?? null
 })
 
 const storedConfigValue = Effect.fnUntraced(function* (key: string, value: string) {
@@ -154,8 +131,7 @@ export const writeDatabaseConfig = Effect.fn("Config.write")(function* (
             .values(stored)
             .onConflictDoUpdate({
               target: configTable.key,
-              // Upserts bypass Drizzle's $onUpdateFn hook, so updated_at is set explicitly.
-              set: { value: stored.value, updatedAt: sql`now()` },
+              set: { value: stored.value },
             })
         }
         for (const generated of generatedValues) {

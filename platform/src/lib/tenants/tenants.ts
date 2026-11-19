@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, gt, ilike, lt, or, sql } from "drizzle-orm"
-import { Context, Effect, Layer } from "effect"
+import type { AnyPgColumn } from "drizzle-orm/pg-core"
+import { Context, Effect, Layer, Struct } from "effect"
 
 import { Database } from "@/db/database"
 import { type DatabasePage, type DatabasePageOptions, databasePage } from "@/db/lib/pagination"
@@ -7,7 +8,7 @@ import { mapDatabaseErrors } from "@/db/lib/sqlstate"
 import type { OrganizationId, TenantId } from "@/db/schema/organizations"
 import { TenantIdSchema, tenant } from "@/db/schema/organizations"
 import { TenantExternalIdTaken, TenantNotFound, TenantWriteForbidden } from "./errors.ts"
-import type { TenantPatchSchema, TenantRecordSchema, TenantWriteSchema } from "./schemas.ts"
+import { type TenantPatchSchema, TenantRecordSchema, type TenantWriteSchema } from "./schemas.ts"
 
 /** The Tenants a verified credential may reach, derived from the credential and never the request. */
 export interface TenantScope {
@@ -25,14 +26,8 @@ export interface TenantListInput extends DatabasePageOptions {
 }
 
 // A typed projection keeps the organization ID and future columns out of API records.
-export const tenantRecordColumns = {
-  id: tenant.id,
-  externalId: tenant.externalId,
-  name: tenant.name,
-  metadata: tenant.metadata,
-  createdAt: tenant.createdAt,
-  updatedAt: tenant.updatedAt,
-}
+export const tenantRecordColumns = Struct.pick(tenant, Struct.keys(TenantRecordSchema.fields))
+const tenantScopeColumns = { organizationId: tenant.organizationId, tenantId: tenant.id }
 
 /** Escape LIKE wildcards so user input is a literal substring, not a pattern. */
 export function tenantSearchPattern(search: string) {
@@ -41,13 +36,22 @@ export function tenantSearchPattern(search: string) {
 
 function tenantWhere(scope: TenantScope, id?: TenantId) {
   return and(
-    eq(tenant.organizationId, scope.organizationId),
-    scope.tenantId === undefined
-      ? undefined
-      : scope.tenantId === null
-        ? sql`false`
-        : eq(tenant.id, scope.tenantId),
+    tenantScopeWhere(scope, tenantScopeColumns),
     id === undefined ? undefined : eq(tenant.id, id),
+  )
+}
+
+export function tenantScopeWhere(
+  { organizationId, tenantId }: TenantScope,
+  columns: Record<"organizationId" | "tenantId", AnyPgColumn>,
+) {
+  return and(
+    eq(columns.organizationId, organizationId),
+    tenantId === undefined
+      ? undefined
+      : tenantId === null
+        ? sql`false`
+        : eq(columns.tenantId, tenantId),
   )
 }
 
@@ -87,16 +91,7 @@ export class Tenants extends Context.Service<
       const resolveId = Effect.fn("Tenants.resolveId")(function* (
         input: Parameters<typeof Tenants.Service.resolveId>[0],
       ) {
-        const [row] = yield* db
-          .select({ id: tenant.id })
-          .from(tenant)
-          .where(
-            and(
-              eq(tenant.organizationId, input.organizationId),
-              eq(tenant.externalId, input.externalId),
-            ),
-          )
-          .limit(1)
+        const row = yield* db.query.tenant.findFirst({ columns: { id: true }, where: input })
         return row?.id ?? null
       }, mapDatabaseErrors())
 

@@ -1,9 +1,10 @@
+import { SecureRandom } from "effect/crypto"
 import { Effect, Schema } from "effect"
 import { HttpServerRequest, HttpServerResponse } from "effect/http"
 import { ChatSubmissionReceiptSchema } from "./threads.server"
 import { chatArtifactResponse, chatFileSuccess } from "./files.server"
 import { artifactContentDisposition } from "@/lib/chat/sandbox/artifacts"
-import { ApiUuidSchema, NonEmptyStringSchema } from "@/lib/schemas.ts"
+import { ApiUuidSchema, NonEmptyStringSchema, UuidV7Schema } from "@/lib/schemas.ts"
 import { TenantIdSchema } from "@/db/schema/organizations"
 import {
   HttpApiBuilder,
@@ -16,7 +17,7 @@ import type { ApiV1 } from "../../-lib/contract.server"
 import { restResourceSecurity } from "../../-lib/shared.server"
 
 const chatRunInput = Schema.Struct({
-  threadId: ApiUuidSchema,
+  threadId: UuidV7Schema,
   runId: Schema.String,
   messages: Schema.Array(Schema.Unknown),
   tools: Schema.Array(Schema.Unknown),
@@ -60,7 +61,7 @@ export const chatApi = HttpApiGroup.make("chat", { topLevel: true })
     HttpApiEndpoint.post("uploadChatFile", "/chat/files", {
       payload: chatFileInput,
       success: Schema.Struct({
-        fileId: ApiUuidSchema,
+        fileId: UuidV7Schema,
         mimeType: Schema.String,
         byteSize: Schema.Int,
       }).annotate({ identifier: "UploadedChatFile" }),
@@ -99,7 +100,7 @@ export const chatApi = HttpApiGroup.make("chat", { topLevel: true })
         "Read the selected agent's attachment grant using a tenant user JWT. Omit agentId to use the organization's default agent. Client settings may narrow this grant, never widen it.",
       ),
     HttpApiEndpoint.get("getChatUsage", "/chat/usage", {
-      query: Schema.Struct({ threadId: Schema.optionalKey(ApiUuidSchema) }),
+      query: Schema.Struct({ threadId: Schema.optionalKey(UuidV7Schema) }),
       success: Schema.Struct({
         usageLimits: Schema.Array(
           Schema.Struct({
@@ -124,9 +125,9 @@ export const chatApi = HttpApiGroup.make("chat", { topLevel: true })
   .add(
     HttpApiEndpoint.get("getThreadAttachment", "/chat/files", {
       query: Schema.Struct({
-        threadId: Schema.optionalKey(ApiUuidSchema),
+        threadId: Schema.optionalKey(UuidV7Schema),
         tenantId: Schema.optionalKey(TenantIdSchema),
-        fileId: ApiUuidSchema,
+        fileId: UuidV7Schema,
         filename: Schema.optionalKey(Schema.String),
         delivery: Schema.optionalKey(Schema.Literal("direct")),
       }),
@@ -207,7 +208,7 @@ export function chatHandlers(api: typeof ApiV1) {
                 version: 1,
                 parts: [
                   {
-                    id: crypto.randomUUID(),
+                    id: SecureRandom.uuidV7Unsafe(),
                     type: input.type,
                     source: input.source,
                     metadata: input.metadata,

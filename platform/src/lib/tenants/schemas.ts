@@ -1,4 +1,3 @@
-export { ApiUuidSchema } from "../schemas.ts"
 import { Schema } from "effect"
 import { EmailAddressSchema, NonEmptyStringSchema } from "../schemas.ts"
 import { TenantIdSchema, TenantUserIdSchema } from "@/db/schema/organizations"

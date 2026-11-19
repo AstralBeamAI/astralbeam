@@ -1,3 +1,4 @@
+import { SecureRandom } from "effect/crypto"
 import { APP_HANDLE } from "@/lib/constants"
 import { ChatFiles } from "@/lib/chat/attachments/attachments"
 import { Context, Duration, Effect, Layer, Logger, ManagedRuntime, Schema, Stream } from "effect"
@@ -195,6 +196,7 @@ function restTestDatabase(): EffectDatabase {
   }
   const database = {
     transaction: (run: (tx: unknown) => unknown) => run(database),
+    query: { tenant: { findFirst: () => Effect.map(result(), (rows) => rows[0]) } },
     select: () => ({ ...query }),
     insert: () => ({ ...query }),
     update: () => ({ ...query }),
@@ -301,6 +303,8 @@ function runRestEffect<A, E>(effect: Effect.Effect<A, E, Layer.Success<typeof re
 
 const restOrgId = OrganizationIdSchema.make("019a0000-0000-7000-8000-000000000001")
 const restTenantId = TenantIdSchema.make("019a0000-0000-7000-8000-000000000002")
+// The published 0.30.7 SDK identifies its browser session with UUIDv4.
+const restBrowserId = "550e8400-e29b-41d4-a716-446655440000"
 const restUserId = TenantUserIdSchema.make("019a0000-0000-7000-8000-000000000003")
 const restOtherId = "019a0000-0000-7000-8000-000000000004"
 const restSdkFetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response> = (
@@ -373,7 +377,7 @@ function restWriterClaim(): NonNullable<ChatAdmission["claim"]> {
     threadId: restOtherId,
     assistantMessageId: restOtherId,
     inputMessageId: restUserId,
-    invocationId: crypto.randomUUID(),
+    invocationId: SecureRandom.uuidV7Unsafe(),
   }
 }
 
@@ -711,7 +715,7 @@ describe("REST API through the Effect Fetch handler", () => {
         messages: [{ id: "new", role: "user", content: "Hello" }],
         tools: [],
         context: [],
-        forwardedProps: { clientId: restUserId },
+        forwardedProps: { clientId: restBrowserId },
       },
       {
         astralBeamToken: restTenantJwt,
@@ -1018,7 +1022,7 @@ describe("REST API through the Effect Fetch handler", () => {
     restTestState.threadScope.mockReturnValue(Effect.succeed(restThreadScope))
     restTestState.threadToolResponse.mockReturnValue(
       Effect.succeed({
-        id: "tool-part",
+        id: restOtherId,
         type: "tool-call",
         toolCallId: "create-todo",
         name: "create_todo",
@@ -1040,7 +1044,7 @@ describe("REST API through the Effect Fetch handler", () => {
         results: [
           {
             source_message_id: restOtherId,
-            source_part_id: "tool-part",
+            source_part_id: restOtherId,
             response_target_id: restUserId,
             outcome: "succeeded",
             output: { created: true },
@@ -1138,7 +1142,7 @@ describe("REST API through the Effect Fetch handler", () => {
     const claim = restWriterClaim()
     restTestState.threadToolResponse.mockReturnValue(
       Effect.succeed({
-        id: "tool-part",
+        id: "019a0000-0000-4000-8000-000000000004",
         type: "tool-call",
         toolCallId: "provider-call",
         name: "lookup",
@@ -1148,14 +1152,14 @@ describe("REST API through the Effect Fetch handler", () => {
     restTestState.threadResolveTools.mockReturnValue(Effect.succeed(restChatAdmission(claim)))
     restTestState.run.mockReturnValue(Effect.succeed(Stream.empty))
     const body = {
-      client_id: restUserId,
+      client_id: restBrowserId,
       run_id: "run-native-continuation",
       parent_run_id: "run-native-parent",
       results: [
         {
           source_message_id: restOtherId,
-          source_part_id: "tool-part",
-          response_target_id: restUserId,
+          source_part_id: "019a0000-0000-4000-8000-000000000004",
+          response_target_id: "019a0000-0000-4000-8000-000000000003",
           outcome: "succeeded",
           output: { found: true },
         },
@@ -1173,8 +1177,12 @@ describe("REST API through the Effect Fetch handler", () => {
     await response.text()
     expect(restTestState.run.mock.calls[0]?.[0]).toMatchObject({
       params: { runId: body.run_id, parentRunId: body.parent_run_id, messages: [] },
-      managed: { claim },
+      managed: { claim, clientId: restBrowserId },
     })
+    expect(
+      (await request({ ...body, results: [{ ...body.results[0], source_part_id: "invalid" }] }))
+        .status,
+    ).toBe(400)
     expect((await request({ ...body, resume: [] })).status).toBe(400)
     expect((await request({ ...body, messages: [] })).status).toBe(400)
     expect(restTestState.run).toHaveBeenCalledTimes(1)
@@ -1707,13 +1715,16 @@ describe("REST API through the Effect Fetch handler", () => {
   test("reads persisted identities beyond the write limit", async () => {
     const row = {
       ...restTenantRow,
-      id: "019a0000-0000-4000-8000-000000000003",
+      id: "019a0000-0000-7000-8000-000000000003",
       externalId: "x".repeat(256),
     }
     restTestState.rows.push([row], [row])
     const page = await restJson(tenantRestPage, "/tenants")
     expect(page.items[0]?.external_id).toBe(row.externalId)
     expect(await restJson(TenantRecordSchema, `/tenants/${row.id}`)).toMatchObject({ id: row.id })
+    await expect(
+      restJson(TenantRecordSchema, "/tenants/019a0000-0000-4000-8000-000000000003"),
+    ).rejects.toMatchObject({ status: 400 })
     await expect(
       restJson(TenantRecordSchema, "/tenants", {
         method: "POST",

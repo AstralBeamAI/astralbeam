@@ -1,3 +1,4 @@
+import { UuidV7Schema } from "@/lib/schemas"
 import { type ChatMiddleware, type ModelMessage, EventType } from "@tanstack/ai"
 import { Context, Effect, Layer, Predicate, Result, Schema } from "effect"
 import { createHash } from "node:crypto"
@@ -488,7 +489,7 @@ type ChatFileBytes = { bytes: Uint8Array; mimeType: string }
 
 const storedSource = Schema.Struct({
   type: Schema.Literal(APP_HANDLE),
-  id: Schema.String.check(Schema.isUUID()),
+  id: UuidV7Schema,
   mimeType: Schema.String,
 })
 const sha256 = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex")
@@ -723,10 +724,7 @@ export class ChatFiles extends Context.Service<
               },
             }
             const source = part.source as JsonObject
-            if (
-              source.type === "file" &&
-              Schema.is(Schema.String.check(Schema.isUUID()))(source.value)
-            ) {
+            if (source.type === "file" && Schema.is(UuidV7Schema)(source.value)) {
               const id = source.value
               const [saved] = yield* queryFile(id, available(scope)).pipe(mapDatabaseErrors())
               if (!saved) return yield* new ChatThreadInvalid()
@@ -834,7 +832,7 @@ export class ChatFiles extends Context.Service<
                       : source.type === "file"
                         ? source.value
                         : undefined
-                  if (!Schema.is(Schema.String.check(Schema.isUUID()))(id)) return part
+                  if (!Schema.is(UuidV7Schema)(id)) return part
                   const file = yield* read({
                     scope,
                     fileId: id,

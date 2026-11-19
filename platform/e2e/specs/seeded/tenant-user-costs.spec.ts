@@ -1,3 +1,4 @@
+import { SecureRandom } from "effect/crypto"
 import {
   createSeedDatabase,
   loadSeedEnvironment,
@@ -16,8 +17,8 @@ test("TenantUser monthly costs are visible to owners and omitted for viewers", a
   loadSeedEnvironment()
   const { pool } = createSeedDatabase(resolveSeedDatabaseUrl().url)
   const organization = SEED_ORGANIZATIONS[0]
-  const tenantId = crypto.randomUUID()
-  const otherTenantId = crypto.randomUUID()
+  const tenantId = SecureRandom.uuidV7Unsafe()
+  const otherTenantId = SecureRandom.uuidV7Unsafe()
   const tenantName = `Monthly costs ${tenantId}`
   await pool.query(
     `insert into tenant (organization_id, id, external_id, name)
@@ -31,7 +32,7 @@ test("TenantUser monthly costs are visible to owners and omitted for viewers", a
               ($1, $3, $4, 'priced', 'Priced user', '{}'),
               ($1, $2, default, 'unpriced', 'Unpriced user', '{}'), ($1, $2, default, 'unused', 'Unused user', '{}'),
               ($1, $2, default, 'small', 'Small usage', '{}')`,
-      [organization.id, tenantId, otherTenantId, crypto.randomUUID()],
+      [organization.id, tenantId, otherTenantId, SecureRandom.uuidV7Unsafe()],
     )
     const replyTime = new Date()
     await pool.query(

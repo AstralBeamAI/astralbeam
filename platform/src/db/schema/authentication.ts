@@ -1,18 +1,17 @@
-import { boolean, index, snakeCase, text, uniqueIndex, uuid } from "drizzle-orm/pg-core"
-import type { PgTableExtraConfigValue } from "drizzle-orm/pg-core"
+import { boolean, index, text, uniqueIndex, primaryKey, snakeCase, uuid } from "drizzle-orm/pg-core"
 
 import {
   caseInsensitiveText,
   deferrableForeignKey,
   timestamps,
   timestampWithTimeZone,
-  uuidV7PrimaryKey,
+  uuidV7,
 } from "../lib/columns.ts"
 
 export const user = snakeCase.table(
   "user",
   {
-    id: uuidV7PrimaryKey(),
+    id: uuidV7(),
     name: text().notNull(),
     email: caseInsensitiveText().notNull(),
     emailVerified: boolean().default(false).notNull(),
@@ -22,13 +21,16 @@ export const user = snakeCase.table(
     termsAcceptedAt: timestampWithTimeZone(),
     ...timestamps(),
   },
-  (table): PgTableExtraConfigValue[] => [uniqueIndex("user_email_uidx").on(table.email)],
+  (table) => [
+    primaryKey({ name: "user_pkey", columns: [table.id] }),
+    uniqueIndex("user_email_uidx").on(table.email),
+  ],
 )
 
 export const session = snakeCase.table(
   "session",
   {
-    id: uuidV7PrimaryKey(),
+    id: uuidV7(),
     expiresAt: timestampWithTimeZone().notNull(),
     token: text().notNull(),
     ipAddress: text(),
@@ -39,6 +41,7 @@ export const session = snakeCase.table(
     ...timestamps(),
   },
   (table) => [
+    primaryKey({ name: "session_pkey", columns: [table.id] }),
     uniqueIndex("session_token_uidx").on(table.token),
     index("session_user_id_idx").on(table.userId),
     deferrableForeignKey({
@@ -51,7 +54,7 @@ export const session = snakeCase.table(
 export const account = snakeCase.table(
   "account",
   {
-    id: uuidV7PrimaryKey(),
+    id: uuidV7(),
     accountId: text().notNull(),
     providerId: text().notNull(),
     userId: uuid().notNull(),
@@ -65,6 +68,7 @@ export const account = snakeCase.table(
     ...timestamps(),
   },
   (table) => [
+    primaryKey({ name: "account_pkey", columns: [table.id] }),
     uniqueIndex("account_provider_id_account_id_uidx").on(table.providerId, table.accountId),
     index("account_user_id_idx").on(table.userId),
     deferrableForeignKey({
@@ -77,11 +81,14 @@ export const account = snakeCase.table(
 export const verification = snakeCase.table(
   "verification",
   {
-    id: uuidV7PrimaryKey(),
+    id: uuidV7(),
     identifier: text().notNull(),
     value: text().notNull(),
     expiresAt: timestampWithTimeZone().notNull(),
     ...timestamps(),
   },
-  (table) => [index("verification_identifier_idx").on(table.identifier)],
+  (table) => [
+    primaryKey({ name: "verification_pkey", columns: [table.id] }),
+    index("verification_identifier_idx").on(table.identifier),
+  ],
 )

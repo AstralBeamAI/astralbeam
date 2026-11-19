@@ -7,7 +7,7 @@ import {
   type DatabaseEncryptionKeyring,
   getDatabaseEncryptionKeyring,
 } from "@/db/lib/database-credentials"
-import { ApiUuidSchema } from "@/lib/tenants/schemas"
+import { UuidV7Schema } from "@/lib/schemas"
 import { RestInvalidCursor } from "./errors.ts"
 import type { RestPageQuery, RestScope } from "./shared.server"
 
@@ -21,9 +21,9 @@ const decodeRestCursorPayload = Schema.decodeUnknownEffect(
     Schema.Struct({
       version: Schema.Literal(1),
       binding: Schema.String,
-      id: ApiUuidSchema,
+      id: UuidV7Schema,
       updatedAt: Schema.optional(Schema.String),
-      tenantId: Schema.optional(ApiUuidSchema),
+      tenantId: Schema.optional(UuidV7Schema),
     }),
   ),
   { onExcessProperty: "error" },

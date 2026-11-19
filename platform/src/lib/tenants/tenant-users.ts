@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, gt, gte, ilike, inArray, lt, ne, or, sql } from "drizzle-orm"
-import { BigDecimal, Context, DateTime, Effect, Layer, Schema } from "effect"
+import { BigDecimal, Context, DateTime, Effect, Layer, Schema, Struct } from "effect"
 
 import { Database } from "@/db/database"
 import { type DatabasePage, type DatabasePageOptions, databasePage } from "@/db/lib/pagination"
@@ -21,16 +21,17 @@ import {
 } from "@/lib/model-providers/pricing-catalog.server"
 import { ModelRequestUsageSchema, modelUsageCost } from "@/lib/model-providers/usage-cost"
 import { TenantExternalIdTaken, TenantNotFound, TenantUserNotFound } from "./errors.ts"
-import type {
-  TenantUserPatchSchema,
+import {
+  type TenantUserPatchSchema,
   TenantUserRecordSchema,
-  TenantUserWriteSchema,
+  type TenantUserWriteSchema,
 } from "./schemas.ts"
 import {
   type TenantRecord,
   tenantRecordColumns,
   Tenants,
   type TenantScope,
+  tenantScopeWhere,
   tenantSearchPattern,
 } from "./tenants.ts"
 
@@ -52,25 +53,11 @@ interface TenantUserUsageInput {
   readonly end: string
 }
 
-const tenantUserRecordColumns = {
-  id: tenantUser.id,
-  tenantId: tenantUser.tenantId,
-  externalId: tenantUser.externalId,
-  name: tenantUser.name,
-  admin: tenantUser.admin,
-  metadata: tenantUser.metadata,
-  createdAt: tenantUser.createdAt,
-  updatedAt: tenantUser.updatedAt,
-}
+const tenantUserRecordColumns = Struct.pick(tenantUser, Struct.keys(TenantUserRecordSchema.fields))
 
 function tenantUserWhere(scope: TenantScope, tenantId: TenantId, id?: TenantUserId) {
   return and(
-    eq(tenantUser.organizationId, scope.organizationId),
-    scope.tenantId === undefined
-      ? undefined
-      : scope.tenantId === null
-        ? sql`false`
-        : eq(tenantUser.tenantId, scope.tenantId),
+    tenantScopeWhere(scope, tenantUser),
     eq(tenantUser.tenantId, tenantId),
     id === undefined ? undefined : eq(tenantUser.id, id),
   )

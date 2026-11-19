@@ -80,15 +80,16 @@ export function decodeConfigValue(
   return Schema.decodeUnknownResult(definition.schema, strictParseOptions)(value)
 }
 
-export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
-  {
-    key: "otel_exporter_otlp_endpoint",
+type ConfigField = Omit<ConfigDefinition<string>, "key" | "kind" | "required" | "schema"> &
+  Partial<Pick<ConfigDefinition<string>, "kind" | "required" | "schema">>
+
+const configFields = {
+  otel_exporter_otlp_endpoint: {
     group: "Observability",
     label: "OTLP endpoint",
     description:
       "Optional OTLP/HTTP base URL. Appends /v1/traces, and /v1/logs when log export is enabled. Requires a server restart.",
     kind: "url",
-    required: false,
     schema: PublicHttpUrlSchema.check(
       Schema.makeFilter((value) => {
         const url = new URL(value)
@@ -99,34 +100,26 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
       }),
     ),
   },
-  {
-    key: "otel_exporter_otlp_headers",
+  otel_exporter_otlp_headers: {
     group: "Observability",
     label: "OTLP headers",
     description:
       "Optional comma-separated key=value pairs sent to the receiver. Values containing commas must be percent-encoded. Traces headers override matching names.",
     kind: "secret",
-    required: false,
-    schema: NonEmptyStringSchema,
   },
-  {
-    key: "otel_exporter_otlp_traces_headers",
+  otel_exporter_otlp_traces_headers: {
     group: "Observability",
     label: "OTLP traces headers",
     description:
       "Comma-separated key=value pairs, for example Authorization=Bearer <token>. Values containing commas must be percent-encoded.",
     kind: "secret",
-    required: false,
-    schema: NonEmptyStringSchema,
   },
-  {
-    key: "otel_logs_exporter",
+  otel_logs_exporter: {
     group: "Observability",
     label: "Log export",
     description:
       "Optional. Send server logs to the OTLP receiver while keeping console JSON. Uses the shared endpoint and headers. Requires a server restart.",
     kind: "enum",
-    required: false,
     defaultValue: "none",
     options: [
       { value: "none", label: "Disabled (console only)" },
@@ -137,24 +130,18 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
       Schema.decodeTo(Schema.Literals(["none", "otlp"])),
     ),
   },
-  {
-    key: "otel_resource_attributes",
+  otel_resource_attributes: {
     group: "Observability",
     label: "OTel resource attributes",
     description:
       "Comma-separated key=value labels, for example deployment.environment.name=development-hasan,service.instance.id=worktree-7fd2. Attached to exported spans and logs. Do not include secrets. Requires a server restart.",
-    kind: "text",
-    required: false,
-    schema: NonEmptyStringSchema,
   },
-  {
-    key: "otel_sdk_disabled",
+  otel_sdk_disabled: {
     group: "Observability",
     label: "Disable telemetry export",
     description:
       "Disable span and log export while retaining the endpoint and credentials. Console JSON continues. Requires a server restart.",
     kind: "enum",
-    required: false,
     defaultValue: "false",
     options: [
       { value: "false", label: "No (export when an endpoint is configured)" },
@@ -168,8 +155,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
       ),
     ]),
   },
-  {
-    key: "storage_provider",
+  storage_provider: {
     group: "File storage",
     label: "Storage provider",
     description: "File System stores files on this host. Existing S3 configurations remain in use.",
@@ -181,18 +167,14 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     ],
     schema: Schema.Literals(["filesystem", "s3"]),
   },
-  {
-    key: "storage_directory",
+  storage_directory: {
     group: "File storage",
     label: "Storage directory",
     description: "Absolute directory on this host. Back it up together with PostgreSQL.",
-    kind: "text",
-    required: false,
     defaultValue: defaultStorageDirectory(),
     schema: StorageDirectorySchema,
   },
-  {
-    key: "s3_endpoint",
+  s3_endpoint: {
     group: "File storage",
     label: "S3 endpoint",
     description:
@@ -201,45 +183,34 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     required: true,
     schema: StorageEndpointSchema,
   },
-  {
-    key: "s3_region",
+  s3_region: {
     group: "File storage",
     label: "S3 region",
     description: "Bucket region, or auto for Cloudflare R2.",
-    kind: "text",
     required: true,
-    schema: NonEmptyStringSchema,
   },
-  {
-    key: "s3_bucket",
+  s3_bucket: {
     group: "File storage",
     label: "S3 bucket",
     description: "Private bucket dedicated to this deployment.",
-    kind: "text",
     required: true,
-    schema: NonEmptyStringSchema,
   },
-  {
-    key: "s3_access_key_id",
+  s3_access_key_id: {
     group: "File storage",
     label: "S3 access-key ID",
     description:
       "Object read, write, and delete permissions. AWS also needs s3:ListBucket, and versioned buckets need s3:DeleteObjectVersion.",
     kind: "secret",
     required: true,
-    schema: NonEmptyStringSchema,
   },
-  {
-    key: "s3_secret_access_key",
+  s3_secret_access_key: {
     group: "File storage",
     label: "S3 secret access key",
     description: "Secret belonging to the S3 access-key ID.",
     kind: "secret",
     required: true,
-    schema: NonEmptyStringSchema,
   },
-  {
-    key: "s3_path_style",
+  s3_path_style: {
     group: "File storage",
     label: "S3 addressing",
     description: "Use path-style addressing for backends such as MinIO.",
@@ -252,8 +223,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     ],
     schema: BooleanSettingSchema,
   },
-  {
-    key: "dogfood_organization_id",
+  dogfood_organization_id: {
     group: "General",
     label: "Owner onboarding",
     description: "Organization hosting the embedded assistant.",
@@ -262,8 +232,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     systemManaged: true,
     schema: UuidV7Schema,
   },
-  {
-    key: "dogfood_api_key",
+  dogfood_api_key: {
     group: "General",
     label: "Embedded assistant credential",
     description: "Server-only credential provisioned during owner onboarding.",
@@ -272,18 +241,14 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     systemManaged: true,
     schema: ApiKeyCredentialSchema,
   },
-  {
-    key: "dogfood_pending_setup",
+  dogfood_pending_setup: {
     group: "General",
     label: "Pending owner onboarding",
     description: "Encrypted recovery state for incomplete owner onboarding.",
     kind: "secret",
-    required: false,
     systemManaged: true,
-    schema: NonEmptyStringSchema,
   },
-  {
-    key: "app_base_url",
+  app_base_url: {
     group: "General",
     label: "Application Base URL",
     description:
@@ -294,34 +259,29 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     defaultValue: `http://localhost:${process.env.PORT || (IS_DEVELOPMENT_SERVER ? "4500" : "4510")}`,
     schema: ServerOriginSchema,
   },
-  {
-    key: "trust_proxy",
+  trust_proxy: {
     group: "General",
     label: "Trust Proxy",
     description:
       "Loopback is always trusted for forwarded host and HTTPS. Enable to trust configured client IP headers and additional proxies. An empty list trusts all proxies, so restrict origin access and ensure your proxy overwrites these headers. Unchecking clears additional proxies on save and ignores client IP headers. Restart other instances after saving.",
-    kind: "text",
-    required: false,
     defaultValue: "false",
     schema: Schema.Union([BooleanSettingSchema, Schema.String]).pipe(
       Schema.decode(SchemaTransformation.trim()),
       Schema.check(
         Schema.makeFilter(
-          (value) =>
+          // The result annotation breaks inference through ConfigValues back into this registry.
+          (value): boolean | string =>
             Result.isSuccess(Result.try(() => proxySettingsFromValues({ trust_proxy: value }))) ||
             "Enter valid comma-separated proxy IP addresses or CIDR ranges",
         ),
       ),
     ),
   },
-  {
-    key: "client_ip_headers",
+  client_ip_headers: {
     group: "General",
     label: "Client IP Headers",
     description:
       "Comma-separated HTTP header names, in priority order. Use headers your trusted proxy overwrites, such as x-forwarded-for or cf-connecting-ip.",
-    kind: "text",
-    required: false,
     defaultValue: "x-forwarded-for",
     schema: Schema.String.check(
       Schema.makeFilter(
@@ -331,8 +291,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
       ),
     ),
   },
-  {
-    key: "better_auth_secret",
+  better_auth_secret: {
     group: "Authentication",
     label: "Authentication Secret",
     description:
@@ -342,68 +301,48 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     schema: Schema.String.check(Schema.isMinLength(32)),
     generate: generateSecret,
   },
-  {
-    key: "google_client_id",
+  google_client_id: {
     group: "Authentication",
     label: "Google Client ID",
     description:
       "OAuth client ID from the Google Cloud console. Set both Google fields to enable Google sign-in.",
-    kind: "text",
-    required: false,
     isPublic: true,
-    schema: NonEmptyStringSchema,
   },
-  {
-    key: "google_client_secret",
+  google_client_secret: {
     group: "Authentication",
     label: "Google Client Secret",
     description: "OAuth client secret paired with the Google client ID.",
     kind: "secret",
-    required: false,
-    schema: NonEmptyStringSchema,
   },
-  {
-    key: "github_client_id",
+  github_client_id: {
     group: "Authentication",
     label: "GitHub Client ID",
     description:
       "OAuth client ID from the GitHub developer settings. Set both GitHub fields to enable GitHub sign-in.",
-    kind: "text",
-    required: false,
     isPublic: true,
-    schema: NonEmptyStringSchema,
   },
-  {
-    key: "github_client_secret",
+  github_client_secret: {
     group: "Authentication",
     label: "GitHub Client Secret",
     description: "OAuth client secret paired with the GitHub client ID.",
     kind: "secret",
-    required: false,
-    schema: NonEmptyStringSchema,
   },
-  {
-    key: "turnstile_site_key",
+  turnstile_site_key: {
     group: "Authentication",
     label: "Turnstile Site Key",
     description:
       "Public Cloudflare Turnstile site key used to protect sign-in, sign-up, and password-reset requests.",
-    kind: "text",
     required: true,
     isPublic: true,
-    schema: NonEmptyStringSchema,
   },
-  {
-    key: "turnstile_secret_key",
+  turnstile_secret_key: {
     group: "Authentication",
     label: "Turnstile Secret Key",
     description: "Server-only Cloudflare Turnstile secret paired with the site key.",
     kind: "secret",
     required: true,
-    schema: NonEmptyStringSchema,
   },
-  {
-    key: "default_openai_api_key",
+  default_openai_api_key: {
     group: "Models",
     label: "Default OpenAI API Key",
     description:
@@ -415,13 +354,11 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
       Schema.decodeTo(NonEmptyStringSchema),
     ),
   },
-  {
-    key: "email_provider",
+  email_provider: {
     group: "Email Delivery",
     label: "Email Provider",
     description: "Delivery protocol for authentication and notification emails. Defaults to SMTP.",
     kind: "enum",
-    required: false,
     defaultValue: "smtp",
     options: [
       { value: "smtp", label: "SMTP — Local, self-hosted, or hosted SMTP server" },
@@ -430,44 +367,32 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     ],
     schema: EmailProviderSchema,
   },
-  {
-    key: "email_from_address",
+  email_from_address: {
     group: "Email Delivery",
     label: "Email From Address",
     description:
       "Default From address for outgoing email, as 'email@example.com' or 'Name <email@example.com>'.",
-    kind: "text",
-    required: false,
     schema: EmailFromAddressSchema,
   },
-  {
-    key: "smtp_host",
+  smtp_host: {
     group: "Email Delivery",
     label: "SMTP Host",
     description: "Mail server hostname. Defaults to 127.0.0.1.",
-    kind: "text",
-    required: false,
     defaultValue: SMTP_DEFAULTS.host,
-    schema: NonEmptyStringSchema,
   },
-  {
-    key: "smtp_port",
+  smtp_port: {
     group: "Email Delivery",
     label: "SMTP Port",
     description: "Mail server port. Defaults to 1025.",
-    kind: "text",
-    required: false,
     defaultValue: String(SMTP_DEFAULTS.port),
     schema: SmtpPortSchema.pipe(Schema.decodeTo(Schema.flip(Schema.FiniteFromString))),
   },
-  {
-    key: "smtp_security",
+  smtp_security: {
     group: "Email Delivery",
     label: "SMTP Security",
     description:
       "Defaults to an unencrypted local connection. Hosted servers normally require STARTTLS or TLS.",
     kind: "enum",
-    required: false,
     defaultValue: SMTP_DEFAULTS.security,
     options: [
       { value: "none", label: "None — Local or trusted relay" },
@@ -480,111 +405,79 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     ],
     schema: SmtpSecuritySchema,
   },
-  {
-    key: "smtp_username",
+  smtp_username: {
     group: "Email Delivery",
     label: "SMTP Username",
     description:
       "Optional username. Set it together with an SMTP password to enable authentication.",
-    kind: "text",
-    required: false,
-    schema: NonEmptyStringSchema,
   },
-  {
-    key: "smtp_password",
+  smtp_password: {
     group: "Email Delivery",
     label: "SMTP Password",
     description: "Optional password paired with the SMTP username.",
     kind: "secret",
-    required: false,
-    schema: NonEmptyStringSchema,
   },
-  {
-    key: "resend_api_key",
+  resend_api_key: {
     group: "Email Delivery",
     label: "Resend API Key",
     description: "Required when the email provider is Resend.",
     kind: "secret",
-    required: false,
-    schema: NonEmptyStringSchema,
   },
-  {
-    key: "aws_region",
+  aws_region: {
     group: "Email Delivery",
     label: "AWS Region",
     description: "Required when the email provider is SES.",
-    kind: "text",
-    required: false,
-    schema: NonEmptyStringSchema,
   },
-  {
-    key: "aws_access_key_id",
+  aws_access_key_id: {
     group: "Email Delivery",
     label: "AWS Access Key ID",
     description:
       "Used to send email through SES. Leave both AWS credential fields unset to use the deployment's own AWS credential chain, such as an IAM role or profile.",
-    kind: "text",
-    required: false,
-    schema: NonEmptyStringSchema,
   },
-  {
-    key: "aws_secret_access_key",
+  aws_secret_access_key: {
     group: "Email Delivery",
     label: "AWS Secret Access Key",
     description: "Paired with the AWS access key ID.",
     kind: "secret",
-    required: false,
-    schema: NonEmptyStringSchema,
   },
-  {
-    key: "privacy_policy_url",
+  privacy_policy_url: {
     group: "General",
     label: "Privacy Policy URL",
     description: "Public link shown during sign-up.",
     kind: "url",
-    required: false,
     isPublic: true,
     schema: PublicHttpUrlSchema,
   },
-  {
-    key: "terms_of_service_url",
+  terms_of_service_url: {
     group: "General",
     label: "Terms of Service URL",
     description: "Public link shown during sign-up.",
     kind: "url",
-    required: false,
     isPublic: true,
     schema: PublicHttpUrlSchema,
   },
-  {
-    key: "support_email_address",
+  support_email_address: {
     group: "General",
     label: "Support Email Address",
     description:
       "Optional address copied on welcome emails and used by Contact Support. Leave unset to hide Contact Support.",
-    kind: "text",
-    required: false,
     isPublic: true,
     schema: EmailAddressSchema,
   },
-  {
-    key: "website_url",
+  website_url: {
     group: "General",
     label: "Website URL",
     description:
       "Origin of a separately hosted website served under this application's origin. Signed-out visitors to / and everyone at /home see its home page.",
     kind: "url",
-    required: false,
     schema: ServerOriginSchema,
   },
-  {
-    key: "allow_private_model_endpoints",
+  allow_private_model_endpoints: {
     group: "General",
     label: "Allow Private Model Endpoints",
     description:
       "Lets organizations use HTTP model provider URLs and loopback, private, or link-local hosts, such as a LAN gateway. Keep it off when untrusted organizations share this deployment.",
     kind: "enum",
-    required: false,
     defaultValue: "false",
     options: [
       { value: "false", label: "Off (public HTTPS endpoints only)" },
@@ -592,7 +485,16 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     ],
     schema: BooleanSettingSchema,
   },
-]
+} as const satisfies Record<string, ConfigField>
+
+export const CONFIG_DEFINITIONS: readonly ConfigDefinition<keyof typeof configFields>[] =
+  Object.entries<ConfigField>(configFields).map(([key, definition]) => ({
+    key: key as ConfigKey,
+    kind: "text" as const,
+    required: false,
+    schema: NonEmptyStringSchema,
+    ...definition,
+  }))
 
 const definitionByKey = new Map<string, ConfigDefinition>(
   CONFIG_DEFINITIONS.map((definition) => [definition.key, definition]),

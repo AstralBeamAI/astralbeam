@@ -1,10 +1,15 @@
 import { Schema } from "effect"
-import { LockVersionSchema, NonEmptyStringSchema, ApiUuidSchema } from "@/lib/schemas.ts"
+import {
+  ApiUuidSchema,
+  LockVersionSchema,
+  NonEmptyStringSchema,
+  UuidV7Schema,
+} from "@/lib/schemas.ts"
 import type { chatParticipant } from "@/db/schema/chat.ts"
 
 export const ChatSubmissionReceiptSchema = Schema.Struct({
-  threadId: ApiUuidSchema,
-  acceptedMessageId: ApiUuidSchema,
+  threadId: UuidV7Schema,
+  acceptedMessageId: UuidV7Schema,
   threadVersion: LockVersionSchema,
 })
 
@@ -26,9 +31,9 @@ export const ChatToolDecisionSchema = Schema.StructWithRest(
     executionLocation: Schema.Literals(["server_api", "sandbox", "browser", "provider"]),
     targets: Schema.Array(
       Schema.Struct({
-        id: Schema.String.check(Schema.isUUID()),
-        tenantUserId: Schema.optional(Schema.String.check(Schema.isUUID())),
-        clientId: Schema.optional(Schema.String),
+        id: UuidV7Schema,
+        tenantUserId: Schema.optional(UuidV7Schema),
+        clientId: Schema.optional(ApiUuidSchema),
       }),
     ).check(
       Schema.makeFilter(

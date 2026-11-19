@@ -1,21 +1,25 @@
 import { eq, type SQL } from "drizzle-orm"
-import { PgDialect, snakeCase, text } from "drizzle-orm/pg-core"
+import { PgDialect, primaryKey, snakeCase, text } from "drizzle-orm/pg-core"
 import * as Effect from "effect/Effect"
 import { describe, expect, test } from "vitest"
 
 import type { EffectDatabase } from "@/db/database"
-import { lockVersion, uuidV7PrimaryKey } from "./columns.ts"
+import { lockVersion, uuidV7 } from "./columns.ts"
 import {
   deleteWithOptimisticLock,
   OptimisticLockError,
   updateWithOptimisticLock,
 } from "./optimistic-locking.ts"
 
-const lockedRecord = snakeCase.table("locked_record", {
-  id: uuidV7PrimaryKey(),
-  name: text().notNull(),
-  lockVersion: lockVersion(),
-})
+const lockedRecord = snakeCase.table(
+  "locked_record",
+  {
+    id: uuidV7(),
+    name: text().notNull(),
+    lockVersion: lockVersion(),
+  },
+  (table) => [primaryKey({ columns: [table.id] })],
+)
 
 type LockedRecord = typeof lockedRecord.$inferSelect
 type MutationCall = {

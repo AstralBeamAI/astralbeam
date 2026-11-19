@@ -10418,7 +10418,6 @@
                 "properties": {
                   "mcp_server_id": {
                     "type": "string",
-                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$",
                     "format": "uuid"
                   }
                 },
@@ -11394,22 +11393,18 @@
                       "properties": {
                         "organization_id": {
                           "type": "string",
-                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$",
                           "format": "uuid"
                         },
                         "tenant_id": {
                           "type": "string",
-                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$",
                           "format": "uuid"
                         },
                         "id": {
                           "type": "string",
-                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|[fF]{8}-[fF]{4}-[fF]{4}-[fF]{4}-[fF]{12})$",
                           "format": "uuid"
                         },
                         "connection_id": {
                           "type": "string",
-                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$",
                           "format": "uuid"
                         }
                       },
@@ -12412,22 +12407,18 @@
         "properties": {
           "organization_id": {
             "type": "string",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$",
             "format": "uuid"
           },
           "tenant_id": {
             "type": "string",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$",
             "format": "uuid"
           },
           "id": {
             "type": "string",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$",
             "format": "uuid"
           },
           "mcp_server_id": {
             "type": "string",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$",
             "format": "uuid"
           },
           "lock_version": {
@@ -12459,12 +12450,10 @@
         "properties": {
           "organization_id": {
             "type": "string",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$",
             "format": "uuid"
           },
           "id": {
             "type": "string",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$",
             "format": "uuid"
           },
           "endpoint_url": {
@@ -12778,7 +12767,7 @@
                 },
                 "source_part_id": {
                   "type": "string",
-                  "minLength": 1
+                  "format": "uuid"
                 },
                 "response_target_id": {
                   "type": "string",
@@ -13090,7 +13079,8 @@
                 "source_tool_part_id": {
                   "anyOf": [
                     {
-                      "type": "string"
+                      "type": "string",
+                      "format": "uuid"
                     },
                     {
                       "type": "null"
@@ -13100,7 +13090,8 @@
                 "response_target_id": {
                   "anyOf": [
                     {
-                      "type": "string"
+                      "type": "string",
+                      "format": "uuid"
                     },
                     {
                       "type": "null"
@@ -13213,10 +13204,12 @@
                   "format": "uuid"
                 },
                 "source_part_id": {
-                  "type": "string"
+                  "type": "string",
+                  "format": "uuid"
                 },
                 "response_target_id": {
-                  "type": "string"
+                  "type": "string",
+                  "format": "uuid"
                 },
                 "tool_call_id": {
                   "type": "string"
@@ -13853,7 +13846,8 @@
           "source_tool_part_id": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "format": "uuid"
               },
               {
                 "type": "null"
@@ -13863,7 +13857,8 @@
           "response_target_id": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "format": "uuid"
               },
               {
                 "type": "null"

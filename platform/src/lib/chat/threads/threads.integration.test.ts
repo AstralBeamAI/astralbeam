@@ -1,3 +1,4 @@
+import { SecureRandom } from "effect/crypto"
 import { OrganizationIdSchema } from "@/db/schema/organizations"
 import { messageResource } from "@/routes/api/v1/chat/-lib/threads.server"
 import { deleteTenant } from "@/lib/tenants/deletion"
@@ -166,7 +167,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         id,
         payload: {
           ...payload,
-          parts: payload.parts.map((part) => ({ ...part, id: crypto.randomUUID() })),
+          parts: payload.parts.map((part) => ({ ...part, id: SecureRandom.uuidV7Unsafe() })),
         },
       }),
     )
@@ -200,13 +201,13 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
   test("native evidence completes without response slots and survives a database reload", async () => {
     const thread = await create()
     const admitted = await admit(thread.id)
-    const id = crypto.randomUUID()
+    const id = SecureRandom.uuidV7Unsafe()
     const source = { url: "https://example.com/page", title: "Example", excerpt: "Actual page" }
     const evidence: ChatMessagePayload = {
       version: 1,
       parts: [
         {
-          id: crypto.randomUUID(),
+          id: SecureRandom.uuidV7Unsafe(),
           type: "text",
           content: "Answer",
           metadata: {
@@ -228,7 +229,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       provenance: { providerId: "provider", protocol: "responses", modelId: "model" },
       modelMessages: [
         {
-          id: crypto.randomUUID(),
+          id: SecureRandom.uuidV7Unsafe(),
           role: "assistant",
           content: "Answer",
           metadata: { webProviderContext: [{ type: "web_search_call", id: "opaque" }] },
@@ -261,9 +262,9 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         payload: {
           version: 1,
           parts: [
-            { id: crypto.randomUUID(), type: "text", content: "Administrative history" },
+            { id: SecureRandom.uuidV7Unsafe(), type: "text", content: "Administrative history" },
             {
-              id: crypto.randomUUID(),
+              id: SecureRandom.uuidV7Unsafe(),
               type: "document",
               source: { type: "data", value: "SGVsbG8=", mimeType: "text/plain" },
               metadata: { filename: "note.txt", size: 999 },
@@ -485,7 +486,10 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       service.admit({
         scope,
         id: thread.id,
-        payload: { version: 1, parts: [{ id: crypto.randomUUID(), type: "text", content: text }] },
+        payload: {
+          version: 1,
+          parts: [{ id: SecureRandom.uuidV7Unsafe(), type: "text", content: text }],
+        },
       }),
     )
     const title = "First message " + "🙂".repeat(66)
@@ -511,7 +515,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
             version: 1,
             parts: [
               {
-                id: crypto.randomUUID(),
+                id: SecureRandom.uuidV7Unsafe(),
                 type: "image",
                 source: { type: "data", value: "AAAA", mimeType: "image/png" },
               },
@@ -529,7 +533,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       const thread = await create()
       const accepted = await admit(thread.id)
       const media = {
-        id: crypto.randomUUID(),
+        id: SecureRandom.uuidV7Unsafe(),
         type: "image",
         source: { type: "data", value: "iVBORw0KGgo=", mimeType: "image/png" },
       }
@@ -682,7 +686,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
           version: 1,
           parts: [
             {
-              id: crypto.randomUUID(),
+              id: SecureRandom.uuidV7Unsafe(),
               type: "document",
               source: { type: "data", value: "SGVsbG8=", mimeType: "text/plain" },
             },
@@ -691,6 +695,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       }),
     )
     const fileId = (uploaded.parts[0]!.source as { id: string }).id
+    const clientId = "550e8400-e29b-41d4-a716-446655440000"
     const clientMessageId = crypto.randomUUID()
     const params: ChatParams = {
       threadId: thread.id,
@@ -711,7 +716,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       tools: [],
       aguiContext: [],
       state: undefined,
-      forwardedProps: { clientId: targetA, clientMessageId },
+      forwardedProps: { clientId, clientMessageId },
     }
     const request = { scope, params, idempotencyKey: "same-intent", usageLimitIds: [usageLimitId] }
     for (const [value, mimeType, errorTag] of [
@@ -725,7 +730,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
             version: 1,
             parts: [
               {
-                id: crypto.randomUUID(),
+                id: SecureRandom.uuidV7Unsafe(),
                 type: "document",
                 source: { type: "data", value, mimeType },
               },
@@ -771,7 +776,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     )
     const retry = await runManagedChat({
       ...request,
-      params: { ...params, runId: "retry-run", forwardedProps: { clientId: targetA } },
+      params: { ...params, runId: "retry-run", forwardedProps: { clientId } },
     })
     expect(retry).toMatchObject({ admission: undefined, receipt: first.receipt })
     const storedFileCount = (await db.select().from(fileObject)).length
@@ -974,7 +979,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
             version: 1,
             parts: [
               {
-                id: crypto.randomUUID(),
+                id: SecureRandom.uuidV7Unsafe(),
                 type: "document",
                 source: {
                   type: "data",
@@ -1116,7 +1121,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         claim: second.claim!,
         payload: {
           ...payload,
-          parts: payload.parts.map((part) => ({ ...part, id: crypto.randomUUID() })),
+          parts: payload.parts.map((part) => ({ ...part, id: SecureRandom.uuidV7Unsafe() })),
         },
       }),
     )
@@ -1140,7 +1145,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       ...payload,
       parts: [
         ...payload.parts,
-        { id: crypto.randomUUID(), type: "text", content: "Second segment" },
+        { id: SecureRandom.uuidV7Unsafe(), type: "text", content: "Second segment" },
       ],
     }
     await runtime.runPromise(
@@ -1149,7 +1154,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     const final = {
       ...streamed,
       parts: [
-        { id: crypto.randomUUID(), type: "thinking", content: "Reasoning" },
+        { id: SecureRandom.uuidV7Unsafe(), type: "thinking", content: "Reasoning" },
         ...streamed.parts,
       ],
     }
@@ -1179,7 +1184,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
             claim: next,
             payload: {
               ...payload,
-              parts: payload.parts.map((part) => ({ ...part, id: crypto.randomUUID() })),
+              parts: payload.parts.map((part) => ({ ...part, id: SecureRandom.uuidV7Unsafe() })),
             },
             state,
           }),
@@ -1196,7 +1201,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
   test("server input rejection settles a browser decision without authorizing its execution", async () => {
     const thread = await create()
     const { claim } = await admit(thread.id)
-    const partId = crypto.randomUUID()
+    const partId = SecureRandom.uuidV7Unsafe()
     await runtime.runPromise(
       service.checkpoint({
         claim: claim!,
@@ -1217,7 +1222,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       toolPartId: partId,
       responseTargetId: targetA,
       payload: chatTestToolPayload({
-        id: crypto.randomUUID(),
+        id: SecureRandom.uuidV7Unsafe(),
         type: "tool-result",
         outcome: "failed",
         output: { error: "Invalid tool input" },
@@ -1272,7 +1277,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         claim: next.claim!,
         payload: {
           ...payload,
-          parts: payload.parts.map((part) => ({ ...part, id: crypto.randomUUID() })),
+          parts: payload.parts.map((part) => ({ ...part, id: SecureRandom.uuidV7Unsafe() })),
         },
       }),
     )
@@ -1578,7 +1583,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       claim: NonNullable<typeof first.claim>,
       target: string,
     ): Promise<ChatToolResolution> => {
-      const partId = crypto.randomUUID()
+      const partId = SecureRandom.uuidV7Unsafe()
       await runtime.runPromise(
         service.checkpoint({
           claim,
@@ -1771,7 +1776,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         claim: continued.claim!,
         payload: {
           ...payload,
-          parts: payload.parts.map((part) => ({ ...part, id: crypto.randomUUID() })),
+          parts: payload.parts.map((part) => ({ ...part, id: SecureRandom.uuidV7Unsafe() })),
         },
       }),
     )
@@ -1818,7 +1823,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     )
     await expect(
       runtime.runPromise(
-        service.snapshot({ scope, id: thread.id, position: { id: crypto.randomUUID() } }),
+        service.snapshot({ scope, id: thread.id, position: { id: SecureRandom.uuidV7Unsafe() } }),
       ),
     ).rejects.toMatchObject({ _tag: "ChatThreadNotFound" })
     await runtime.runPromise(service.remove({ scope, id: thread.id, lockVersion: 2 }))
@@ -1840,7 +1845,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
           claim: admitted.claim!,
           payload: {
             version: 1,
-            parts: [{ id: crypto.randomUUID(), type: "text", content: "Answer" }],
+            parts: [{ id: SecureRandom.uuidV7Unsafe(), type: "text", content: "Answer" }],
           },
         }),
       )
@@ -1864,26 +1869,53 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     ).toEqual(ids.slice(1))
   })
 
-  test("stores two client response slots for one participant and validates normalized JSON on relational reads", async () => {
+  test("restores legacy client response slots and validates scoped relational JSON", async () => {
     const thread = await create()
     const accepted = await admit(thread.id)
-    const partId = crypto.randomUUID()
-    const decision: ChatMessagePayload = chatTestToolPayload({
+    const partId = "019a0000-0000-4000-8000-000000000001"
+    const clients = [
+      "019a0000-0000-4000-8000-000000000002",
+      "019a0000-0000-4000-8000-000000000003",
+    ] as const
+    const identity = {
+      organizationId: scope.organizationId,
+      tenantId: scope.tenantId,
+      threadId: thread.id,
+    }
+    // Older releases stored UUIDv4 part, target and client IDs. Seed these rows directly.
+    await db.insert(chatMessagePart).values({
+      ...identity,
       id: partId,
-      type: "tool-call",
-      toolCallId: "upstream",
-      name: "update_record",
-      arguments: "{}",
+      messageId: accepted.assistantMessage!.id,
+      position: 0,
       executionLocation: "browser",
-      targets: [targetA, targetB].map((clientId) => ({
-        id: clientId,
-        clientId,
-        tenantUserId: scope.tenantUserId,
-      })),
+      payload: {
+        version: 1,
+        type: "tool-call",
+        toolCallId: "upstream",
+        name: "update_record",
+        arguments: "{}",
+      },
     })
-    await runtime.runPromise(
-      service.checkpoint({ claim: accepted.claim!, payload: decision, state: "complete" }),
+    await db.insert(chatToolResponse).values(
+      clients.map((clientId) => ({
+        ...identity,
+        id: clientId,
+        toolPartId: partId,
+        tenantUserId: scope.tenantUserId,
+        clientId,
+      })),
     )
+    await db
+      .update(chatMessage)
+      .set({
+        state: "complete",
+        metadata: {
+          ...accepted.assistantMessage!.metadata,
+          provenance: { ...accepted.assistantMessage!.metadata.provenance, clientId: clients[0] },
+        },
+      })
+      .where(eq(chatMessage.id, accepted.assistantMessage!.id))
     await runtime.runPromise(service.finish({ claim: accepted.claim! }))
     const separate = await runtime.runPromise(service.create({ scope: other }))
     const messages = await db.select().from(chatMessage).where(eq(chatMessage.threadId, thread.id))
@@ -1895,10 +1927,31 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     await db.insert(chatMessagePart).values(parts.map((row) => ({ ...row, threadId: separate.id })))
     const pending = (await runtime.runPromise(service.snapshot({ scope, id: thread.id }))).pending
     expect(pending).toHaveLength(2)
-    expect(pending.map(({ target }) => target.id)).toEqual(
-      expect.arrayContaining([targetA, targetB]),
-    )
+    expect(pending.map(({ target }) => target.id)).toEqual(expect.arrayContaining([...clients]))
     expect(pending.every(({ message }) => message.threadId === thread.id)).toBe(true)
+    const resolve = (clientId: string) =>
+      runtime.runPromise(
+        resolveManagedChatTools({
+          scope,
+          id: thread.id,
+          clientId,
+          results: [
+            {
+              sourceMessageId: accepted.assistantMessage!.id,
+              sourcePartId: partId,
+              responseTargetId: clients[0],
+              outcome: "succeeded",
+              output: { saved: true },
+            },
+          ],
+        }),
+      )
+    await expect(resolve(clients[1])).rejects.toMatchObject({ _tag: "ChatThreadForbidden" })
+    expect(await resolve(clients[0])).toMatchObject({ claim: null })
+    expect(await resolve(clients[0])).toMatchObject({ claim: null })
+    expect(
+      (await runtime.runPromise(service.snapshot({ scope, id: thread.id }))).pending,
+    ).toHaveLength(1)
     const restored = await db.query.chatMessage.findFirst({
       where: { threadId: thread.id, id: accepted.assistantMessage!.id },
       with: { parts: { with: { responses: true } } },

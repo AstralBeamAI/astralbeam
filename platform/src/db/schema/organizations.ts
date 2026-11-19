@@ -4,13 +4,13 @@ import {
   check,
   index,
   integer,
-  primaryKey,
-  snakeCase,
   text,
   uniqueIndex,
+  primaryKey,
+  snakeCase,
   uuid,
 } from "drizzle-orm/pg-core"
-import type { PgTableExtraConfigValue } from "drizzle-orm/pg-core"
+import type { AnyPgColumn, ForeignKeyBuilder } from "drizzle-orm/pg-core"
 import * as Schema from "effect/Schema"
 
 import {
@@ -27,7 +27,7 @@ import {
   type ModelProviderType,
   type ModelProviderApi,
 } from "@/lib/model-providers/schemas.ts"
-import { ApiUuidSchema, UuidV7Schema } from "@/lib/schemas.ts"
+import { UuidV7Schema } from "@/lib/schemas.ts"
 
 import {
   caseInsensitiveText,
@@ -38,7 +38,6 @@ import {
   timestamps,
   timestampWithTimeZone,
   uuidV7,
-  uuidV7PrimaryKey,
 } from "../lib/columns.ts"
 import {
   ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS,
@@ -50,10 +49,10 @@ import { user } from "./authentication.ts"
 export const OrganizationIdSchema = UuidV7Schema.pipe(Schema.brand("astralbeam/OrganizationId"))
 export type OrganizationId = typeof OrganizationIdSchema.Type
 
-export const TenantIdSchema = ApiUuidSchema.pipe(Schema.brand("astralbeam/TenantId"))
+export const TenantIdSchema = UuidV7Schema.pipe(Schema.brand("astralbeam/TenantId"))
 export type TenantId = typeof TenantIdSchema.Type
 
-export const TenantUserIdSchema = ApiUuidSchema.pipe(Schema.brand("astralbeam/TenantUserId"))
+export const TenantUserIdSchema = UuidV7Schema.pipe(Schema.brand("astralbeam/TenantUserId"))
 export type TenantUserId = typeof TenantUserIdSchema.Type
 
 export const SandboxProviderCredentialsPayloadSchema = Schema.Struct({
@@ -72,7 +71,7 @@ export const SandboxProviderCredentialsPayloadSchema = Schema.Struct({
 export const organization = snakeCase.table(
   "organization",
   {
-    id: uuidV7PrimaryKey(),
+    id: uuidV7(),
     name: text().notNull(),
     slug: text().notNull(),
     // Better Auth requires this column. Keep it null and use logoFileId for logos.
@@ -83,7 +82,8 @@ export const organization = snakeCase.table(
     metadata: text(),
     ...timestamps(),
   },
-  (table): PgTableExtraConfigValue[] => [
+  (table) => [
+    primaryKey({ name: "organization_pkey", columns: [table.id] }),
     uniqueIndex("organization_slug_uidx").on(table.slug),
     deferrableForeignKey({
       name: "organization_logo_current_fk",
@@ -94,10 +94,44 @@ export const organization = snakeCase.table(
   ],
 )
 
+export function organizationForeignKey(table: { organizationId: AnyPgColumn }): ForeignKeyBuilder {
+  return deferrableForeignKey({
+    columns: [table.organizationId],
+    foreignColumns: [organization.id],
+  }).onDelete("cascade")
+}
+
+type TenantReference = { organizationId: AnyPgColumn; tenantId: AnyPgColumn }
+type ReferenceOptions = Pick<Parameters<typeof deferrableForeignKey>[0], "name" | "deferrable">
+
+export function tenantForeignKey(
+  table: TenantReference,
+  options?: ReferenceOptions,
+): ForeignKeyBuilder {
+  return deferrableForeignKey({
+    ...options,
+    columns: [table.organizationId, table.tenantId],
+    foreignColumns: [tenant.organizationId, tenant.id],
+  })
+}
+
+export function tenantUserForeignKey(
+  table: TenantReference & {
+    tenantUserId: AnyPgColumn
+  },
+  options?: ReferenceOptions,
+): ForeignKeyBuilder {
+  return deferrableForeignKey({
+    ...options,
+    columns: [table.organizationId, table.tenantId, table.tenantUserId],
+    foreignColumns: [tenantUser.organizationId, tenantUser.tenantId, tenantUser.id],
+  })
+}
+
 export const apiKey = snakeCase.table(
   "api_key",
   {
-    id: uuidV7PrimaryKey(),
+    id: uuidV7(),
     configId: text().default("default").notNull(),
     name: text().notNull(),
     start: text(),
@@ -122,13 +156,11 @@ export const apiKey = snakeCase.table(
     ...timestamps(),
   },
   (table) => [
+    primaryKey({ name: "api_key_pkey", columns: [table.id] }),
     index("api_key_config_id_idx").on(table.configId),
     index("api_key_organization_id_idx").on(table.organizationId),
     uniqueIndex("api_key_key_idx").on(table.key),
-    deferrableForeignKey({
-      columns: [table.organizationId],
-      foreignColumns: [organization.id],
-    }).onDelete("cascade"),
+    organizationForeignKey(table),
   ],
 )
 
@@ -151,10 +183,7 @@ export const sandboxProvider = snakeCase.table(
       columns: [table.organizationId, table.id],
     }),
     uniqueIndex("sandbox_provider_organization_id_name_uidx").on(table.organizationId, table.name),
-    deferrableForeignKey({
-      columns: [table.organizationId],
-      foreignColumns: [organization.id],
-    }).onDelete("cascade"),
+    organizationForeignKey(table),
   ],
 )
 
@@ -174,10 +203,7 @@ export const modelProvider = snakeCase.table(
   (table) => [
     primaryKey({ name: "model_provider_pkey", columns: [table.organizationId, table.id] }),
     uniqueIndex("model_provider_organization_id_name_uidx").on(table.organizationId, table.name),
-    deferrableForeignKey({
-      columns: [table.organizationId],
-      foreignColumns: [organization.id],
-    }).onDelete("cascade"),
+    organizationForeignKey(table),
   ],
 )
 
@@ -204,10 +230,7 @@ export const providerModel = snakeCase.table(
       columns: [table.organizationId, table.modelProviderId],
       foreignColumns: [modelProvider.organizationId, modelProvider.id],
     }).onDelete("cascade"),
-    deferrableForeignKey({
-      columns: [table.organizationId],
-      foreignColumns: [organization.id],
-    }).onDelete("cascade"),
+    organizationForeignKey(table),
   ],
 )
 
@@ -244,10 +267,7 @@ export const agent = snakeCase.table(
       columns: [table.organizationId, table.sandboxProviderId],
       foreignColumns: [sandboxProvider.organizationId, sandboxProvider.id],
     }).onDelete("no action"),
-    deferrableForeignKey({
-      columns: [table.organizationId],
-      foreignColumns: [organization.id],
-    }).onDelete("cascade"),
+    organizationForeignKey(table),
   ],
 )
 
@@ -289,10 +309,7 @@ export const agentModel = snakeCase.table(
       columns: [table.organizationId, table.providerModelId],
       foreignColumns: [providerModel.organizationId, providerModel.id],
     }).onDelete("no action"),
-    deferrableForeignKey({
-      columns: [table.organizationId],
-      foreignColumns: [organization.id],
-    }).onDelete("cascade"),
+    organizationForeignKey(table),
   ],
 )
 
@@ -318,10 +335,7 @@ export const organizationConfiguration = snakeCase.table(
       columns: [table.organizationId, table.defaultAgentId],
       foreignColumns: [agent.organizationId, agent.id],
     }).onDelete("set null"),
-    deferrableForeignKey({
-      columns: [table.organizationId],
-      foreignColumns: [organization.id],
-    }).onDelete("cascade"),
+    organizationForeignKey(table),
   ],
 )
 
@@ -344,10 +358,7 @@ export const tenant = snakeCase.table(
     check("tenant_metadata_object_check", sql`jsonb_typeof(${table.metadata}) = 'object'`),
     index("tenant_name_trgm_idx").using("gin", table.name.op("gin_trgm_ops")),
     index("tenant_external_id_trgm_idx").using("gin", table.externalId.op("gin_trgm_ops")),
-    deferrableForeignKey({
-      columns: [table.organizationId],
-      foreignColumns: [organization.id],
-    }).onDelete("cascade"),
+    organizationForeignKey(table),
   ],
 )
 
@@ -376,25 +387,24 @@ export const tenantUser = snakeCase.table(
     check("tenant_user_metadata_object_check", sql`jsonb_typeof(${table.metadata}) = 'object'`),
     index("tenant_user_name_trgm_idx").using("gin", table.name.op("gin_trgm_ops")),
     index("tenant_user_external_id_trgm_idx").using("gin", table.externalId.op("gin_trgm_ops")),
-    deferrableForeignKey({
-      name: "tenant_user_organization_id_tenant_id_fk",
-      columns: [table.organizationId, table.tenantId],
-      foreignColumns: [tenant.organizationId, tenant.id],
-    }).onDelete("cascade"),
+    tenantForeignKey(table, { name: "tenant_user_organization_id_tenant_id_fk" }).onDelete(
+      "cascade",
+    ),
   ],
 )
 
 export const member = snakeCase.table(
   "member",
   {
-    id: uuidV7PrimaryKey(),
+    id: uuidV7(),
     organizationId: uuid().notNull(),
     userId: uuid().notNull(),
     avatarFileId: uuid(),
     role: text().default("viewer").notNull(),
     ...timestamps(),
   },
-  (table): PgTableExtraConfigValue[] => [
+  (table) => [
+    primaryKey({ name: "member_pkey", columns: [table.id] }),
     deferrableForeignKey({
       name: "member_avatar_current_fk",
       columns: [table.organizationId, table.avatarFileId],
@@ -402,10 +412,7 @@ export const member = snakeCase.table(
     }),
     uniqueIndex("member_organization_user_uidx").on(table.organizationId, table.userId),
     index("member_user_id_idx").on(table.userId),
-    deferrableForeignKey({
-      columns: [table.organizationId],
-      foreignColumns: [organization.id],
-    }).onDelete("cascade"),
+    organizationForeignKey(table),
     deferrableForeignKey({
       columns: [table.userId],
       foreignColumns: [user.id],
@@ -416,7 +423,7 @@ export const member = snakeCase.table(
 export const invitation = snakeCase.table(
   "invitation",
   {
-    id: uuidV7PrimaryKey(),
+    id: uuidV7(),
     organizationId: uuid().notNull(),
     email: caseInsensitiveText().notNull(),
     role: text(),
@@ -426,12 +433,10 @@ export const invitation = snakeCase.table(
     ...timestamps(),
   },
   (table) => [
+    primaryKey({ name: "invitation_pkey", columns: [table.id] }),
     index("invitation_organization_id_idx").on(table.organizationId),
     index("invitation_email_idx").on(table.email),
-    deferrableForeignKey({
-      columns: [table.organizationId],
-      foreignColumns: [organization.id],
-    }).onDelete("cascade"),
+    organizationForeignKey(table),
     deferrableForeignKey({
       columns: [table.inviterId],
       foreignColumns: [user.id],

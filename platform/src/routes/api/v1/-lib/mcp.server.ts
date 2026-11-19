@@ -2,7 +2,7 @@ import { Effect, Schema } from "effect"
 import { HttpServerRequest } from "effect/http"
 import { HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/http-api"
 import type { ApiV1 } from "./contract.server"
-import { ApiUuidSchema } from "@/lib/tenants/schemas.ts"
+import { UuidV7Schema } from "@/lib/schemas.ts"
 import {
   McpAttemptReferenceSchema,
   McpConnectionSummarySchema,
@@ -28,8 +28,8 @@ const McpRestServer = McpServerSummarySchema.pipe(Schema.encodeKeys(mcpWireKeys)
 const McpRestConnection = McpConnectionSummarySchema.pipe(Schema.encodeKeys(mcpWireKeys)).annotate({
   identifier: "McpConnection",
 })
-const mcpConnectionParams = Schema.Struct({ id: ApiUuidSchema })
-const mcpAttemptBody = Schema.Struct({ attemptId: ApiUuidSchema }).pipe(
+const mcpConnectionParams = Schema.Struct({ id: UuidV7Schema })
+const mcpAttemptBody = Schema.Struct({ attemptId: McpAttemptReferenceSchema.fields.id }).pipe(
   Schema.encodeKeys({ attemptId: "attempt_id" }),
 )
 export const personalMcpApi = HttpApiGroup.make("personalMcp")
@@ -66,9 +66,10 @@ export const personalMcpApi = HttpApiGroup.make("personalMcp")
     }),
     HttpApiEndpoint.post("bindBrowser", "/me/mcp/connections/:id/oauth/bind", {
       params: mcpConnectionParams,
-      payload: Schema.Struct({ attemptId: ApiUuidSchema, challenge: Schema.String }).pipe(
-        Schema.encodeKeys({ attemptId: "attempt_id" }),
-      ),
+      payload: Schema.Struct({
+        attemptId: McpAttemptReferenceSchema.fields.id,
+        challenge: Schema.String,
+      }).pipe(Schema.encodeKeys({ attemptId: "attempt_id" })),
     }),
     HttpApiEndpoint.post("completeAuthorization", "/me/mcp/connections/:id/oauth/complete", {
       params: mcpConnectionParams,

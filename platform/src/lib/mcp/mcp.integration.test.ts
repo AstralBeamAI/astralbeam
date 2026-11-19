@@ -38,7 +38,7 @@ import { organization, cacheEntry, tenant, tenantUser } from "@/db/schema"
 import { mcpConnection } from "@/db/schema/mcp"
 import { Config } from "@/lib/config/config"
 import { McpConnections } from "./mcp.server.ts"
-import { McpAuthorization } from "./authorization.server.ts"
+import { McpAuthorization, mcpHashSecret } from "./authorization.server.ts"
 import { decryptDatabaseValue, encryptDatabaseValue } from "@/db/lib/encryption"
 import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials"
 import { McpAttemptEnvelopeSchema } from "./schemas.ts"
@@ -408,6 +408,38 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
         authority((service) => service.complete({ actor, reference: flow.started.attempt })),
       ).rejects.toThrow()
       flow = await authorize(reference)
+      const attempt = { ...flow.started.attempt, id: "019a0000-0000-4000-8000-000000000001" }
+      const state = `${Buffer.from(JSON.stringify(attempt)).toString("base64url")}.${flow.payload.state.split(".")[1]}`
+      flow = {
+        ...flow,
+        payload: {
+          ...flow.payload,
+          attempt,
+          state,
+          browserBindingHash: mcpHashSecret(flow.challenge),
+        },
+        started: { ...flow.started, attempt },
+      }
+      flow.params.set("state", state)
+      await db
+        .update(cacheEntry)
+        .set({
+          value: JSON.stringify(
+            Result.getOrThrow(
+              encryptDatabaseValue({
+                value: flow.payload,
+                schema: McpAttemptEnvelopeSchema,
+                keyring: getDatabaseEncryptionKeyring(),
+              }),
+            ),
+          ),
+        })
+        .where(
+          and(
+            eq(cacheEntry.namespace, "mcp-oauth"),
+            eq(cacheEntry.key, `${actor.organizationId}:${actor.tenantId}:${reference.id}`),
+          ),
+        )
       await callback(flow)
       await authority((service) =>
         service.bindBrowser({ actor, reference: flow.started.attempt, challenge: flow.challenge }),

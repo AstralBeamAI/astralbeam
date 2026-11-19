@@ -142,7 +142,3 @@ export function uuidV7() {
     .default(sql`uuidv7()`)
     .notNull()
 }
-
-export function uuidV7PrimaryKey() {
-  return uuidV7().primaryKey()
-}

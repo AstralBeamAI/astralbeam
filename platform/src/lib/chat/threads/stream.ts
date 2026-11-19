@@ -1,3 +1,4 @@
+import { SecureRandom } from "effect/crypto"
 import {
   EventType,
   convertSchemaToJsonSchema,
@@ -88,7 +89,7 @@ interface ManagedChatStreamState {
 function managedPartId(ids: Map<string, string>, key: string): string {
   const existing = ids.get(key)
   if (existing) return existing
-  const id = crypto.randomUUID()
+  const id = SecureRandom.uuidV7Unsafe()
   ids.set(key, id)
   return id
 }
@@ -265,7 +266,7 @@ async function saveManagedToolResult(
             parts: [
               {
                 type: "tool-result",
-                id: crypto.randomUUID(),
+                id: SecureRandom.uuidV7Unsafe(),
                 toolCallId,
                 output: chatStoredJson({ result }).result!,
                 outcome,

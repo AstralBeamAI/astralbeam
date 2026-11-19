@@ -1,6 +1,7 @@
-import { and, asc, eq, ne, sql } from "drizzle-orm"
+import { and, eq, getTableColumns, sql } from "drizzle-orm"
 import { createSelectSchema } from "drizzle-orm/effect-schema"
-import { Context, Effect, Equal, Layer, Option, Result, Schema } from "effect"
+import { Context, Effect, Equal, Layer, Result, Schema, Struct } from "effect"
+import { SecureRandom } from "effect/crypto"
 
 import { Database } from "@/db/database"
 import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials"
@@ -92,16 +93,9 @@ export interface SaveSandboxProviderInput<Provider extends SandboxProviderId = S
 
 // The raw text bypasses the column codec, so an unreadable value degrades instead of failing.
 const sandboxProviderColumns = {
-  id: sandboxProvider.id,
-  organizationId: sandboxProvider.organizationId,
-  name: sandboxProvider.name,
-  providerType: sandboxProvider.providerType,
+  ...Struct.omit(getTableColumns(sandboxProvider), ["credentials"]),
   // Discard legacy organization-selected images before the column codec decodes them.
   options: sql<unknown>`case when ${sandboxProvider.providerType} in ('docker', 'microsandbox') then '{}'::jsonb else ${sandboxProvider.options} end`,
-  lastTest: sandboxProvider.lastTest,
-  lockVersion: sandboxProvider.lockVersion,
-  createdAt: sandboxProvider.createdAt,
-  updatedAt: sandboxProvider.updatedAt,
   storedCredentials: sql<string | null>`${sandboxProvider.credentials}::text`,
 }
 
@@ -109,35 +103,30 @@ const sandboxProviderColumns = {
 function readStoredCredentials(
   row: SandboxProviderRow,
   storedCredentials: string | null,
-): Option.Option<SandboxProviderCredentials[SandboxProviderId]> {
+): SandboxProviderCredentials[SandboxProviderId] | null {
   if (row.providerType === "docker" || row.providerType === "microsandbox")
-    return storedCredentials === null ? Option.some({}) : Option.none()
+    return storedCredentials === null ? {} : null
   const decrypted = decryptDatabaseValue({
     storedValue: storedCredentials,
     schema: SandboxProviderCredentialsPayloadSchema,
     keyring: getDatabaseEncryptionKeyring(),
   })
-  if (Result.isFailure(decrypted)) return Option.none()
+  if (Result.isFailure(decrypted)) return null
   const payload = decrypted.success.value
   return payload.sandboxProviderId === row.id &&
     payload.organizationId === row.organizationId &&
     payload.providerType === row.providerType
-    ? Option.some(payload.credentials)
-    : Option.none()
+    ? payload.credentials
+    : null
 }
 
-function credentialsPayload(input: {
-  id: string
-  organizationId: string
-  provider: SandboxProviderId
-  credentials: SandboxProviderCredentials[SandboxProviderId]
-}) {
-  return input.provider === "docker" || input.provider === "microsandbox"
+function credentialsPayload(input: SaveSandboxProviderInput & { id: string }) {
+  return input.providerType === "docker" || input.providerType === "microsandbox"
     ? null
     : {
         sandboxProviderId: input.id,
         organizationId: input.organizationId,
-        providerType: input.provider,
+        providerType: input.providerType,
         credentials: input.credentials,
       }
 }
@@ -211,19 +200,15 @@ export class SandboxProviders extends Context.Service<
         }
       }, Effect.orDie)
 
+      /** The list page's read, which leaves credentials encrypted. */
       const listSummaries = Effect.fn("SandboxProviders.listSummaries")(function* (input: {
         organizationId: string
       }) {
-        const rows = yield* db
-          .select({
-            id: sandboxProvider.id,
-            name: sandboxProvider.name,
-            providerType: sandboxProvider.providerType,
-            lastTest: sandboxProvider.lastTest,
-          })
-          .from(sandboxProvider)
-          .where(eq(sandboxProvider.organizationId, input.organizationId))
-          .orderBy(asc(sandboxProvider.name), asc(sandboxProvider.id))
+        const rows = yield* db.query.sandboxProvider.findMany({
+          columns: { id: true, name: true, providerType: true, lastTest: true },
+          where: { organizationId: input.organizationId },
+          orderBy: { name: "asc", id: "asc" },
+        })
         return yield* decodeSandboxProviderSummaries(rows)
       }, Effect.orDie)
 
@@ -235,85 +220,38 @@ export class SandboxProviders extends Context.Service<
         if (!found) return null
         return {
           ...found.row,
-          credentials: Option.getOrElse(found.credentials, () => ({})),
-          credentialsReadable: Option.isSome(found.credentials),
+          credentials: found.credentials ?? {},
+          credentialsReadable: found.credentials !== null,
         } satisfies OrganizationSandboxProvider
-      })
-
-      const nameTaken = Effect.fnUntraced(function* (input: SaveSandboxProviderInput) {
-        const [row] = yield* db
-          .select({ id: sandboxProvider.id })
-          .from(sandboxProvider)
-          .where(
-            and(
-              eq(sandboxProvider.organizationId, input.organizationId),
-              eq(sandboxProvider.name, input.name),
-              input.id ? ne(sandboxProvider.id, input.id) : undefined,
-            ),
-          )
-          .limit(1)
-          .pipe(Effect.orDie)
-        return row !== undefined
-      })
-
-      const create = Effect.fnUntraced(function* (
-        input: SaveSandboxProviderInput,
-        lastTest: SandboxTestMetadata | null,
-      ) {
-        return yield* db
-          .transaction((transaction) =>
-            Effect.gen(function* () {
-              const [created] = yield* transaction
-                .insert(sandboxProvider)
-                .values({
-                  organizationId: input.organizationId,
-                  name: input.name,
-                  providerType: input.providerType,
-                  options: input.options,
-                  credentials: null,
-                  lastTest,
-                })
-                .returning({ id: sandboxProvider.id })
-              // Credentials embed the row's generated ID, so they are written once it exists.
-              yield* transaction
-                .update(sandboxProvider)
-                .set({
-                  credentials: credentialsPayload({
-                    id: created!.id,
-                    organizationId: input.organizationId,
-                    provider: input.providerType,
-                    credentials: input.credentials,
-                  }),
-                })
-                .where(
-                  and(
-                    eq(sandboxProvider.organizationId, input.organizationId),
-                    eq(sandboxProvider.id, created!.id),
-                  ),
-                )
-              return created!.id
-            }),
-          )
-          .pipe(mapSandboxProviderWriteErrors)
       })
 
       const save = Effect.fn("SandboxProviders.save")(function* (input: SaveSandboxProviderInput) {
         const existing = input.id ? yield* readRow(input.organizationId, input.id) : null
         if (
-          existing ? input.lockVersion !== existing.row.lockVersion : input.lockVersion !== null
-        ) {
+          input.id === null
+            ? input.lockVersion !== null
+            : !existing || input.lockVersion !== existing.row.lockVersion
+        )
           return yield* new SandboxProviderChanged()
-        }
-        if (input.id !== null && !existing) return yield* new SandboxProviderChanged()
         // Checked before the connection test, which creates a billable vendor sandbox.
-        if (yield* nameTaken(input)) return yield* new SandboxProviderNameTaken()
+        if (
+          yield* db.query.sandboxProvider
+            .findFirst({
+              columns: { id: true },
+              where: {
+                organizationId: input.organizationId,
+                name: input.name,
+                ...(input.id ? { id: { ne: input.id } } : {}),
+              },
+            })
+            .pipe(Effect.orDie)
+        )
+          return yield* new SandboxProviderNameTaken()
         const credentialsChanged =
           !existing ||
           existing.row.providerType !== input.providerType ||
-          Option.match(existing.credentials, {
-            onNone: () => true,
-            onSome: (stored) => !Equal.equals(stored, input.credentials),
-          })
+          existing.credentials === null ||
+          !Equal.equals(existing.credentials, input.credentials)
         const requiresTest =
           credentialsChanged || !Equal.equals(existing.row.options, input.options)
         const tested = requiresTest
@@ -328,32 +266,36 @@ export class SandboxProviders extends Context.Service<
             ? new SandboxCleanupFailed()
             : new SandboxConnectionFailed({ errorCode: tested.errorCode ?? "provider_error" })
         }
-        const lastTest = tested ?? existing?.row.lastTest ?? null
-        if (!existing) return yield* create(input, lastTest)
-        const credentials = credentialsPayload({
-          id: existing.row.id,
-          organizationId: input.organizationId,
-          provider: input.providerType,
-          credentials: input.credentials,
-        })
+        const id = existing?.row.id ?? SecureRandom.uuidV7Unsafe()
+        const credentials = credentialsPayload({ ...input, id })
+        const fields = {
+          name: input.name,
+          providerType: input.providerType,
+          options: input.options,
+          lastTest: tested ?? existing?.row.lastTest ?? null,
+        }
+        if (!existing) {
+          yield* db
+            .insert(sandboxProvider)
+            .values({ id, organizationId: input.organizationId, ...fields, credentials })
+            .pipe(mapSandboxProviderWriteErrors)
+          return id
+        }
         yield* updateWithOptimisticLock({
           executor: db,
           table: sandboxProvider,
-          id: existing.row.id,
+          id,
           scope: eq(sandboxProvider.organizationId, input.organizationId),
           expectedLockVersion: existing.row.lockVersion,
           set: {
-            name: input.name,
-            providerType: input.providerType,
-            options: input.options,
-            lastTest,
+            ...fields,
             ...(credentials === null || credentialsChanged ? { credentials } : {}),
           },
         }).pipe(
           mapSandboxProviderWriteErrors,
           Effect.catchTag("OptimisticLockError", () => Effect.fail(new SandboxProviderChanged())),
         )
-        return existing.row.id
+        return id
       })
 
       const testConnection = Effect.fn("SandboxProviders.testConnection")(function* (input: {
@@ -363,11 +305,11 @@ export class SandboxProviders extends Context.Service<
       }) {
         const found = yield* readRow(input.organizationId, input.id)
         if (found?.row.lockVersion !== input.lockVersion) return yield* new SandboxProviderChanged()
-        if (Option.isNone(found.credentials)) return yield* new SandboxProviderUnreadable()
+        if (found.credentials === null) return yield* new SandboxProviderUnreadable()
         const result = yield* runSandboxConnectionTest({
           provider: found.row.providerType,
           options: found.row.options,
-          credentials: found.credentials.value,
+          credentials: found.credentials,
         })
         yield* updateWithOptimisticLock({
           executor: db,
@@ -407,12 +349,12 @@ export class SandboxProviders extends Context.Service<
             return yield* new SandboxProviderUnavailable({
               cause: new Error("Sandbox provider is disabled on this server"),
             })
-          if (Option.isNone(found.credentials)) return yield* new SandboxProviderUnreadable()
+          if (found.credentials === null) return yield* new SandboxProviderUnreadable()
           return {
             name: found.row.name,
             provider: found.row.providerType,
             options: found.row.options,
-            credentials: found.credentials.value,
+            credentials: found.credentials,
           } satisfies SandboxProviderConfiguration
         },
       )

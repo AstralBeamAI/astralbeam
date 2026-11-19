@@ -1,3 +1,4 @@
+import { SecureRandom } from "effect/crypto"
 import { and, eq, isNull, sql } from "drizzle-orm"
 import { Effect, Schema } from "effect"
 import { Activity, Workflow } from "effect/workflow"
@@ -13,7 +14,7 @@ import { StoredFiles } from "@/lib/storage/stored-files.server"
 const organizationLogoImport = Workflow.make("OrganizationLogoImport/v3", {
   payload: { organizationId: UuidV7Schema, updatedAt: Schema.String, imageUrl: Schema.String },
   // A fresh execution lets an explicit refresh retry the same source URL.
-  idempotencyKey: () => crypto.randomUUID(),
+  idempotencyKey: () => SecureRandom.uuidV7Unsafe(),
 })
 
 export const organizationLogoImportWorkflowLayer = organizationLogoImport.toLayer((input) =>

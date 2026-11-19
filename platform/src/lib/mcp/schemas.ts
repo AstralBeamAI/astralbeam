@@ -1,6 +1,6 @@
 import { Schema } from "effect"
 import type { ChatThreadScope } from "@/lib/chat/threads/schemas"
-import { LockVersionSchema, NonEmptyStringSchema, UuidV7Schema } from "../schemas.ts"
+import { ApiUuidSchema, LockVersionSchema, NonEmptyStringSchema, UuidV7Schema } from "../schemas.ts"
 
 export const MCP_PROTOCOL_VERSION = "2026-07-28"
 export const MCP_MAX_METADATA_BYTES = 1_048_576
@@ -28,7 +28,8 @@ export type McpReference = typeof McpReferenceSchema.Type
 export const McpAttemptReferenceSchema = Schema.Struct({
   ...McpReferenceSchema.fields,
   connectionId: UuidV7Schema,
-  id: Schema.String.check(Schema.isUUID()),
+  // An OAuth popup opened before UUIDv7 generation still carries its cached UUIDv4 attempt.
+  id: ApiUuidSchema,
 })
 export type McpAttemptReference = typeof McpAttemptReferenceSchema.Type
 export function mcpHeadersAreAllowed(headers: Readonly<Record<string, string>>): boolean {

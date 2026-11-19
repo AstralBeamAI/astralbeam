@@ -1,3 +1,4 @@
+import { SecureRandom } from "effect/crypto"
 import { EventType, maxIterations } from "@tanstack/ai"
 import { chat } from "@tanstack/ai-effect"
 import { Effect, Stream } from "effect"
@@ -49,7 +50,7 @@ export const testProviderModel = Effect.fn("testProviderModel")(
     let completed = false
     yield* chat({
       debug: false,
-      threadId: crypto.randomUUID(),
+      threadId: SecureRandom.uuidV7Unsafe(),
       adapter: createChatAdapter({ ...configuration, fetch: guardedFetch }),
       messages: [{ role: "user", content: "Reply with OK." }],
       agentLoopStrategy: maxIterations(1),

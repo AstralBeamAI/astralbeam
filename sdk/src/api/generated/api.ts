@@ -44,13 +44,9 @@ export const McpConnectionEncodedAuthState = {
 } as const
 
 export interface McpConnectionEncoded {
-  /** @pattern ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$ */
   organization_id: string
-  /** @pattern ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$ */
   tenant_id: string
-  /** @pattern ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$ */
   id: string
-  /** @pattern ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$ */
   mcp_server_id: string
   /**
    * @minimum 0
@@ -71,9 +67,7 @@ export const McpServerEncodedAuthKind = {
 } as const
 
 export interface McpServerEncoded {
-  /** @pattern ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$ */
   organization_id: string
-  /** @pattern ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$ */
   id: string
   endpoint_url: string
   auth_kind: McpServerEncodedAuthKind
@@ -168,7 +162,6 @@ export const ResolveChatToolResultInputEncodedResultsItemOutcome = {
 
 export type ResolveChatToolResultInputEncodedResultsItem = {
   source_message_id: string
-  /** @minLength 1 */
   source_part_id: string
   response_target_id: string
   outcome: ResolveChatToolResultInputEncodedResultsItemOutcome
@@ -943,7 +936,6 @@ export type PersonalMcpGetCatalog200 = {
 }
 
 export type PersonalMcpCreateConnectionBody = {
-  /** @pattern ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$ */
   mcp_server_id: string
 }
 
@@ -967,13 +959,9 @@ export type PersonalMcpTestConnection200 = {
 }
 
 export type PersonalMcpAuthorizeConnection200Attempt = {
-  /** @pattern ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$ */
   organization_id: string
-  /** @pattern ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$ */
   tenant_id: string
-  /** @pattern ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|[fF]{8}-[fF]{4}-[fF]{4}-[fF]{4}-[fF]{12})$ */
   id: string
-  /** @pattern ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$ */
   connection_id: string
 }
 

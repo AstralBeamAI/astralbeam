@@ -2,11 +2,11 @@ import { Effect, Schema } from "effect"
 import { HttpServerRequest } from "effect/http"
 import { HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/http-api"
 import type { ApiV1 } from "./contract.server"
-import { ApiUuidSchema } from "@/lib/tenants/schemas.ts"
+import { UuidV7Schema } from "@/lib/schemas.ts"
 import { TenantRecordSchema } from "./tenant.server"
 import { TenantUserRecordSchema } from "./tenant-user.server"
 
-const currentUserOrganization = Schema.Struct({ id: ApiUuidSchema })
+const currentUserOrganization = Schema.Struct({ id: UuidV7Schema })
 const CurrentUserSchema = Schema.Union([
   Schema.Struct({
     scope: Schema.Literal("tenant"),
@@ -18,7 +18,7 @@ const CurrentUserSchema = Schema.Union([
     scope: Schema.Literal("organization"),
     organization: currentUserOrganization,
     user: Schema.Struct({
-      id: ApiUuidSchema,
+      id: UuidV7Schema,
       name: Schema.String,
       email: Schema.String,
       role: Schema.String,

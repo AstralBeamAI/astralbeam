@@ -59,11 +59,8 @@ const DefaultAgentConfigurationSchema = Schema.NullOr(
   Schema.Struct({ defaultAgentId: Schema.NullOr(UuidV7Schema) }),
 )
 
-const decodeAgentList = Schema.decodeUnknownEffect(
-  Schema.Struct({
-    agents: Schema.Array(AgentRowSchema),
-    configuration: DefaultAgentConfigurationSchema,
-  }),
+const decodeDefaultAgentConfiguration = Schema.decodeUnknownEffect(
+  DefaultAgentConfigurationSchema,
   { onExcessProperty: "error" },
 )
 
@@ -76,6 +73,11 @@ const decodeAgentFormOptions = Schema.decodeUnknownEffect(
 )
 
 const decodeAgentRow = Schema.decodeUnknownEffect(AgentRowSchema, { onExcessProperty: "error" })
+
+const agentModelsSelection = {
+  columns: { providerModelId: true },
+  orderBy: { position: "asc" },
+} as const
 
 const mapAgentWriteErrors = mapDatabaseErrors({
   agent_model_provider_model_fk: () => new AgentModelInvalid(),
@@ -103,8 +105,17 @@ function defaultAgentSystemPrompt(organizationName: string): string {
   )
 }
 
-function publicAgent(row: Agent): Agent {
-  return { ...row, id: formatAgentId(row) }
+function publicAgent({
+  models,
+  ...row
+}: typeof agent.$inferSelect & { readonly models: readonly { providerModelId: string }[] }) {
+  return decodeAgentRow(row).pipe(
+    Effect.map((decoded): Agent => ({
+      ...decoded,
+      id: formatAgentId(decoded),
+      modelIds: models.map((model) => model.providerModelId),
+    })),
+  )
 }
 
 function publicDefaultAgentId(
@@ -116,7 +127,7 @@ function publicDefaultAgentId(
 }
 
 /** Resolves a public agent ID to its row ID, failing alike for malformed and foreign IDs. */
-const ownAgentId = Effect.fnUntraced(function* (organizationId: string, agentId: string) {
+const ownAgentId = Effect.fnUntraced(function* (organizationId: string, agentId: unknown) {
   const parsed = parseAgentId(agentId)
   if (parsed?.organizationId !== organizationId) return yield* new AgentNotFound()
   return parsed.id
@@ -187,44 +198,21 @@ export class Agents extends Context.Service<
       const db = yield* Database
       const modelProviders = yield* ModelProviders
 
-      const readAgentModelIds = Effect.fnUntraced(function* (
-        agentId: string,
-        organizationId: string,
-      ) {
-        const models = yield* db
-          .select({ id: agentModel.providerModelId })
-          .from(agentModel)
-          .where(
-            and(eq(agentModel.organizationId, organizationId), eq(agentModel.agentId, agentId)),
-          )
-          .orderBy(agentModel.position)
-        return models.map((model) => model.id)
-      }, Effect.orDie)
-
       const list = Effect.fn("Agents.list")(function* (organizationId: string) {
         const organization = yield* db.query.organization.findFirst({
           columns: {},
           where: { id: organizationId },
           with: {
-            agents: { orderBy: { name: "asc", id: "asc" } },
+            agents: {
+              orderBy: { name: "asc", id: "asc" },
+              with: { models: agentModelsSelection },
+            },
             configuration: { columns: { defaultAgentId: true } },
           },
         })
-        const { agents, configuration } = yield* decodeAgentList(organization)
-        const models = yield* db
-          .select({ agentId: agentModel.agentId, modelId: agentModel.providerModelId })
-          .from(agentModel)
-          .where(eq(agentModel.organizationId, organizationId))
-          .orderBy(agentModel.position)
+        const configuration = yield* decodeDefaultAgentConfiguration(organization?.configuration)
         return {
-          agents: agents.map((row) =>
-            publicAgent({
-              ...row,
-              modelIds: models
-                .filter((model) => model.agentId === row.id)
-                .map((model) => model.modelId),
-            }),
-          ),
+          agents: yield* Effect.forEach(organization?.agents ?? [], publicAgent),
           defaultAgentId: publicDefaultAgentId(organizationId, configuration),
         }
       }, Effect.orDie)
@@ -257,17 +245,14 @@ export class Agents extends Context.Service<
         input: Parameters<typeof Agents.Service.get>[0],
       ) {
         const id = yield* ownAgentId(input.organizationId, input.agentId)
-        const [row] = yield* db
-          .select()
-          .from(agent)
-          .where(and(eq(agent.organizationId, input.organizationId), eq(agent.id, id)))
-          .limit(1)
+        const row = yield* db.query.agent
+          .findFirst({
+            where: { organizationId: input.organizationId, id },
+            with: { models: agentModelsSelection },
+          })
           .pipe(Effect.orDie)
         if (!row) return yield* new AgentNotFound()
-        return publicAgent({
-          ...(yield* decodeAgentRow(row).pipe(Effect.orDie)),
-          modelIds: yield* readAgentModelIds(id, input.organizationId),
-        })
+        return yield* publicAgent(row).pipe(Effect.orDie)
       })
 
       const create = Effect.fn("Agents.create")(function* (
@@ -398,11 +383,10 @@ export class Agents extends Context.Service<
       const resolveForChat = Effect.fn("Agents.resolveForChat")(function* (
         input: Parameters<typeof Agents.Service.resolveForChat>[0],
       ) {
-        const useDefault = input.agentId === undefined || input.agentId === null
-        const parsed = parseAgentId(input.agentId)
-        if (!useDefault && parsed?.organizationId !== input.organizationId) {
-          return yield* new AgentNotFound()
-        }
+        const id =
+          input.agentId === null || input.agentId === undefined
+            ? null
+            : yield* ownAgentId(input.organizationId, input.agentId)
         const query = db
           .select({
             id: agent.id,
@@ -413,10 +397,8 @@ export class Agents extends Context.Service<
           })
           .from(agent)
         const [row] = yield* (
-          parsed && !useDefault
-            ? query.where(
-                and(eq(agent.id, parsed.id), eq(agent.organizationId, input.organizationId)),
-              )
+          id !== null
+            ? query.where(and(eq(agent.id, id), eq(agent.organizationId, input.organizationId)))
             : query
                 .innerJoin(
                   organizationConfiguration,

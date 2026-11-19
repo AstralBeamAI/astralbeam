@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm"
-import { check, index, snakeCase, text, uniqueIndex } from "drizzle-orm/pg-core"
+import { check, index, text, uniqueIndex, primaryKey, snakeCase } from "drizzle-orm/pg-core"
 
-import { timestamps, timestampWithTimeZone, uuidV7PrimaryKey } from "../lib/columns.ts"
+import { timestamps, timestampWithTimeZone, uuidV7 } from "../lib/columns.ts"
 
 export const DATABASE_CACHE_NAMESPACE_MAX_LENGTH = 64
 export const DATABASE_CACHE_KEY_MAX_LENGTH = 512
@@ -16,7 +16,7 @@ export const cacheEntry = snakeCase.table(
   {
     // UUIDv7 follows repository conventions and gives each entry a stable row ID. A composite key could serve the KV contract.
     // Effect does not prescribe this table layout. See ../../../../AGENTS.md#database and ../lib/columns.ts.
-    id: uuidV7PrimaryKey(),
+    id: uuidV7(),
     namespace: text().notNull(),
     key: text().notNull(),
     // toSchemaStore uses toCodecJson/fromJsonString. Store encoded JSON as text because no JSON-field queries are needed.
@@ -30,6 +30,7 @@ export const cacheEntry = snakeCase.table(
     ...timestamps(),
   },
   (table) => [
+    primaryKey({ name: "cache_entry_pkey", columns: [table.id] }),
     // Bound characters on both indexed fields, allowing up to four UTF-8 bytes per character on standard 8 KiB pages.
     // https://www.postgresql.org/docs/18/btree.html
     check(

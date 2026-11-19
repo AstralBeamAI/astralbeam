@@ -1,5 +1,6 @@
-import { and, asc, eq, notInArray, sql } from "drizzle-orm"
+import { and, eq, notInArray, sql } from "drizzle-orm"
 import { Context, Effect, Layer, Result } from "effect"
+import { SecureRandom } from "effect/crypto"
 
 import { Database } from "@/db/database"
 import { Config } from "@/lib/config/config"
@@ -9,7 +10,6 @@ import { deleteWithOptimisticLock, updateWithOptimisticLock } from "@/db/lib/opt
 import { mapDatabaseErrors } from "@/db/lib/sqlstate"
 import { DatabaseRateLimiter, hashedRateLimitKey } from "@/db/lib/rate-limiter"
 import {
-  agent,
   agentModel,
   modelProvider,
   organizationConfiguration,
@@ -30,6 +30,7 @@ import {
   ModelConfigurationMissing,
 } from "./errors.ts"
 import { effectiveModelConfiguration, readModelPriceCatalog } from "./pricing-catalog.server.ts"
+import type { ModelPriceCatalog } from "./pricing-catalog-schemas.ts"
 import { testProviderModel } from "./test-model.server.ts"
 import { modelWebAccess } from "./web.server"
 import {
@@ -106,18 +107,23 @@ type ModelProviderWriteError =
   | ModelProviderUnreadable
   | ModelConfigurationMissing
 
-const modelProviderReadColumns = {
-  id: modelProvider.id,
-  organizationId: modelProvider.organizationId,
-  name: modelProvider.name,
-  providerType: modelProvider.providerType,
-  api: modelProvider.api,
-  baseUrl: modelProvider.baseUrl,
-  lockVersion: modelProvider.lockVersion,
-  createdAt: modelProvider.createdAt,
-  updatedAt: modelProvider.updatedAt,
-  storedCredentials: sql<string | null>`${modelProvider.credentials}::text`,
-}
+const modelProviderColumns = {
+  columns: { credentials: false },
+  extras: {
+    storedCredentials: (table: typeof modelProvider) =>
+      sql<string | null>`${table.credentials}::text`,
+  },
+} as const
+
+const modelProviderSelection = {
+  ...modelProviderColumns,
+  with: {
+    models: {
+      columns: { id: true, modelId: true, name: true, configuration: true },
+      orderBy: { name: "asc", id: "asc" },
+    },
+  },
+} as const
 
 type StoredModelProvider = {
   readonly id: string
@@ -139,6 +145,21 @@ function readModelProviderKey(row: StoredModelProvider): string | null {
     payload.providerType === row.providerType
     ? payload.apiKey
     : null
+}
+
+function publicProviderModels(
+  row: Pick<OrganizationModelProvider, "providerType" | "models">,
+  catalog: ModelPriceCatalog,
+) {
+  return row.models.map((model) => ({
+    ...model,
+    configuration: effectiveModelConfiguration({
+      catalog,
+      providerType: row.providerType,
+      modelId: model.modelId,
+      configured: model.configuration,
+    }),
+  }))
 }
 
 const mapModelProviderWriteErrors = mapDatabaseErrors({
@@ -206,11 +227,10 @@ export class ModelProviders extends Context.Service<
         organizationId: string,
         id: string,
       ) {
-        const [row] = yield* db
-          .select(modelProviderReadColumns)
-          .from(modelProvider)
-          .where(and(eq(modelProvider.organizationId, organizationId), eq(modelProvider.id, id)))
-          .limit(1)
+        const row = yield* db.query.modelProvider.findFirst({
+          ...modelProviderColumns,
+          where: { organizationId, id },
+        })
         return row ?? null
       }, Effect.orDie)
 
@@ -220,31 +240,20 @@ export class ModelProviders extends Context.Service<
         modelProviderId: string,
         keptModelIds: string[],
       ) {
-        const agents = yield* db
-          .selectDistinct({ name: agent.name })
-          .from(agentModel)
-          .innerJoin(
-            providerModel,
-            and(
-              eq(agentModel.organizationId, providerModel.organizationId),
-              eq(agentModel.providerModelId, providerModel.id),
-            ),
-          )
-          .innerJoin(
-            agent,
-            and(
-              eq(agentModel.organizationId, agent.organizationId),
-              eq(agentModel.agentId, agent.id),
-            ),
-          )
-          .where(
-            and(
-              eq(agentModel.organizationId, organizationId),
-              eq(providerModel.modelProviderId, modelProviderId),
-              keptModelIds.length > 0 ? notInArray(providerModel.modelId, keptModelIds) : undefined,
-            ),
-          )
-          .orderBy(asc(agent.name))
+        const agents = yield* db.query.agent
+          .findMany({
+            columns: { name: true },
+            where: {
+              organizationId,
+              models: {
+                model: {
+                  modelProviderId,
+                  modelId: { notIn: keptModelIds },
+                },
+              },
+            },
+            orderBy: { name: "asc" },
+          })
           .pipe(Effect.orDie)
         return yield* new ModelProviderInUse({
           agentNames: agents.slice(0, 3).map(({ name }) => name),
@@ -254,34 +263,21 @@ export class ModelProviders extends Context.Service<
 
       const list = Effect.fn("ModelProviders.list")(function* (input: { organizationId: string }) {
         const catalog = yield* readPricing
-        const rows = yield* db
-          .select(modelProviderReadColumns)
-          .from(modelProvider)
-          .where(eq(modelProvider.organizationId, input.organizationId))
-          .orderBy(asc(modelProvider.name), asc(modelProvider.id))
-        const models = yield* db
-          .select()
-          .from(providerModel)
-          .where(eq(providerModel.organizationId, input.organizationId))
-          .orderBy(asc(providerModel.name), asc(providerModel.id))
-        return rows.map(({ storedCredentials, organizationId, ...row }) => {
-          const apiKey = readModelProviderKey({ ...row, organizationId, storedCredentials })
+        const rows = yield* db.query.modelProvider.findMany({
+          ...modelProviderSelection,
+          where: { organizationId: input.organizationId },
+          orderBy: { name: "asc", id: "asc" },
+        })
+        return rows.map((stored) => {
+          const {
+            storedCredentials: _storedCredentials,
+            organizationId: _organizationId,
+            ...row
+          } = stored
           return {
             ...row,
-            credentialsReadable: apiKey !== null,
-            models: models
-              .filter((model) => model.modelProviderId === row.id)
-              .map(({ id, modelId, name, configuration }) => ({
-                id,
-                modelId,
-                name,
-                configuration: effectiveModelConfiguration({
-                  catalog,
-                  providerType: row.providerType,
-                  modelId,
-                  configured: configuration,
-                }),
-              })),
+            credentialsReadable: readModelProviderKey(stored) !== null,
+            models: publicProviderModels(row, catalog),
           }
         })
       }, Effect.orDie)
@@ -290,70 +286,44 @@ export class ModelProviders extends Context.Service<
         organizationId: string
         id: string
       }) {
-        const stored = yield* readModelProviderRow(input.organizationId, input.id)
+        const stored = yield* db.query.modelProvider.findFirst({
+          ...modelProviderSelection,
+          where: { organizationId: input.organizationId, id: input.id },
+        })
         if (!stored) return null
         const { storedCredentials: _storedCredentials, ...row } = stored
         const catalog = yield* readPricing
         const apiKey = readModelProviderKey(stored)
-        const models = yield* db
-          .select({
-            id: providerModel.id,
-            modelId: providerModel.modelId,
-            name: providerModel.name,
-            configuration: providerModel.configuration,
-          })
-          .from(providerModel)
-          .where(
-            and(
-              eq(providerModel.organizationId, input.organizationId),
-              eq(providerModel.modelProviderId, input.id),
-            ),
-          )
-          .orderBy(asc(providerModel.name), asc(providerModel.id))
         return {
           ...row,
           apiKeyHint: apiKey?.slice(-4) ?? null,
           credentialsReadable: apiKey !== null,
-          models: models.map((model) => ({
-            ...model,
-            configuration: effectiveModelConfiguration({
-              catalog,
-              providerType: row.providerType,
-              modelId: model.modelId,
-              configured: model.configuration,
-            }),
-          })),
+          models: publicProviderModels(row, catalog),
         }
       }, Effect.orDie)
 
       const choices = Effect.fn("ModelProviders.choices")(function* (input: {
         organizationId: string
       }) {
-        const models = yield* db
-          .select({
-            id: providerModel.id,
-            modelId: providerModel.modelId,
-            name: providerModel.name,
-            providerId: modelProvider.id,
-            providerName: modelProvider.name,
-            providerType: modelProvider.providerType,
-            api: modelProvider.api,
-            baseUrl: modelProvider.baseUrl,
-          })
-          .from(providerModel)
-          .innerJoin(
-            modelProvider,
-            and(
-              eq(providerModel.organizationId, modelProvider.organizationId),
-              eq(providerModel.modelProviderId, modelProvider.id),
-            ),
-          )
-          .where(eq(providerModel.organizationId, input.organizationId))
-          .orderBy(asc(modelProvider.name), asc(providerModel.name), asc(providerModel.id))
-        return models.map(({ providerType, api, baseUrl, ...model }) => ({
-          ...model,
-          webAccess: modelWebAccess({ providerType, api, baseUrl, modelId: model.modelId }),
-        }))
+        const providers = yield* db.query.modelProvider.findMany({
+          columns: { id: true, name: true, providerType: true, api: true, baseUrl: true },
+          where: { organizationId: input.organizationId },
+          orderBy: { name: "asc" },
+          with: {
+            models: {
+              columns: { id: true, modelId: true, name: true },
+              orderBy: { name: "asc", id: "asc" },
+            },
+          },
+        })
+        return providers.flatMap(({ id: providerId, name: providerName, models, ...provider }) =>
+          models.map((model) => ({
+            ...model,
+            providerId,
+            providerName,
+            webAccess: modelWebAccess({ ...provider, modelId: model.modelId }),
+          })),
+        )
       }, Effect.orDie)
 
       const save = Effect.fn("ModelProviders.save")(function* (input: SaveModelProviderInput) {
@@ -373,22 +343,24 @@ export class ModelProviders extends Context.Service<
         const apiKey = input.apiKey ?? (keyKept ? readModelProviderKey(existing) : null)
         if (!apiKey)
           return yield* keyKept ? new ModelProviderUnreadable() : new ModelProviderKeyMissing()
-        const savedModels =
+        const inheritedModelIds =
           existing?.providerType === input.providerType
-            ? yield* db
-                .select({
-                  modelId: providerModel.modelId,
-                  configuration: providerModel.configuration,
-                })
-                .from(providerModel)
-                .where(
-                  and(
-                    eq(providerModel.organizationId, input.organizationId),
-                    eq(providerModel.modelProviderId, existing.id),
-                  ),
-                )
-                .pipe(Effect.orDie)
+            ? input.models
+                .filter((model) => model.configuration?.pricingSource.kind !== "manual")
+                .map((model) => model.modelId)
             : []
+        const savedModels = inheritedModelIds.length
+          ? yield* db.query.providerModel
+              .findMany({
+                columns: { modelId: true, configuration: true },
+                where: {
+                  organizationId: input.organizationId,
+                  modelProviderId: existing!.id,
+                  modelId: { in: inheritedModelIds },
+                },
+              })
+              .pipe(Effect.orDie)
+          : []
         const catalog = yield* readPricing
         const configuredModels = input.models.map((model) => ({
           ...model,
@@ -408,73 +380,54 @@ export class ModelProviders extends Context.Service<
         }))
         if (configuredModels.some((model) => model.configuration === null))
           return yield* new ModelConfigurationMissing()
+        const modelIds = configuredModels.map((model) => model.modelId)
         return yield* db
           .transaction((transaction) =>
             Effect.gen(function* () {
-              let id = existing?.id
+              const id = existing?.id ?? SecureRandom.uuidV7Unsafe()
               const fields = {
                 name: input.name,
                 providerType: input.providerType,
                 api: input.api,
                 baseUrl: input.baseUrl,
+                credentials: {
+                  organizationId: input.organizationId,
+                  modelProviderId: id,
+                  providerType: input.providerType,
+                  apiKey,
+                },
               }
-              if (existing) {
+              if (existing)
                 yield* updateWithOptimisticLock({
                   executor: transaction,
                   table: modelProvider,
-                  id: existing.id,
+                  id,
                   scope: eq(modelProvider.organizationId, input.organizationId),
                   expectedLockVersion: existing.lockVersion,
-                  set: {
-                    ...fields,
-                    credentials: {
-                      organizationId: input.organizationId,
-                      modelProviderId: existing.id,
-                      providerType: input.providerType,
-                      apiKey,
-                    },
-                  },
+                  set: fields,
                 })
-              } else {
-                const [created] = yield* transaction
-                  .insert(modelProvider)
-                  .values({ organizationId: input.organizationId, ...fields })
-                  .returning({ id: modelProvider.id })
-                id = created!.id
-                yield* transaction
-                  .update(modelProvider)
-                  .set({
-                    credentials: {
-                      organizationId: input.organizationId,
-                      modelProviderId: id,
-                      providerType: input.providerType,
-                      apiKey,
-                    },
-                  })
-                  .where(
-                    and(
-                      eq(modelProvider.organizationId, input.organizationId),
-                      eq(modelProvider.id, id),
-                    ),
-                  )
-              }
-              const modelIds = input.models.map((model) => model.modelId)
+              else
+                yield* transaction.insert(modelProvider).values({
+                  id,
+                  organizationId: input.organizationId,
+                  ...fields,
+                })
               yield* transaction
                 .delete(providerModel)
                 .where(
                   and(
                     eq(providerModel.organizationId, input.organizationId),
-                    eq(providerModel.modelProviderId, id!),
+                    eq(providerModel.modelProviderId, id),
                     modelIds.length > 0 ? notInArray(providerModel.modelId, modelIds) : undefined,
                   ),
                 )
-              if (input.models.length > 0)
+              if (configuredModels.length > 0)
                 yield* transaction
                   .insert(providerModel)
                   .values(
                     configuredModels.map((model) => ({
                       organizationId: input.organizationId,
-                      modelProviderId: id!,
+                      modelProviderId: id,
                       ...model,
                     })),
                   )
@@ -490,19 +443,14 @@ export class ModelProviders extends Context.Service<
                       updatedAt: sql`now()`,
                     },
                   })
-              return id!
+              return id
             }),
           )
           .pipe(
             mapModelProviderWriteErrors,
             Effect.catchTags({
               OptimisticLockError: () => Effect.fail(new ModelProviderChanged()),
-              ModelProviderInUse: () =>
-                failInUse(
-                  input.organizationId,
-                  existing!.id,
-                  input.models.map((model) => model.modelId),
-                ),
+              ModelProviderInUse: () => failInUse(input.organizationId, existing!.id, modelIds),
             }),
           )
       })
@@ -528,40 +476,34 @@ export class ModelProviders extends Context.Service<
       const setupState = Effect.fn("ModelProviders.setupState")(function* (input: {
         organizationId: string
       }) {
-        const [providers, models, defaultAgentModels] = yield* Effect.all(
-          [
-            db
-              .select({ count: sql<number>`count(*)::integer` })
-              .from(modelProvider)
-              .where(eq(modelProvider.organizationId, input.organizationId)),
-            db
-              .select({ count: sql<number>`count(*)::integer` })
-              .from(providerModel)
-              .where(eq(providerModel.organizationId, input.organizationId)),
-            db
-              .select({
-                id: organizationConfiguration.defaultAgentId,
-                count: sql<number>`count(${agentModel.agentId})::integer`,
-              })
-              .from(organizationConfiguration)
-              .leftJoin(
-                agentModel,
-                and(
-                  eq(organizationConfiguration.organizationId, agentModel.organizationId),
-                  eq(organizationConfiguration.defaultAgentId, agentModel.agentId),
-                ),
-              )
-              .where(eq(organizationConfiguration.organizationId, input.organizationId))
-              .groupBy(organizationConfiguration.defaultAgentId),
-          ],
-          { concurrency: "unbounded" },
-        )
+        const defaultAgent = db
+          .select({ id: organizationConfiguration.defaultAgentId })
+          .from(organizationConfiguration)
+          .where(eq(organizationConfiguration.organizationId, input.organizationId))
+        const [state] = yield* db
+          .select({
+            providerCount: db.$count(
+              modelProvider,
+              eq(modelProvider.organizationId, input.organizationId),
+            ),
+            enabledModelCount: db.$count(
+              providerModel,
+              eq(providerModel.organizationId, input.organizationId),
+            ),
+            defaultAgentModelCount: db.$count(
+              agentModel,
+              and(
+                eq(agentModel.organizationId, input.organizationId),
+                eq(agentModel.agentId, defaultAgent),
+              ),
+            ),
+            defaultAgentId: sql<string | null>`${defaultAgent}`,
+          })
+          .from(sql`(values (1)) as setup(value)`)
         return {
-          providerCount: providers[0]!.count,
-          enabledModelCount: models[0]!.count,
-          defaultAgentModelCount: defaultAgentModels[0]?.count ?? 0,
-          defaultAgentId: defaultAgentModels[0]?.id
-            ? formatAgentId({ organizationId: input.organizationId, id: defaultAgentModels[0].id })
+          ...state!,
+          defaultAgentId: state!.defaultAgentId
+            ? formatAgentId({ organizationId: input.organizationId, id: state!.defaultAgentId })
             : null,
         }
       }, Effect.orDie)
@@ -570,60 +512,39 @@ export class ModelProviders extends Context.Service<
         organizationId: string
         agentId: string
       }) {
-        const [selected] = yield* db
-          .select({
-            providerId: modelProvider.id,
-            providerName: modelProvider.name,
-            providerType: modelProvider.providerType,
-            api: modelProvider.api,
-            baseUrl: modelProvider.baseUrl,
-            modelId: providerModel.modelId,
-            configured: providerModel.configuration,
-            storedCredentials: sql<string | null>`${modelProvider.credentials}::text`,
+        const selected = yield* db.query.agentModel
+          .findFirst({
+            columns: {},
+            where: { organizationId: input.organizationId, agentId: input.agentId },
+            orderBy: { position: "asc" },
+            with: {
+              model: {
+                columns: { modelId: true, configuration: true },
+                with: { provider: modelProviderColumns },
+              },
+            },
           })
-          .from(agentModel)
-          .innerJoin(
-            providerModel,
-            and(
-              eq(agentModel.organizationId, providerModel.organizationId),
-              eq(agentModel.providerModelId, providerModel.id),
-            ),
-          )
-          .innerJoin(
-            modelProvider,
-            and(
-              eq(providerModel.organizationId, modelProvider.organizationId),
-              eq(providerModel.modelProviderId, modelProvider.id),
-            ),
-          )
-          .where(
-            and(
-              eq(agentModel.organizationId, input.organizationId),
-              eq(agentModel.agentId, input.agentId),
-            ),
-          )
-          .orderBy(asc(agentModel.position))
-          .limit(1)
           .pipe(Effect.orDie)
-        if (!selected) return null
-        const { storedCredentials, ...configuration } = selected
-        const apiKey = readModelProviderKey({
-          id: selected.providerId,
-          organizationId: input.organizationId,
-          providerType: selected.providerType,
-          storedCredentials,
-        })
+        if (!selected?.model?.provider) return null
+        const { modelId, configuration: configured, provider } = selected.model
+        const apiKey = readModelProviderKey(provider)
         if (!apiKey) {
           yield* Effect.logWarning("Model provider key could not be read").pipe(
             Effect.annotateLogs({
               organizationId: input.organizationId,
-              providerId: selected.providerId,
+              providerId: provider.id,
             }),
           )
           return yield* new ModelProviderUnreadable()
         }
         return {
-          ...configuration,
+          providerId: provider.id,
+          providerName: provider.name,
+          providerType: provider.providerType,
+          api: provider.api,
+          baseUrl: provider.baseUrl,
+          modelId,
+          configured,
           apiKey,
           fetch: (yield* allowsPrivateEndpoints) ? fetchWithTraceContext : fetchPublicModelEndpoint,
         }
@@ -634,17 +555,15 @@ export class ModelProviders extends Context.Service<
       ) {
         const provider = yield* readModelProviderRow(input.organizationId, input.id)
         if (provider?.lockVersion !== input.lockVersion) return yield* new ModelProviderChanged()
-        const [model] = yield* db
-          .select({ modelId: providerModel.modelId })
-          .from(providerModel)
-          .where(
-            and(
-              eq(providerModel.organizationId, input.organizationId),
-              eq(providerModel.modelProviderId, input.id),
-              eq(providerModel.id, input.modelId),
-            ),
-          )
-          .limit(1)
+        const model = yield* db.query.providerModel
+          .findFirst({
+            columns: { modelId: true },
+            where: {
+              organizationId: input.organizationId,
+              modelProviderId: provider.id,
+              id: input.modelId,
+            },
+          })
           .pipe(Effect.orDie)
         if (!model) return yield* new ModelProviderChanged()
         const apiKey = readModelProviderKey(provider)
@@ -677,6 +596,7 @@ export class ModelProviders extends Context.Service<
         if (current?.lockVersion !== input.lockVersion) return yield* new ModelProviderChanged()
       })
 
+      /** A resolved model's effective rates, reading the shared catalog only without a manual override. */
       const pricing = Effect.fn("ModelProviders.pricing")(function* (
         model: Pick<ChatModelConfiguration, "providerType" | "modelId" | "configured">,
       ) {

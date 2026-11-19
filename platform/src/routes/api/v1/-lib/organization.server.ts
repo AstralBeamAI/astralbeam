@@ -1,12 +1,12 @@
 import { Effect, Schema } from "effect"
 import { HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/http-api"
 import type { ApiV1 } from "./contract.server"
-import { ApiUuidSchema } from "@/lib/tenants/schemas.ts"
+import { UuidV7Schema } from "@/lib/schemas.ts"
 import { RestOrganizationNotFound, RestTenantTokenForbidden } from "./errors.ts"
 import { RestScope } from "./shared.server"
 
 const OrganizationSchema = Schema.Struct({
-  id: ApiUuidSchema,
+  id: UuidV7Schema,
   name: Schema.String,
   slug: Schema.String.annotate({
     description: "Editable dashboard URL segment. Use id, not slug, as the stable identity.",

@@ -22,10 +22,12 @@ export function mapDatabaseErrors<
         Predicate.isTagged(error, "SqlError"),
       (error) => {
         const constraint = postgresErrorField(error, "constraint")
-        const mapped = constraint === undefined ? undefined : constraints[constraint]
+        const mapped =
+          constraint !== undefined && Object.hasOwn(constraints, constraint)
+            ? constraints[constraint]
+            : undefined
         return mapped ? Effect.fail(mapped() as Mapped) : Effect.die(error)
       },
-      Effect.fail,
     )
 }
 

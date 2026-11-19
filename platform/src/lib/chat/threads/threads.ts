@@ -1,3 +1,5 @@
+import { UuidV7Schema } from "@/lib/schemas"
+import { SecureRandom } from "effect/crypto"
 import { isDeepStrictEqual } from "node:util"
 import {
   and,
@@ -335,9 +337,7 @@ const saveChatParts = Effect.fnUntraced(function* (
     if (!written.length) return yield* new ChatThreadConflict()
     if (part.type !== "tool-call") continue
     for (const target of toolTargets(part)) {
-      const targetId = yield* Schema.decodeUnknownEffect(Schema.String.check(Schema.isUUID()))(
-        target.id,
-      ).pipe(Effect.orDie)
+      const targetId = yield* Schema.decodeUnknownEffect(UuidV7Schema)(target.id).pipe(Effect.orDie)
       const recipient =
         typeof target.tenantUserId === "string"
           ? TenantUserIdSchema.make(target.tenantUserId)
@@ -547,7 +547,7 @@ const acquireChatTurn = Effect.fnUntraced(function* (
   inputMessageId: string,
 ) {
   const previous = yield* readMessage(db, { scope, id: threadId }, inputMessageId)
-  const invocationId = crypto.randomUUID()
+  const invocationId = SecureRandom.uuidV7Unsafe()
   const [turn] = yield* db
     .update(chatMessage)
     .set({ turnState: "running", metadata: { ...previous.metadata, invocationId } })
@@ -1595,7 +1595,7 @@ export class ChatThreads extends Context.Service<
               const payload = yield* decodePayload(input.payload).pipe(
                 Effect.mapError(() => new ChatThreadInvalid()),
               )
-              const invocationId = crypto.randomUUID()
+              const invocationId = SecureRandom.uuidV7Unsafe()
               const [userMessage] = yield* tx
                 .insert(chatMessage)
                 .values({

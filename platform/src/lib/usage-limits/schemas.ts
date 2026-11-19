@@ -2,10 +2,10 @@ import { Schema } from "effect"
 
 import { DisplayNameSchema, enumSchema, UUID_V7_PATTERN } from "../schemas.ts"
 
-const USAGE_LIMIT_SCOPES = ["global", "tenant", "tenant_user", "thread"] as const
-const USAGE_LIMIT_METRICS = ["tokens", "spend"] as const
-const USAGE_LIMIT_WINDOW_TYPES = ["fixed", "rolling"] as const
-const USAGE_LIMIT_WINDOW_UNITS = ["minute", "hour", "day", "week", "month"] as const
+export const USAGE_LIMIT_SCOPES = ["global", "tenant", "tenant_user", "thread"] as const
+export const USAGE_LIMIT_METRICS = ["tokens", "spend"] as const
+export const USAGE_LIMIT_WINDOW_TYPES = ["fixed", "rolling"] as const
+export const USAGE_LIMIT_WINDOW_UNITS = ["minute", "hour", "day", "week", "month"] as const
 
 /** The longest window in each unit, so no window exceeds a year. */
 const USAGE_LIMIT_MAX_WINDOW_COUNTS = {
