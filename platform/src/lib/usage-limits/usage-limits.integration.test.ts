@@ -75,9 +75,9 @@ describe.skipIf(!usageLimitIntegration.url)("usage limit counters", () => {
     return runAppEffect(
       Effect.gen(function* () {
         const usageLimits = yield* UsageLimits
-        const ids: string[] = []
-        for (const limit of fields)
-          ids.push(yield* usageLimits.create({ organizationId, fields: limit }))
+        const ids = yield* Effect.forEach(fields, (limit) =>
+          usageLimits.create({ organizationId, fields: limit }),
+        )
         return yield* use(usageLimits, ids)
       }),
     )
