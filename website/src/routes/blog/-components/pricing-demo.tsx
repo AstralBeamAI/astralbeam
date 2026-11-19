@@ -58,44 +58,6 @@ const examples = {
       ],
     ],
   },
-  seats: {
-    name: "Seat pricing",
-    rules: [
-      "$20 per invited member/month · no purchase approval",
-      "$20 per invited member/month · purchase approval required",
-    ],
-    totalLabel: "Monthly subscription",
-    failure: [
-      ["Three existing members", "3 × $20", "$60", "Three invited members are already paid for."],
-      [
-        "Five invitations sent",
-        "8 invited members × $20",
-        "$160",
-        "Five invitations add $100 a month without approval.",
-      ],
-      [
-        "The invoice arrives",
-        "8 billed seats",
-        "$160",
-        "The seat count is right. The extra purchase wasn't approved.",
-      ],
-    ],
-    better: [
-      ["Three existing members", "3 × $20", "$60", "The same three members cost the same $60."],
-      [
-        "Five invitations previewed",
-        "+$100/month · approval pending",
-        "$60",
-        "The owner sees the extra $100 before buying more seats.",
-      ],
-      [
-        "Owner approves five invitations",
-        "8 invited members × $20",
-        "$160",
-        "Same $160 bill. The owner approved the extra $100 first.",
-      ],
-    ],
-  },
   usage: {
     name: "Metered usage",
     rules: ["$1 per usage unit · alert at $10", "$1 per usage unit · enforced $10 budget"],
@@ -265,54 +227,6 @@ const examples = {
       ],
     ],
   },
-  tool: {
-    name: "Tool or action pricing",
-    rules: [
-      "$0.10 per action attempt · no budget",
-      "$0.10 per action · approved tools · $0.20 limit",
-    ],
-    totalLabel: "Tool charges",
-    failure: [
-      [
-        "Search orders succeeds",
-        "1 action × $0.10",
-        "$0.10",
-        "The search is charged even if the issue stays open.",
-      ],
-      [
-        "Read history and search docs",
-        "3 successful actions × $0.10",
-        "$0.30",
-        "Each tool call adds to the bill.",
-      ],
-      [
-        "Check status succeeds",
-        "4 successful actions × $0.10",
-        "$0.40",
-        "Four tools worked. The issue is still open.",
-      ],
-    ],
-    better: [
-      [
-        "Search approved orders",
-        "1 allowed action × $0.10",
-        "$0.10",
-        "The customer approves the tools and budget before work starts.",
-      ],
-      [
-        "Read approved history",
-        "2 allowed actions × $0.10",
-        "$0.20",
-        "Reserve each action's charge before running it.",
-      ],
-      [
-        "Further actions await approval",
-        "$0.20 run cap reached",
-        "$0.20",
-        "The issue is still open. Ask before spending more.",
-      ],
-    ],
-  },
   workflow: {
     name: "Workflow pricing",
     rules: ["$0.10 per completed export", "$0.10 per completed export"],
@@ -408,7 +322,7 @@ const examples = {
         "Customer reopens it on day 3",
         "$1 outcome charge reversed",
         "$0",
-        "Reverse $1. This seven-day rule is ours, not Fin's.",
+        "Reverse $1 under this example's seven-day reversal rule.",
       ],
       [
         "Agent closes it again",

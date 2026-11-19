@@ -88,15 +88,12 @@ describe("managed conversation commands", () => {
         applicable: () => Effect.succeed([]),
         check: () => Effect.void,
       }),
-      Layer.succeed(ChatFiles, {
-        download: () => Effect.die("unused"),
+      Layer.mock(ChatFiles, {
         store: ({ payload }) => {
           stored += 1
           return Effect.succeed(payload)
         },
-        read: () => Effect.die("unused"),
         hydrate: ({ messages }) => Effect.succeed([...messages]),
-        attach: () => Effect.succeed(0),
       }),
       Layer.succeed(SqlClient.SqlClient, {} as SqlClient.SqlClient),
       Layer.succeed(Agents, {
@@ -176,9 +173,9 @@ describe("managed conversation commands", () => {
           Effect.flip,
         )
         assert.equal(unavailable._tag, "ChatAttachmentSandboxRequired")
-        assert.equal(admitted, 1)
-        assert.equal(stored, 1)
       }
+      assert.equal(admitted, 1)
+      assert.equal(stored, 1)
       sandboxReadable = true
       yield* prepareManagedChat({ ...input, params: uploadParams })
       attachmentsEnabled = false

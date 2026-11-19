@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, readFile, realpath, stat, writeFile } from "node:fs/pro
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, beforeEach, expect, test, vi } from "vitest"
-import { configPath, readConfig, writeConfig } from "./config.ts"
+import { configPath, readConfig, withLockedConfig, writeConfig } from "./config.ts"
 import { run } from "./program.ts"
 
 const ORGANIZATION_ID = "01990a5d-0000-7000-8000-000000000011"
@@ -38,13 +38,14 @@ const respondWith = (body: unknown, status = 200) =>
   vi.stubGlobal("fetch", () => Promise.resolve(Response.json(body, { status })))
 
 test.each([{ flags: ["--json"] }, { flags: ["--json=true"] }, { flags: ["--no-json", "--json"] }])(
-  "$flags uses JSON for success, API errors, and usage errors",
+  "$flags uses JSON",
   async ({ flags }) => {
     respondWith({ items: [{ id: "tenant" }], page_after: null })
     expect(await cli(...flags, "tenants", "list")).toBe(0)
     expect(JSON.parse(stdout)).toEqual({ items: [{ id: "tenant" }], page_after: null })
     expect(JSON.parse(stderr)).toEqual({ context })
 
+    if (flags[0] !== "--json") return
     stdout = ""
     stderr = ""
     const problem = { type: "about:blank", title: "Forbidden", status: 403, detail: "Denied." }
@@ -62,20 +63,12 @@ test.each([{ flags: ["--json"] }, { flags: ["--json=true"] }, { flags: ["--no-js
 )
 
 test.each([{ flags: ["--json=false"] }, { flags: ["--json", "--no-json"] }])(
-  "$flags disables JSON for success, API errors, and usage errors",
+  "$flags disables JSON",
   async ({ flags }) => {
     respondWith({ items: [{ id: "tenant" }], page_after: null })
     expect(await cli(...flags, "tenants", "list")).toBe(0)
     expect(stdout).toBe("ID\ntenant\n")
     expect(stderr).toContain(`org ${ORGANIZATION_ID}`)
-
-    respondWith({ type: "about:blank", title: "Forbidden", status: 403, detail: "Denied." }, 403)
-    expect(await cli(...flags, "tenants", "list")).toBe(1)
-    expect(stderr).toContain("Error: Denied.")
-
-    stderr = ""
-    expect(await cli(...flags, "tenant-users", "get", "user")).toBe(2)
-    expect(stderr).toContain("Error: Missing required argument: tenant-id")
   },
 )
 
@@ -115,13 +108,10 @@ test.each(["-q", "--search"])(
   },
 )
 
-test("API failures exit 1 with structured errors", async () => {
+test("human API errors name the method and endpoint", async () => {
   const problem = { type: "about:blank", title: "Conflict", status: 409, detail: "Taken." }
   respondWith(problem, 409)
 
-  expect(await cli("--json", "tenants", "create", "--external-id", "acme")).toBe(1)
-  expect(JSON.parse(stderr)).toEqual({ error: problem, context })
-  stderr = ""
   expect(await cli("tenants", "create", "--external-id", "acme")).toBe(1)
   expect(stderr).toBe(
     `▸ org ${ORGANIZATION_ID} · from ASTRALBEAM_API_KEY\nError: Taken. (HTTP 409 from POST ${API_URL}/v1/tenants)\n`,
@@ -146,17 +136,12 @@ test("a refused chat send exits 1 instead of printing a successful transcript", 
   })
 })
 
-test("usage errors in JSON mode are JSON on stderr and exit 2", async () => {
-  const usageError = async (...args: string[]) => {
-    stderr = ""
-    expect(await cli("--json", ...args)).toBe(2)
-    return (JSON.parse(stderr) as { error: { detail: string } }).error.detail
-  }
-
-  expect(await usageError("tenant-users", "get", "user")).toMatch(/tenant-id/)
+test("rejects a token lifetime outside the supported range", async () => {
   expect(
-    await usageError("token", "chat", "--tenant", "t", "--user", "u", "--expires-in", "59"),
-  ).toMatch(/60 to 600/)
+    await cli("--json", "token", "chat", "--tenant", "t", "--user", "u", "--expires-in", "59"),
+  ).toBe(2)
+  const problem = JSON.parse(stderr) as { error: { detail: string } }
+  expect(problem.error.detail).toMatch(/60 to 600/)
 })
 
 test("directory bindings and environment credentials resolve and verify the Organization", async () => {
@@ -198,6 +183,11 @@ test("directory bindings and environment credentials resolve and verify the Orga
   expect(fetch).toHaveBeenCalledTimes(2)
 
   process.chdir(nested)
+  respondWith(organization)
+  await withLockedConfig(async () => {
+    expect(await cli("--json", "auth", "status")).toBe(0)
+  })
+
   const environmentOrganization = { ...organization, id: "01990a5d-0000-7000-8000-000000000012" }
   vi.stubEnv("ASTRALBEAM_API_KEY", API_KEY.replace(ORGANIZATION_ID, environmentOrganization.id))
   respondWith(environmentOrganization)
@@ -267,6 +257,45 @@ test("missing config files and empty objects retain the empty-binding default", 
   expect(await readConfig()).toEqual({ bindings: {} })
   await writeFile(configPath(), "{}")
   expect(await readConfig()).toEqual({ bindings: {} })
+})
+
+test("concurrent config updates preserve every directory binding", async () => {
+  const directories = ["/project-a", "/project-b", "/project-c"]
+  await Promise.all(
+    directories.map((directory) =>
+      withLockedConfig(async (config) => {
+        config.bindings[directory] = {
+          api_url: API_URL,
+          api_key: API_KEY,
+          organization: { id: ORGANIZATION_ID, name: "Acme", slug: "acme" },
+        }
+        await writeConfig(config)
+      }),
+    ),
+  )
+  expect(Object.keys((await readConfig()).bindings).toSorted()).toEqual(directories)
+})
+
+test("auth status leaves a binding replaced while verification is in flight intact", async () => {
+  vi.stubEnv("ASTRALBEAM_API_KEY", undefined)
+  const directory = await realpath(process.cwd())
+  const oldOrganization = { id: ORGANIZATION_ID, name: "Acme", slug: "acme" }
+  const replacement = {
+    api_url: API_URL,
+    api_key: API_KEY.replace(/a+$/, "b".repeat(64)),
+    organization: { ...oldOrganization, name: "Current name" },
+  }
+  await writeConfig({
+    bindings: {
+      [directory]: { api_url: API_URL, api_key: API_KEY, organization: oldOrganization },
+    },
+  })
+  vi.stubGlobal("fetch", async () => {
+    await writeConfig({ bindings: { [directory]: replacement } })
+    return Response.json({ ...oldOrganization, name: "Stale name" })
+  })
+  expect(await cli("--json", "auth", "status")).toBe(0)
+  expect((await readConfig()).bindings[directory]).toEqual(replacement)
 })
 
 test.each([

@@ -2,7 +2,7 @@ name: astralbeam-self-hosted
 
 services:
   platform:
-    image: ghcr.io/astralbeamai/astralbeam-platform:${ASTRALBEAM_VERSION:-0.30.7}
+    image: ghcr.io/astralbeamai/astralbeam-platform:${ASTRALBEAM_VERSION:-0.30.8}
     restart: unless-stopped
     stop_grace_period: 15s
     ports:
@@ -32,7 +32,7 @@ services:
       - file-storage:/var/lib/astralbeam
 
   postgres:
-    image: postgres:18
+    image: postgres:18.7
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-astralbeam}

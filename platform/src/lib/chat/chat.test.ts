@@ -171,15 +171,11 @@ function chatTestLayer(options: {
   }
   return Chat.layerNoDeps.pipe(
     Layer.provide([
-      Layer.succeed(ChatFiles, {
-        download: () => Effect.die("unused"),
-        store: ({ payload }) => Effect.succeed(payload),
-        read: () => Effect.die("unused"),
+      Layer.mock(ChatFiles, {
         hydrate: (input) => {
           chatRunTest.hydrationCalls.push(input)
           return options.hydrate?.(input) ?? Effect.succeed([...input.messages])
         },
-        attach: () => Effect.succeed(0),
       }),
       Layer.succeed(Agents, agents),
       Layer.succeed(McpTools, {

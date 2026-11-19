@@ -15,9 +15,6 @@ test("transport and authentication errors keep private diagnostics out of the UI
       onDraftChange={() => {}}
       onSend={() => {}}
       onStop={() => {}}
-      onRetry={undefined}
-      retryLabel="Retry"
-      showError
       error={new Error("HTTP error! status: 500: private server exception")}
       streamBusy={false}
       isBusy={false}

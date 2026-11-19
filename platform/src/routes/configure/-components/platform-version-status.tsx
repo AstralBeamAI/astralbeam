@@ -93,8 +93,8 @@ export function PlatformVersionStatus() {
         <AlertDialogHeader>
           <AlertDialogTitle>Update {APP_NAME}?</AlertDialogTitle>
           <AlertDialogDescription>
-            Current version {update.currentVersion}, new version {update.latestVersion}. This
-            installs the{" "}
+            Current version {update.currentVersion}, new version {update.latestVersion}. This runs
+            the database migrations, installs the{" "}
             <a
               href={`https://github.com/${APP_RELEASES_REPOSITORY}/releases/tag/v${update.latestVersion}`}
               target="_blank"
@@ -103,7 +103,7 @@ export function PlatformVersionStatus() {
             >
               new release
             </a>
-            , runs its database migrations, and restarts the system service if one exists.{" "}
+            , and restarts the system service if one exists.{" "}
             <DocsLink href="/docs/self-hosting/operations#backups-and-restore">
               Back up first
             </DocsLink>

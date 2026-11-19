@@ -13072,6 +13072,10 @@
                     }
                   ]
                 },
+                "client_message_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
                 "source_assistant_message_id": {
                   "anyOf": [
                     {
@@ -13830,6 +13834,10 @@
                 "type": "null"
               }
             ]
+          },
+          "client_message_id": {
+            "type": "string",
+            "format": "uuid"
           },
           "source_assistant_message_id": {
             "anyOf": [

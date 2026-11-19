@@ -17,14 +17,26 @@ function wallMillis(instant: Date, timeZone: string) {
   return Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute)
 }
 
-function fromWallMillis(wall: number, timeZone: string) {
+function fromWallMillis(wall: number, timeZone: string, disambiguation: DateTime.Disambiguation) {
   return DateTime.toDateUtc(
     DateTime.makeZonedUnsafe(wall, {
       timeZone,
       adjustForTimeZone: true,
-      disambiguation: "earlier",
+      disambiguation,
     }),
   )
+}
+
+function skippedWindowEnd(wall: number, timeZone: string, end: Date) {
+  // The earlier and compatible conversions land on opposite sides of the clock jump.
+  let before = fromWallMillis(wall, timeZone, "earlier").getTime()
+  let after = end.getTime()
+  while (after - before > 1) {
+    const midpoint = before + Math.floor((after - before) / 2)
+    if (wallMillis(new Date(midpoint), timeZone) < wall) before = midpoint
+    else after = midpoint
+  }
+  return new Date(after)
 }
 
 function addWallUnits(wall: number, unit: UsageLimitFields["windowUnit"], count: number) {
@@ -54,6 +66,13 @@ export function usageLimitWindowEnd(limit: UsageLimitWindowFields, now: Date): D
     return DateTime.toDateUtc(
       DateTime.add(DateTime.makeUnsafe(now), { [`${limit.windowUnit}s`]: limit.windowCount }),
     )
-  const start = fixedWindowStartWall(limit, now)
-  return fromWallMillis(addWallUnits(start, limit.windowUnit, limit.windowCount), limit.timeZone!)
+  const wallEnd = addWallUnits(
+    fixedWindowStartWall(limit, now),
+    limit.windowUnit,
+    limit.windowCount,
+  )
+  const timeZone = limit.timeZone!
+  const end = fromWallMillis(wallEnd, timeZone, "compatible")
+  if (wallMillis(end, timeZone) > wallEnd) return skippedWindowEnd(wallEnd, timeZone, end)
+  return end > now ? end : fromWallMillis(wallEnd, timeZone, "later")
 }

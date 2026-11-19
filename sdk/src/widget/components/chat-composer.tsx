@@ -1,4 +1,10 @@
-import { ArrowClockwiseIcon, ArrowUpIcon, PaperclipIcon, StopIcon } from "@phosphor-icons/react"
+import {
+  ArrowClockwiseIcon,
+  ArrowUpIcon,
+  NotePencilIcon,
+  PaperclipIcon,
+  StopIcon,
+} from "@phosphor-icons/react"
 import { useId, useRef, useState } from "react"
 import { Alert, AlertAction, AlertDescription } from "@/widget/components/ui/alert"
 import { InputGroup, InputGroupAddon, InputGroupTextarea } from "@/widget/components/ui/input-group"
@@ -19,11 +25,8 @@ interface ChatComposerProps {
   onDraftChange: (draft: string) => void
   onSend: () => void
   onStop: () => void
-  /** Retry unacknowledged input, or refresh saved history after an accepted response fails. */
-  onRetry: (() => void) | undefined
-  retryLabel: "Retry" | "Refresh"
-  /** The chat is in its error state; `error` itself may still be undefined. */
-  showError: boolean
+  /** Recover a conversation-level error or leave an expired submission. */
+  errorAction?: { label: "Refresh" | "Start new chat"; onClick: () => void } | undefined
   error: Error | undefined
   /** A run is submitted or streaming; swaps the send button for a stop button. */
   streamBusy: boolean
@@ -48,9 +51,7 @@ export function ChatComposer({
   onDraftChange,
   onSend,
   onStop,
-  onRetry,
-  retryLabel,
-  showError,
+  errorAction,
   error,
   streamBusy,
   isBusy,
@@ -111,7 +112,7 @@ export function ChatComposer({
         addFiles(event.dataTransfer.files)
       }}
     >
-      {showError && (
+      {error && (
         <Alert
           variant="destructive"
           className="mb-1.5 flex items-center gap-2 border-destructive/30 bg-destructive/5 py-1 has-data-[slot=alert-action]:pe-2.5"
@@ -124,16 +125,20 @@ export function ChatComposer({
               </div>
             )}
           </AlertDescription>
-          {onRetry && (
+          {errorAction && (
             <AlertAction className="static shrink-0">
               <TooltipButton
                 type="button"
                 variant="outline"
                 size="icon-sm"
-                tooltip={retryLabel}
-                onClick={onRetry}
+                tooltip={errorAction.label}
+                onClick={errorAction.onClick}
               >
-                <ArrowClockwiseIcon />
+                {errorAction.label === "Start new chat" ? (
+                  <NotePencilIcon />
+                ) : (
+                  <ArrowClockwiseIcon />
+                )}
               </TooltipButton>
             </AlertAction>
           )}
@@ -169,7 +174,7 @@ export function ChatComposer({
           ref={fileInput}
           type="file"
           multiple
-          className="sr-only"
+          hidden
           accept={attachmentAcceptAttribute(attachmentLimits)}
           onChange={(event) => {
             addFiles(event.currentTarget.files)

@@ -1,15 +1,17 @@
 ---
 title: "How to Price AI Agents in Your SaaS"
-description: "What to charge for an agent in your app, what can go wrong, and the usage limits you'll need."
+description: "What to charge for an agent in your app? Learn what can go wrong and how to set proper usage limits."
 date: "2026-11-13"
 author: "AstralBeam team"
 image: "/blog/images/saas-pricing-models.png"
 imageAlt: "A subscription and usage receipt shows the included allowance, extra work, and total against a customer-approved budget."
 ---
 
-An agent can chase an invoice without getting it paid. If you charge for calls, you can bill for the attempt. If you charge for money recovered, you can't. The calls cost money either way.
+When you add an AI agent to your SaaS, you need a pricing model customers can understand and your business can afford. You can charge for access, usage, completed jobs, or outcomes. You also need to decide who pays the model provider and what usage limits to set.
 
-Decide what the customer buys and who pays when work fails or runs long. These choices can overlap: a subscription might include 200 jobs, with a charge for each extra job.
+These choices affect both the bill and the risk you take on. For example, a finance app might use an agent to send reminders for overdue invoices and check payment status. That work has a cost even when the invoice stays unpaid.
+
+This guide compares the main pricing options, shows where each can go wrong, and explains the usage limits that help keep spending predictable. The prices in the examples are illustrative.
 
 ```glossary
 ## What to charge for?
@@ -34,47 +36,39 @@ Decide what the customer buys and who pays when work fails or runs long. These c
 
 ### Access: a flat fee or a price per seat
 
-A subscription lets people use your app without pricing every click. You can still set limits.
+Access pricing charges a recurring fee to use your agent. You can charge a flat fee for an account or a fee for each user. Customers know the subscription price in advance, but your costs still depend on how much work the agent does.
 
-You pay for the heavy users too. [Sam Altman said in January 2025](https://x.com/sama/status/1876104315296968813) that ChatGPT Pro was losing money because people used it more than expected. Look at your expensive customers, not just the average.
+For example, a reporting app might charge $49 a month for an agent that prepares reports, with 200 run attempts included. In the simulation, the first 199 runs cost $29.85 in compute. The last run gets stuck in a loop and pushes the total to $65, more than the subscription earns.
 
-Our $49 example includes 200 attempts, but one loop pushes total compute spend to $65. With a disclosed $0.15 cap per attempt, the looping run stops incomplete and total compute spend stays at $30. Failed attempts count. That leaves $19 before the rest of your expenses.
+A limit on attempts does not control the cost of each attempt. With a disclosed $0.15 compute cap per run, the looping run stops incomplete and total compute stays at $30. That leaves $19 before other expenses. Explain that failed attempts count toward the allowance and what happens when a run reaches its cap.
+
+For a plan priced per user, also show which users count as paid seats and require approval before adding charges. Check whether the subscription still covers your costs for customers who use the agent most.
 
 ```pricing
 fixed
 ```
 
-Seats need purchase controls too. An invitation can add to the bill, so let the owner approve the increase and proration first. [Slack](https://slack.com/help/articles/218915077-Slacks-Fair-Billing-Policy) credits inactivity on eligible self-serve plans.
-
-[Strella chose seats](https://www.bvp.com/atlas/durable-monetization-how-four-ai-founders-solved-the-pricing-puzzle) to avoid per-project approvals. Its model costs were small beside the cost of paying research participants. But seats get awkward if your agent helps a smaller team do the same work. [One builder described that renewal problem](https://www.reddit.com/r/SaaS/comments/1scw6p8/comment/ogipj5s/) and switched to transactions processed. If automation shrinks the paid team, test pricing by work processed.
-
-```pricing
-seats
-```
-
 ### Usage: tokens, compute, or tool calls
 
-What would a normal month cost? Take a customer's workload and sketch a bill. [Anthropic](https://platform.claude.com/docs/en/about-claude/pricing) and [GitHub](https://github.blog/news-insights/company-news/github-copilot-is-moving-to-usage-based-billing/) explain their usage rates. [One founder](https://www.reddit.com/r/SaaS/comments/1r1k8sx/seat_vs_usage_based_pricing/) found usage pricing helped rollout, but prospects worried about spending and established customers asked for seats.
+Usage pricing charges for the resources an agent uses. You can measure tokens, compute time, or tool calls. Customers pay more when they use more, so they need a clear rate and a way to control the bill. State how failed calls and retries count.
 
-An alert won't stop a job. Reserve each job's budget before it starts, so two jobs can't spend the same balance. Charge for actual usage and release the rest. Cap each run too: provider reports can arrive late.
+For example, a logistics app might use an agent to check shipment status through a paid tool. Suppose each lookup is one usage unit priced at $1, and the customer sets a $10 budget. An alert at $10 does not stop more lookups. In the simulation, work continues until the bill reaches $16.
+
+Reserve each lookup's charge before it starts, so simultaneous requests cannot spend the same remaining balance. Settle the actual charge when it finishes and release any unused reservation. At $10, pause further work until the customer approves more spending. Enforce limits while calls run too, because provider usage reports can arrive late.
 
 ```pricing
 usage
 ```
 
-In the next example, two actions cost $0.20. The agent then asks before doing more. In the failure, four tools succeed but the customer's issue stays open. For your own action rates, compare [Salesforce](https://www.salesforce.com/agentforce/pricing/) and decide how failures and retries count, as [Zapier](https://help.zapier.com/hc/en-us/articles/8496196837261-How-is-task-usage-measured-in-Zapier) does.
-
-```pricing
-tool
-```
-
 ### Jobs: a workflow, export, or conversation
 
-Your customer may know they need 500 reports a month without knowing the token count. A price per job lets them estimate the bill. [n8n](https://n8n.io/pricing/) bills workflow executions. Specify input and duration limits, included services, and when you charge. For conversations, say whether returning tomorrow starts a new one.
+Job pricing charges for a defined piece of work. Customers can estimate their bill from the work they need, without knowing how many model calls it takes. You need to define what a job includes and when it becomes billable.
 
-[Mintlify's cofounder](https://x.com/handotdev/status/2097459135747084603) described fixed prices per completed action while absorbing variable compute costs. If you pay the provider, you'd carry that risk too. Completing a job doesn't always solve the customer's problem.
+For example, an analytics app might use an agent to prepare a data export and charge $0.10 when the file is delivered. If the app loses the completion message and retries the same job, the customer should still pay $0.10 for one export. Charging when each attempt starts produces two charges for one result.
 
-Keep one job ID across retries so you don't charge twice for the same export. [Stripe's meter events](https://docs.stripe.com/billing/subscriptions/usage-based/recording-usage-api) process asynchronously, so keep durable records that distinguish retries from new orders.
+Keep the same job ID across retries and record completion before creating the charge. Set input and duration limits so one job cannot consume unlimited compute. If a conversation is your billing unit, define when it ends and when returning starts a new one. Your price also needs to cover failed attempts that do not become billable jobs.
+
+Keep durable billing records even when you use an external meter. [Stripe's usage-recording guide](https://docs.stripe.com/billing/subscriptions/usage-based/recording-usage-api) explains how event identifiers and idempotency keys prevent duplicate usage reports.
 
 ```pricing
 workflow
@@ -82,11 +76,11 @@ workflow
 
 ### Outcomes: a result both sides can check
 
-If your agent recovers money, you can charge a share, as [Chargeflow](https://www.chargeflow.io/pricing) does for chargebacks. For support, [Fin](https://www.intercom.com/help/en/articles/8205718-fin-ai-agent-outcomes) counts confirmed and assumed resolutions, plus configured procedure handoffs. It reverses resolution charges when customers return to the same conversation for more help.
+Outcome pricing charges for an agreed result. The customer pays when the agent achieves that result, so both sides need a way to check what happened. Completing an action is not always enough to earn the charge.
 
-Agree on what counts as done and how customers can dispute it. The [Skope discussion on HN](https://news.ycombinator.com/item?id=44973758) gets into that evidence problem. Unsuccessful attempts still cost money.
+For example, a support app might use an agent to help customers resolve account issues. In this example, the app charges $1 only after the customer confirms the issue is resolved. If the customer reopens it within seven days, the app reverses the charge. Closing the ticket again requires fresh confirmation before another charge.
 
-Our fictional $1 charge needs customer confirmation and reverses if the issue reopens within seven days. Closing it again needs new confirmation. [Ada](https://www.ada.cx/platform/) says most customers choose conversation pricing, with resolution pricing for specific enterprise needs.
+Agree on the evidence needed to count a resolution, the dispute process, and any reversal period before work begins. Keep enough history to explain each charge. Unsuccessful attempts still cost you money, so include those costs when setting the price. The simulation shows how billing on ticket closure breaks this example's confirmation policy.
 
 ```pricing
 outcome
@@ -96,9 +90,11 @@ outcome
 
 ### Provider cost plus your fee
 
-Markup adds your fee to the provider bill. [Stripe's token-billing docs](https://docs.stripe.com/billing/token-billing) describe this through Metronome. Say whether you bill list or negotiated rates and how caching, tools, and failed calls count. Save the rate used for each run.
+Cost plus markup pricing passes the provider's usage cost to the customer and adds your fee. The bill follows the cost of running the agent, so customers need to know which provider rates you use and what your fee covers.
 
-A 20% markup on $10 makes a $12 bill. The $2 spread divided by $12 revenue is **16.7%**, before other serving costs. A 20% margin requires **$10 ÷ 0.8 = $12.50**, again excluding those costs.
+For example, a writing app might use an agent to draft and revise product descriptions. If the model calls cost $10 and the app adds a 20% markup, the customer pays $12. The app keeps $2 before its other expenses. That is **16.7% of revenue**, not a 20% margin. A 20% margin on the same $10 cost would require a $12.50 price.
+
+Show the provider cost and your fee separately. State whether you use list or negotiated rates and how caching, tools, and failed calls affect the bill. Save the rate used for each run so you can explain past charges when provider prices change. [Stripe's token-billing guide](https://docs.stripe.com/billing/token-billing) describes configuring markups and recording usage through Metronome.
 
 ```pricing
 markup
@@ -106,9 +102,11 @@ markup
 
 ### The customer's key plus your app fee
 
-With bring your own key (BYOK), customers pay through their provider accounts. That may suit existing contracts. Connecting your provider key is different from asking each customer to create and fund an account. A [local dictation-app builder](https://www.reddit.com/r/SaaS/comments/1vuzeva/byok_sounded_fair_the_api_key_setup_is_where/) found setup difficult for nontechnical users. [Provider payment, permissions, and rate limits](https://www.reddit.com/r/SaaS/comments/1vuzeva/comment/p5672ua/) can also create support work.
+With bring your own key (BYOK), customers connect their own model-provider accounts and pay the provider directly. You charge separately for your app. This can suit customers with existing provider contracts, but they need to set up an account, payment method, and permissions before using the agent.
 
-[OpenRouter's terms](https://openrouter.ai/pricing) are a reminder to show both bills. In the example, authorizing a $10 provider budget doesn't create a charge. The total reaches $39 when the job uses it, including the $29 app fee. Protect keys, label each account's limits, and ask before falling back to another paying account. Your fee still covers storage, tools, and support.
+For example, a research app might charge $29 a month for an agent that reviews documents using the customer's provider key. If the work uses $10 of model calls, the customer's total spend is $39 across two bills. Authorizing a $10 provider budget does not create that charge. The provider bills for the usage that follows.
+
+Show both costs before the customer starts. Protect their key, explain which account's limits apply, and ask before switching to another paying account if the first one fails. Your app fee still needs to cover storage, tools, and support, including help with provider setup and rate limits.
 
 ```pricing
 byok
@@ -118,9 +116,11 @@ byok
 
 ### Show what a credit buys
 
-What does $10 buy in your app? If customers can't work that out, credits add another calculation. [a16z makes that case](https://a16z.com/you-are-not-a-model-dont-price-per-token/), and [builders discuss it on Reddit](https://www.reddit.com/r/SaaS/comments/1alxaac/navigating_pricing_strategies_for_ai_saas_seeking/), alongside promotional replies. [One commenter wanted to buy named analyses](https://www.reddit.com/r/SaaS/comments/1hwm9q0/comment/m62meoc/) without a subscription or credit balance to manage.
+Credits let customers pay for a balance and spend it as they use the agent. Different tasks can consume different amounts, so customers need to see how credits translate into useful work before they buy.
 
-Explain expiry, rollover, and promotional balances. Credits that expire unused increase what customers paid per completed job. Put a spending limit on auto-recharge too.
+For example, a feedback-analysis app might use an agent to produce standard summaries or more detailed premium analyses. A $10 pack contains 100 credits. A standard job uses one credit, while a premium job uses ten. The pack therefore covers 100 standard jobs or ten premium jobs. In the simulation, hiding that difference makes the balance run out sooner than the customer expects.
+
+Show the credit cost beside each job before it starts and update the remaining balance afterward. Explain expiry, rollover, and how promotional credits are used. Unused credits that expire increase what the customer paid per completed job. If you offer automatic top-ups, let the customer cap the amount spent.
 
 ```pricing
 credits
@@ -128,11 +128,11 @@ credits
 
 ### Show what extra usage costs
 
-You can include some agent work in a subscription and charge for the rest. [Bessemer's playbook](https://www.bvp.com/atlas/the-ai-pricing-and-monetization-playbook) covers this approach. Its [Ada interviews](https://www.bvp.com/atlas/durable-monetization-how-four-ai-founders-solved-the-pricing-puzzle) describe the appeal of predictable budgets. Those cases don't tell you which plan your customers will prefer.
+A base fee plus usage combines a subscription with a charge for work beyond an included allowance. Customers get a predictable starting price and can pay for more when they need it. They need to know both the allowance and the extra rate.
 
-At $49 for 200 workflows plus $0.30 each extra, 250 cost **$64**. If serving costs average $0.15 per completed workflow, including failed attempts, the work costs $37.50. That leaves $26.50 before other expenses. Check expensive runs too.
+For example, an operations app might use an agent to process incoming orders. A $49 monthly plan includes 200 jobs, with each extra job costing $0.30. Processing 250 orders produces a **$64** bill: the $49 base fee plus $15 for 50 extra jobs. If serving costs average $0.15 per completed job, including failed attempts, the work costs $37.50 and leaves $26.50 before other expenses.
 
-Show the extra $15 before the customer approves more work. State when allowances reset and whether work stops at zero. Two prices take explaining, especially when terms change: see [Cursor's apology](https://cursor.com/en-US/blog/june-2025-pricing) and the [HN discussion](https://news.ycombinator.com/item?id=44470148).
+Show the extra $15 before the customer approves the additional work. State when the allowance resets, whether unused jobs roll over, and whether work pauses when it runs out. Limit expensive individual runs too. A predictable customer bill does not guarantee predictable costs for your app.
 
 ```pricing
 hybrid
@@ -140,22 +140,26 @@ hybrid
 
 ## Test the bill before changing your plans
 
-Show a customer two pilot invoices for the same work, using different pricing plans. Ask which bill they can budget and who would approve extra spend. Count failures, retries, tools, support, and human review in your costs. Then measure adoption, margin, and retention.
+Before choosing a model, show customers what the same workload would cost under different plans. Ask which bill they can budget for and who would approve extra spending. Compare their answers with the full cost of serving that workload.
 
-[Stripe's survey](https://stripe.com/blog/saas-platform-trends-in-AI-era) of 200 North American and European SaaS leaders, half Stripe customers, found a quarter planned seats plus agent charges. Those are seller plans. Ask buyers whether [Levie's comparison with work performed](https://x.com/levie/status/1976462057840181320) matches their own costs.
+For the finance app introduced earlier, take a month of invoice follow-ups and prepare two sample bills: one with a subscription and one charged per follow-up. Include reminders that did not lead to payment. Ask the customer to explain each bill back to you and check whether the rates and limits are clear.
 
-If you sell [commitments](https://www.snowflake.com/en/pricing-options/), explain unused capacity, expiry, rollover, renewal, and true-ups. Does each tier reprice every unit or just the units in that band?
+Count failures, retries, tools, support, and human review in your costs. During a pilot, measure adoption, margin, and retention. If a plan includes a spending commitment, explain expiry, rollover, renewal, and charges above the commitment. If rates change with volume, state whether each tier applies to all usage or only the units within that band.
 
 ## Put the limits where the work happens
 
-Put the estimate beside the action that starts the job, along with the rate and who pays. Keep **spent**, **reserved**, and **remaining** separate. Agree on what happens at zero and to calls already running. A per-chat spending cap won't protect the account if users can keep opening new chats.
+A pricing plan needs controls where customers start and monitor the work. Show the estimate, rate, and paying account before the agent begins. Keep **spent**, **reserved**, and **remaining** amounts separate so work already in progress is included in the available budget.
 
-Keep a receipt with the job ID, billable event, quantity, rate version, allowance, and adjustments. Check what a limit covers before calling it hard. [Vercel](https://vercel.com/docs/spend-management) documents timing restrictions. [Snowflake's warehouse monitors](https://docs.snowflake.com/en/user-guide/resource-monitors) leave some serverless and AI usage outside their scope. Test concurrent jobs, late reports, failed cancellation, and an empty balance.
+In the finance app, the customer should see the estimated cost before starting another batch of invoice reminders. Reserve its budget before sending any reminders, then settle the actual usage and release the rest. If several batches run together, they must share the same account limit. Opening a new chat should not create a fresh spending allowance.
 
-Go back to the unpaid invoice. Before the agent tries again, you and the customer should know what you'll charge if it gets paid and if it doesn't.
+Explain what happens at zero and how you handle calls already running. Check the [timing of provider spending controls](https://vercel.com/docs/spend-management) and [which resources they cover](https://docs.snowflake.com/en/user-guide/resource-monitors) before describing a limit as hard. Test simultaneous jobs, late usage reports, failed cancellation, and an empty balance.
+
+Keep a receipt with the job ID, billable event, quantity, rate version, allowance, and adjustments. Before the agent tries again, you and the customer should know what you will charge whether the invoice gets paid or stays unpaid.
 
 ## Try it in your app
 
-Use [AstralBeam](/) to put that task inside your app. Connect your tools, let users work with files, set a customer allowance, and track model spend. We handle the agent backend and conversation history.
+Use [AstralBeam](/) to add an agent to your app. We handle the agent backend and conversation history, while you connect the tools for your use case.
+
+For the finance app, connect tools that read invoice records, send reminders, and check payment status. Let users work with their files, set a customer allowance, and track model spend as the agent follows up.
 
 [Try AstralBeam on Cloud](/auth/sign-up), follow the [quickstart](/docs/start/quickstart), or [tell us what you're building](mailto:hello@astralbeam.ai) and how you'd charge for it.

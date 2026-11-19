@@ -10,15 +10,13 @@ import { siteMetadata, siteUrl } from "@/lib/site"
 import appCss from "@/styles/index.css?url"
 
 const homeUrl = siteUrl("/")
-const iconUrl = siteUrl(siteMetadata.icon.path)
-const iconSize = `${siteMetadata.icon.size}x${siteMetadata.icon.size}`
 const structuredData = {
   "@context": "https://schema.org",
   "@type": "Organization",
   "@id": `${homeUrl}#organization`,
   name: siteMetadata.name,
   url: homeUrl,
-  logo: iconUrl,
+  logo: siteUrl(astralbeamLightLogoUrl),
   description: siteMetadata.description,
   email: siteMetadata.email,
   sameAs: [siteMetadata.links.github, siteMetadata.links.discord],
@@ -35,7 +33,7 @@ export const Route = createRootRoute({
       { name: "color-scheme", content: "dark" },
     ],
     links: [
-      { rel: "icon", type: "image/png", sizes: iconSize, href: siteMetadata.icon.path },
+      { rel: "icon", href: "/favicon.ico", sizes: "16x16 32x32 48x48" },
       {
         rel: "icon",
         type: "image/svg+xml",
@@ -48,7 +46,6 @@ export const Route = createRootRoute({
         href: astralbeamDarkLogoUrl,
         media: "(prefers-color-scheme: dark)",
       },
-      { rel: "apple-touch-icon", sizes: iconSize, href: siteMetadata.icon.path },
       { rel: "manifest", href: "/site.webmanifest" },
       { rel: "license", href: "/licenses.txt" },
       { rel: "sitemap", href: "/sitemap.xml" },

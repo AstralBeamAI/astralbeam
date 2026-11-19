@@ -12,7 +12,7 @@
   ],
   "type": "module",
   "scripts": {
-    "audit": "bun audit --ignore GHSA-gcqx-w48m-w2h4",
+    "audit": "bun audit",
     "format": "oxfmt --disable-nested-config",
     "format:check": "oxfmt --disable-nested-config --check",
     "dev:platform": "bun run --cwd platform dev",
@@ -29,11 +29,11 @@
     "dev": "bun run --parallel dev:platform dev:website dev:sdk dev:todos dev:linearity",
     "build": "bun run build:sdk && bun run build:platform && bun run build:website && bun run build:cli && bun run build:todos && bun run build:linearity",
     "release": "scripts/release.sh",
-    "release:manual": "gh workflow run release.yml --ref main -f minimal=true",
+    "release:minimal": "gh workflow run release.yml --ref main -f minimal=true",
     "prepare": "bun run --cwd platform effect-tsgo patch --no-typescript --oxlint"
   },
   "devDependencies": {
-    "@effect/tsgo": "0.67.5",
+    "@effect/tsgo": "0.70.0",
     "@types/bun": "1.4.4",
     "oxfmt": "0.73.0"
   },
@@ -52,7 +52,6 @@
     "@vercel/oidc": {
       "@vercel/cli-config": "^0.3.6"
     },
-    "glob@^13": "^14.0.3",
     "minimatch@^10": "^11.0.8",
     "seroval-plugins@^1": "^1.8.0",
     "seroval@^1": "^1.8.1",

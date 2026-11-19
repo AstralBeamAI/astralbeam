@@ -1,6 +1,6 @@
-import { render, toPlainText } from "@react-email/render"
 import { Effect } from "effect"
 import type { ReactElement } from "react"
+import { render, toPlainText } from "react-email"
 
 /** Renders one React Email element to the exact HTML and plain-text payloads providers send. */
 export const renderEmailElement = Effect.fn("renderEmailElement")(function* (

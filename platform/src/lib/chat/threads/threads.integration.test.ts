@@ -150,6 +150,16 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       .pipe(Effect.andThen(service.finish({ claim })))
 
   const create = () => runtime.runPromise(service.create({ scope }))
+  const runManagedChat = (input: Parameters<typeof prepareManagedChat>[0]) =>
+    runtime.runPromise(
+      prepareManagedChat(input).pipe(
+        Effect.provide(SandboxProviders.layer),
+        Effect.provideService(Agents, {
+          resolveForChat: () =>
+            Effect.succeed({ attachmentsEnabled: true, sandboxProviderId: null }),
+        } as unknown as typeof Agents.Service),
+      ),
+    )
   const admit = (id: string) =>
     runtime.runPromise(
       service.admit({
@@ -654,6 +664,46 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     ).toEqual([])
   })
 
+  test("retires unused inline files on receipt replay and mismatch", async () => {
+    const thread = await create()
+    const command = (value: string) =>
+      runManagedChat({
+        scope,
+        idempotencyKey: "inline",
+        params: {
+          threadId: thread.id,
+          runId: "inline",
+          messages: [
+            {
+              role: "user",
+              content: [
+                { type: "document", source: { type: "data", value, mimeType: "text/plain" } },
+              ],
+            },
+          ],
+          tools: [],
+          aguiContext: [],
+          state: undefined,
+          forwardedProps: { clientId: targetA },
+        },
+      })
+    const first = await command("SGVsbG8=")
+    expect(await command("SGVsbG8=")).toMatchObject({
+      admission: undefined,
+      receipt: first.receipt,
+    })
+    await expect(command("Q2hhbmdlZA==")).rejects.toMatchObject({
+      _tag: "IdempotencyParametersMismatch",
+    })
+    const attachments = await db.select().from(chatFile)
+    const stored = await db.select().from(fileObject)
+    expect(attachments).toHaveLength(1)
+    const [attached] = attachments
+    expect(attached?.messageId).toBe(first.receipt.acceptedMessageId)
+    expect(stored.find(({ id }) => id === attached?.fileObjectId)?.status).toBe("stored")
+    expect(stored.filter(({ status }) => status === "purging")).toHaveLength(2)
+  })
+
   test("replays receipts after quota exhaustion, reauthorizes retries, and purges retained input", async () => {
     const thread = await create()
     const usageLimits = await runtime.runPromise(UsageLimits)
@@ -690,6 +740,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       }),
     )
     const fileId = (uploaded.parts[0]!.source as { id: string }).id
+    const clientMessageId = crypto.randomUUID()
     const params: ChatParams = {
       threadId: thread.id,
       runId: "first-run",
@@ -709,19 +760,9 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       tools: [],
       aguiContext: [],
       state: undefined,
-      forwardedProps: { clientId: targetA },
+      forwardedProps: { clientId: targetA, clientMessageId },
     }
     const request = { scope, params, idempotencyKey: "same-intent", usageLimitIds: [usageLimitId] }
-    const run = (input: typeof request) =>
-      runtime.runPromise(
-        prepareManagedChat(input).pipe(
-          Effect.provide(SandboxProviders.layer),
-          Effect.provideService(Agents, {
-            resolveForChat: () =>
-              Effect.succeed({ attachmentsEnabled: true, sandboxProviderId: null }),
-          } as unknown as typeof Agents.Service),
-        ),
-      )
     for (const [value, mimeType, errorTag] of [
       ["/w==", "text/plain", "ChatThreadInvalid"],
       ["UEFSMQ==", "application/vnd.apache.parquet", "ChatAttachmentSandboxRequired"],
@@ -742,7 +783,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         }),
       )
       await expect(
-        run({
+        runManagedChat({
           ...request,
           params: {
             ...params,
@@ -766,7 +807,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       ).rejects.toMatchObject({ _tag: errorTag })
       expect(await runtime.runPromise(service.history({ scope, id: thread.id }))).toHaveLength(0)
     }
-    const first = await run(request)
+    const first = await runManagedChat(request)
     expect(first.admission?.claim).toBeTruthy()
     expect(first.admission!.inputMessage.payload.parts[1]!.metadata).toEqual({
       filename: `note ${"x".repeat(CHAT_ATTACHMENT_MAX_FILENAME_LENGTH - 5)}…`,
@@ -777,7 +818,10 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     await runtime.runPromise(
       usageLimits.record({ limits, subject: scope, usage: { tokens: 1, spend: "0" } }),
     )
-    const retry = await run({ ...request, params: { ...params, runId: "retry-run" } })
+    const retry = await runManagedChat({
+      ...request,
+      params: { ...params, runId: "retry-run", forwardedProps: { clientId: targetA } },
+    })
     expect(retry).toMatchObject({ admission: undefined, receipt: first.receipt })
     const storedFileCount = (await db.select().from(fileObject)).length
     const inlineFile = {
@@ -785,7 +829,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       source: { type: "data", value: "SGVsbG8=", mimeType: "text/plain" },
     } as const
     await expect(
-      run({
+      runManagedChat({
         ...request,
         idempotencyKey: "new-intent",
         params: {
@@ -795,9 +839,16 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       }),
     ).rejects.toMatchObject({ _tag: "UsageLimitReached" })
     expect(await db.select().from(fileObject)).toHaveLength(storedFileCount)
-    expect(await runtime.runPromise(service.history({ scope, id: thread.id }))).toHaveLength(2)
+    const history = await runtime.runPromise(service.history({ scope, id: thread.id }))
+    expect(history.map((message) => messageResource(message).clientMessageId)).toEqual([
+      clientMessageId,
+      undefined,
+    ])
     await expect(
-      run({ ...request, params: { ...params, messages: [{ role: "user", content: "Changed" }] } }),
+      runManagedChat({
+        ...request,
+        params: { ...params, messages: [{ role: "user", content: "Changed" }] },
+      }),
     ).rejects.toMatchObject({ _tag: "IdempotencyParametersMismatch" })
     await runtime.runPromise(
       service.setParticipant({
@@ -817,7 +868,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         role: "viewer",
       }),
     )
-    await expect(run(request)).rejects.toMatchObject({
+    await expect(runManagedChat(request)).rejects.toMatchObject({
       _tag: "ChatThreadForbidden",
     })
     expect(
@@ -839,7 +890,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         tenantUserId: scope.tenantUserId,
       }),
     )
-    await expect(run(request)).rejects.toMatchObject({ _tag: "ChatThreadNotFound" })
+    await expect(runManagedChat(request)).rejects.toMatchObject({ _tag: "ChatThreadNotFound" })
     await runtime.runPromise(service.remove({ scope: other, id: thread.id, lockVersion: 4 }))
     expect(
       await db
@@ -852,7 +903,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
           ),
         ),
     ).toEqual([])
-    await expect(run(request)).rejects.toMatchObject({ _tag: "ChatThreadNotFound" })
+    await expect(runManagedChat(request)).rejects.toMatchObject({ _tag: "ChatThreadNotFound" })
   })
 
   test("resolves synchronized identities and grants access only through explicit same-Tenant participants", async () => {
@@ -1083,7 +1134,6 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     ])
     expect(admitted.every((entry) => entry.claim !== null)).toBe(true)
     const history = await runtime.runPromise(service.history({ scope, id: thread.id }))
-    expect(history).toHaveLength(4)
     expect(history.map((message) => message.role)).toEqual([
       "user",
       "assistant",
@@ -1482,7 +1532,6 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       runtime.runPromise(service.resolveTools(finalResult)),
     ])
     const second = finalReplies.find((reply) => reply.claim !== null)!
-    expect(second.claim).not.toBeNull()
     expect(finalReplies.filter((reply) => reply.claim !== null)).toHaveLength(1)
     expect(second.claim!.inputMessageId).toBe(admitted.inputMessage.id)
     await expect(runtime.runPromise(service.assertActive({ claim }))).rejects.toMatchObject({

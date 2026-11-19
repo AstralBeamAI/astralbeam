@@ -11,7 +11,6 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as R404RouteImport } from './routes/404'
-import { Route as FaviconDotpngRouteImport } from './routes/favicon[.]png'
 import { Route as HomeRouteImport } from './routes/home'
 import { Route as LicensesDottxtRouteImport } from './routes/licenses[.]txt'
 import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
@@ -33,11 +32,6 @@ const IndexRoute = IndexRouteImport.update({
 const R404Route = R404RouteImport.update({
   id: '/404',
   path: '/404',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const FaviconDotpngRoute = FaviconDotpngRouteImport.update({
-  id: '/favicon.png',
-  path: '/favicon.png',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HomeRoute = HomeRouteImport.update({
@@ -104,7 +98,6 @@ const BlogFeedDotxmlRoute = BlogFeedDotxmlRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/404': typeof R404Route
-  '/favicon.png': typeof FaviconDotpngRoute
   '/home': typeof HomeRoute
   '/licenses.txt': typeof LicensesDottxtRoute
   '/llms.txt': typeof LlmsDottxtRoute
@@ -121,7 +114,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/404': typeof R404Route
-  '/favicon.png': typeof FaviconDotpngRoute
   '/home': typeof HomeRoute
   '/licenses.txt': typeof LicensesDottxtRoute
   '/llms.txt': typeof LlmsDottxtRoute
@@ -139,7 +131,6 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/404': typeof R404Route
-  '/favicon.png': typeof FaviconDotpngRoute
   '/home': typeof HomeRoute
   '/licenses.txt': typeof LicensesDottxtRoute
   '/llms.txt': typeof LlmsDottxtRoute
@@ -158,7 +149,6 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/404'
-    | '/favicon.png'
     | '/home'
     | '/licenses.txt'
     | '/llms.txt'
@@ -175,7 +165,6 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/404'
-    | '/favicon.png'
     | '/home'
     | '/licenses.txt'
     | '/llms.txt'
@@ -192,7 +181,6 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/404'
-    | '/favicon.png'
     | '/home'
     | '/licenses.txt'
     | '/llms.txt'
@@ -210,7 +198,6 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   R404Route: typeof R404Route
-  FaviconDotpngRoute: typeof FaviconDotpngRoute
   HomeRoute: typeof HomeRoute
   LicensesDottxtRoute: typeof LicensesDottxtRoute
   LlmsDottxtRoute: typeof LlmsDottxtRoute
@@ -239,13 +226,6 @@ declare module '@tanstack/react-router' {
       path: '/404'
       fullPath: '/404'
       preLoaderRoute: typeof R404RouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/favicon.png': {
-      id: '/favicon.png'
-      path: '/favicon.png'
-      fullPath: '/favicon.png'
-      preLoaderRoute: typeof FaviconDotpngRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/home': {
@@ -338,7 +318,6 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   R404Route: R404Route,
-  FaviconDotpngRoute: FaviconDotpngRoute,
   HomeRoute: HomeRoute,
   LicensesDottxtRoute: LicensesDottxtRoute,
   LlmsDottxtRoute: LlmsDottxtRoute,

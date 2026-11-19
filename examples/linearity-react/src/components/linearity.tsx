@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { useAstralBeamChat } from "@astralbeam/sdk/react"
 import { Outlet, useLocation, useNavigate, useParams, useRouter } from "@tanstack/react-router"
 import { ArrowsClockwiseIcon, SidebarSimpleIcon, StarFourIcon } from "@phosphor-icons/react"
 import { Button } from "./ui/button.tsx"
@@ -12,7 +11,7 @@ import { createWorkspaceTools } from "@/lib/astro-tools.ts"
 import { workspaceUrl } from "@/lib/navigation.ts"
 
 export function Linearity() {
-  const { data, ready, notice, generation } = useDemo()
+  const { data, ready, notice } = useDemo()
   const { workspaceId } = useParams({ from: "/$workspaceId" })
   useEffect(() => {
     if (ready && data.activeWorkspaceId !== workspaceId) demoStore.switchWorkspace(workspaceId)
@@ -22,7 +21,7 @@ export function Linearity() {
     return <div className="app-loading">Opening your workspace…</div>
   return (
     <WorkspaceApp
-      key={`${workspace.id}:${generation}`}
+      key={`${workspace.id}:${data.visitorId}`}
       workspace={workspace}
       workspaces={data.workspaces}
       visitorId={data.visitorId}
@@ -61,16 +60,6 @@ function WorkspaceApp({
       }),
     [workspace.id, router],
   )
-  const chat = useAstralBeamChat({
-    apiUrl: import.meta.env.VITE_ASTRALBEAM_API_URL || "https://astralbeam.ai/api",
-    agentId: import.meta.env.VITE_ASTRALBEAM_AGENT_ID || undefined,
-    fetchAstralBeamToken: {
-      url: "/api/astralbeam/token",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ workspaceId: workspace.id, visitorId }),
-    },
-    tools,
-  })
   const workspaceStage = useRef<HTMLDivElement>(null)
   const resizeContainer = useCallback(() => workspaceStage.current, [])
   const navigate = (next: View) => {
@@ -175,7 +164,8 @@ function WorkspaceApp({
           >
             <div className="astro-widget">
               <Astro
-                chat={chat}
+                tools={tools}
+                visitorId={visitorId}
                 workspace={workspace}
                 resizeContainer={resizeContainer}
                 onClose={() => setChatOpen(false)}
@@ -194,7 +184,7 @@ function WorkspaceApp({
             <DialogTitle>A fresh start?</DialogTitle>
             <DialogDescription>
               Reset both workspaces to the original sample data. Your issue edits and local activity
-              will be removed, and Astro will start a new conversation.
+              will be removed.
             </DialogDescription>
             <div className="dialog-actions">
               <Button type="button" variant="outline" onClick={() => setResetOpen(false)}>
@@ -203,7 +193,6 @@ function WorkspaceApp({
               <Button
                 type="button"
                 onClick={() => {
-                  chat.reset()
                   demoStore.reset()
                   setResetOpen(false)
                   void route({ href: workspaceUrl(workspace.id, "issues") })

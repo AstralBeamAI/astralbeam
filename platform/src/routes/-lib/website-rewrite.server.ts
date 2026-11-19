@@ -12,7 +12,6 @@ const WEBSITE_PATHS = new Set([
   "/terms",
   "/privacy",
   "/blog",
-  "/favicon.png",
   "/og-image.png",
   "/licenses.txt",
   "/llms.txt",

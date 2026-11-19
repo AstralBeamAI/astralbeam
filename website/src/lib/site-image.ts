@@ -1,21 +1,13 @@
 import sharp from "sharp"
 
 import darkLogoSvg from "@/assets/astralbeam-logo-dark.svg?raw"
-import { palette } from "@/brand/palette"
 
 const darkLogo = new TextEncoder().encode(darkLogoSvg)
 const transparent = { r: 0, g: 0, b: 0, alpha: 0 }
 
-// The favicon needs its own opaque plate, while the social card composites the mark
-// over artwork that must keep showing through.
-export function renderSiteLogo(size: number, { opaque = true } = {}) {
-  const logo = sharp(darkLogo).resize({
-    width: size,
-    height: size,
-    fit: "contain",
-    background: transparent,
-  })
-  return (opaque ? logo.flatten({ background: palette.dark.background.srgbHex }) : logo)
+export function renderSiteLogo(size: number) {
+  return sharp(darkLogo)
+    .resize({ width: size, height: size, fit: "contain", background: transparent })
     .png({ compressionLevel: 9 })
     .toBuffer()
 }

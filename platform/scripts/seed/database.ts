@@ -3,7 +3,7 @@ import process from "node:process"
 
 import { sql } from "drizzle-orm"
 import { drizzle } from "drizzle-orm/node-postgres"
-import { Pool } from "pg"
+import { Client, Pool } from "pg"
 import { loadEnv } from "vite"
 
 const platformDirectory = join(import.meta.dir, "..", "..")
@@ -14,7 +14,7 @@ const migrationsDirectory = join(platformDirectory, "src", "db", "migrations")
  * reachable only from this machine. An operator who needs a remote database can still tunnel it to
  * loopback, which is an explicit act rather than a typo in `DATABASE_URL`.
  */
-const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]"])
+const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1", "[::1]"])
 
 /**
  * Mirrors how the application and `drizzle.config.ts` see configuration: `.env`, `.env.local`,
@@ -29,24 +29,33 @@ export function loadSeedEnvironment(): void {
   }
 }
 
-export function resolveSeedDatabaseUrl(): { url: string; databaseName: string } {
+export function resolveSeedDatabaseUrl(): {
+  url: string
+  databaseName: string
+  host: string
+  port: number
+} {
   const url = process.env.DATABASE_URL
   if (!url) throw new Error("DATABASE_URL is required; run this from the `platform` directory")
   let parsed: URL
+  let target: Client
   try {
     parsed = new URL(url)
+    if (parsed.protocol !== "postgres:" && parsed.protocol !== "postgresql:") throw new Error()
+    target = new Client({ connectionString: url })
   } catch {
-    throw new Error("DATABASE_URL is not a valid URL")
+    throw new Error("DATABASE_URL is not a valid PostgreSQL URL")
   }
-  if (!LOOPBACK_HOSTNAMES.has(parsed.hostname)) {
+  if (!LOOPBACK_HOSTNAMES.has(parsed.hostname) || !LOOPBACK_HOSTNAMES.has(target.host)) {
     throw new Error(
-      `Refusing to seed the database at '${parsed.hostname}': seeding writes fixed development credentials and is limited to a loopback host`,
+      "Refusing to seed the database: seeding writes fixed development credentials and is limited to a loopback host",
     )
   }
+  if (!target.database) throw new Error("DATABASE_URL must name the development database")
   if (!process.env.DATABASE_ENCRYPTION_KEY) {
     throw new Error("DATABASE_ENCRYPTION_KEY is required to write encrypted configuration values")
   }
-  return { url, databaseName: decodeURIComponent(parsed.pathname.slice(1)) }
+  return { url, databaseName: target.database, host: target.host, port: target.port }
 }
 
 export function createSeedDatabase(url: string) {

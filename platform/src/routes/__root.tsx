@@ -39,7 +39,6 @@ import { runEffect } from "@/lib/runtime/server-fn.server"
 import { ServerRequest } from "@/lib/runtime/server-request.server"
 import {
   APP_LOGO_DARK_SVG_URL,
-  APP_LOGO_LIGHT_PNG_URL,
   APP_LOGO_LIGHT_SVG_URL,
   APP_NAME,
   AUTH_ALLOWED_RETURN_PATHS,
@@ -147,12 +146,7 @@ export const Route = createRootRouteWithContext<{
       },
     ],
     links: [
-      {
-        rel: "icon",
-        type: "image/png",
-        href: APP_LOGO_LIGHT_PNG_URL,
-        sizes: "270x270",
-      },
+      { rel: "icon", href: "/favicon.ico", sizes: "16x16 32x32 48x48" },
       {
         rel: "icon",
         type: "image/svg+xml",

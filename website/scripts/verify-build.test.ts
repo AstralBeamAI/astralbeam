@@ -12,8 +12,6 @@ import { landingUpdated, siteMetadata } from "../src/lib/site"
 
 const origin = "https://astralbeam.ai"
 const homeUrl = `${origin}/`
-const iconUrl = `${origin}${siteMetadata.icon.path}`
-const iconSize = `${siteMetadata.icon.size}x${siteMetadata.icon.size}`
 const distUrl = new URL("../.output/public/", import.meta.url)
 
 function readText(path: string) {
@@ -77,14 +75,11 @@ describe("production website build", () => {
     expect(html).toMatch(
       /<link rel="icon" type="image\/svg\+xml" href="[^"]*astralbeam-logo-dark[^"]*\.svg" media="\(prefers-color-scheme: dark\)"\/>/u,
     )
-    expect(html).toContain(
-      `<link rel="icon" type="image/png" sizes="${iconSize}" href="${siteMetadata.icon.path}"/>`,
+    expect(html).toContain('<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48"/>')
+    expect(html).not.toContain('rel="apple-touch-icon"')
+    expect(html).toMatch(
+      /"logo":"https:\/\/astralbeam\.ai\/website-assets\/astralbeam-logo-light-[^"/]+\.svg"/u,
     )
-    expect(html).toContain(
-      `<link rel="apple-touch-icon" sizes="${iconSize}" href="${siteMetadata.icon.path}"/>`,
-    )
-    expect(html).toContain(`"logo":"${iconUrl}"`)
-    expect(html).not.toMatch(/\/(?:apple-touch-icon|icon-512)\.png/u)
     expect(html).not.toMatch(/(?:--site-|data-(?:near|far|streak)-rgb)/u)
     expect(html).toContain('<link rel="manifest" href="/site.webmanifest"/>')
     expect(html).toContain('<link rel="license" href="/licenses.txt"/>')
@@ -170,6 +165,8 @@ describe("production website build", () => {
         readFile(new URL("../../docs/legal/LICENSES/OFL-1.1.txt", import.meta.url), "utf8"),
       ])
     const manifest: unknown = JSON.parse(manifestText)
+    const assets = await readdir(new URL("website-assets/", distUrl))
+    const logo = assets.find((name) => /^astralbeam-logo-light-.+\.svg$/u.test(name))
 
     expect(headers).toContain("frame-ancestors 'none'")
     expect(robots).toContain(`Sitemap: ${origin}/sitemap.xml`)
@@ -188,19 +185,23 @@ describe("production website build", () => {
       theme_color: palette.dark.background.srgbHex,
       icons: [
         {
-          src: iconUrl,
-          sizes: iconSize,
-          type: "image/png",
+          src: `/website-assets/${logo}`,
+          sizes: "any",
+          type: "image/svg+xml",
           purpose: "any",
         },
       ],
     })
   })
 
-  test("renders the social image at 1200 x 630", async () => {
-    const metadata = await sharp(await readFile(new URL("og-image.png", distUrl))).metadata()
+  test("publishes the favicon and social image", async () => {
+    const [favicon, socialImage] = await Promise.all([
+      readFile(new URL("favicon.ico", distUrl)),
+      sharp(fileURLToPath(new URL("og-image.png", distUrl))).metadata(),
+    ])
 
-    expect(metadata).toMatchObject({ width: 1200, height: 630 })
+    expect(favicon.readUInt32LE(0)).toBe(0x0001_0000)
+    expect(socialImage).toMatchObject({ format: "png", width: 1200, height: 630 })
   })
 
   test("publishes every Markdown post with its discovery metadata and artwork", async () => {

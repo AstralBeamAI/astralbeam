@@ -15,7 +15,6 @@ const serverSnapshot = {
   data: initialData("00000000-0000-4000-8000-000000000000"),
   ready: false,
   notice: "",
-  generation: 0,
 }
 let snapshot = serverSnapshot
 const listeners = new Set<() => void>()
@@ -38,14 +37,14 @@ export function readSavedData(raw: string): DemoData {
 function emit() {
   for (const listener of listeners) listener()
 }
-function persist(data: DemoData, generation = snapshot.generation) {
+function persist(data: DemoData) {
   let notice = ""
   try {
     localStorage.setItem(storageKey, JSON.stringify(data))
   } catch {
     notice = "Browser storage is unavailable. Your changes will last until this tab closes."
   }
-  snapshot = { data, ready: true, notice, generation }
+  snapshot = { data, ready: true, notice }
   emit()
 }
 function load(preserveWorkspace = false) {
@@ -61,7 +60,7 @@ function load(preserveWorkspace = false) {
   }
   if (preserveWorkspace && snapshot.ready)
     data = { ...data, activeWorkspaceId: snapshot.data.activeWorkspaceId }
-  snapshot = { data, ready: true, notice, generation: snapshot.generation + 1 }
+  snapshot = { data, ready: true, notice }
   emit()
 }
 function onStorage(event: StorageEvent) {
@@ -127,7 +126,7 @@ export const demoStore = {
   switchWorkspace(id: string) {
     if (!snapshot.data.workspaces.some((workspace) => workspace.id === id))
       throw new Error("Unknown workspace")
-    persist({ ...snapshot.data, activeWorkspaceId: id }, snapshot.generation + 1)
+    persist({ ...snapshot.data, activeWorkspaceId: id })
   },
   reset() {
     persist({

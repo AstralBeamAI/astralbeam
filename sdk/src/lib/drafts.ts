@@ -1,4 +1,5 @@
-import { newUuid } from "../core/threads.ts"
+import { chatPlacementKey, newUuid } from "../core/threads.ts"
+import type { MultimodalContent } from "@tanstack/ai-client"
 
 /**
  * What an attachment is. An `image` or a `pdf` the agent's model reads directly; a `text`, `data`,
@@ -26,6 +27,13 @@ export interface DraftAttachment {
 }
 
 let draftSessionId: string | undefined
+
+export function chatDraftIdentity(
+  identity: string,
+  options: Parameters<typeof chatPlacementKey>[0],
+): string {
+  return JSON.stringify([identity, chatPlacementKey(options)])
+}
 
 function draftStorageKey(apiUrl: string, identity: string, threadId: string): string {
   if (!threadId) {
@@ -79,13 +87,90 @@ export function storedThreadDraft(
   if (!identity) return ""
   const key = `astralbeam:${slot}:${draftStorageKey(apiUrl, identity, threadId)}`
   try {
-    if (text === undefined) return globalThis.localStorage?.getItem(key) ?? ""
-    if (text) globalThis.localStorage?.setItem(key, text)
-    else globalThis.localStorage?.removeItem(key)
+    const session = slot === "sent" ? globalThis.sessionStorage : undefined
+    if (text === undefined)
+      return session?.getItem(key) ?? globalThis.localStorage?.getItem(key) ?? ""
+    if (text) (session ?? globalThis.localStorage)?.setItem(key, text)
+    else session?.removeItem(key)
+    // Older SDKs used localStorage for the recovery copy, even for saved conversations.
+    if (session || !text) globalThis.localStorage?.removeItem(key)
   } catch {
     // Disabled or full browser storage must not prevent editing or sending.
   }
   return ""
+}
+
+export interface PendingSubmissionScope {
+  apiUrl: string
+  identity: string
+  threadId: string
+}
+
+export interface PendingSubmission {
+  id: string
+  key: string
+  content: string | MultimodalContent
+  tools: Array<Record<string, unknown>>
+  clientId: string
+  dispatchedAt: number
+  draftFileIds?: readonly string[] | undefined
+}
+
+// Keep only text and uploaded references, as with the rest of the composer draft.
+function isRecoverableContent(content: string | MultimodalContent): boolean {
+  return (
+    typeof content === "string" ||
+    typeof content.content === "string" ||
+    (Array.isArray(content.content) &&
+      content.content.every((part) =>
+        part?.type === "text"
+          ? typeof part.content === "string"
+          : ["image", "document", "audio", "video"].includes(part?.type) &&
+            part.source?.type === "file" &&
+            typeof part.source.value === "string",
+      ))
+  )
+}
+
+/** A dispatched send belongs to this tab and verified account, placement, API, and thread. */
+export function storedPendingSubmission(
+  scope: PendingSubmissionScope,
+  change?: { save: PendingSubmission } | { clearKey: string },
+): PendingSubmission | undefined {
+  if (!scope.identity || !scope.threadId) return
+  const key = `astralbeam:pending:${draftStorageKey(scope.apiUrl, scope.identity, scope.threadId)}`
+  try {
+    const storage = globalThis.sessionStorage
+    if (!storage) return
+    if (change && "save" in change) {
+      if (!isRecoverableContent(change.save.content)) return
+      storage.setItem(key, JSON.stringify(change.save))
+      return change.save
+    }
+    const pending = JSON.parse(storage.getItem(key) ?? "null") as PendingSubmission | null
+    if (change) {
+      if (pending?.key === change.clearKey) storage.removeItem(key)
+      return
+    }
+    if (
+      !pending ||
+      typeof pending.id !== "string" ||
+      typeof pending.key !== "string" ||
+      typeof pending.clientId !== "string" ||
+      !pending.content ||
+      !isRecoverableContent(pending.content) ||
+      !Number.isFinite(pending.dispatchedAt) ||
+      !Array.isArray(pending.tools) ||
+      (pending.draftFileIds !== undefined &&
+        (!Array.isArray(pending.draftFileIds) ||
+          !pending.draftFileIds.every((id) => typeof id === "string")))
+    )
+      return
+    return pending
+  } catch {
+    // A disabled, full, or malformed store must not stop live sends and in-memory retries.
+  }
+  return undefined
 }
 
 // Drafts retain uploaded object references, never file bytes or signed URLs.

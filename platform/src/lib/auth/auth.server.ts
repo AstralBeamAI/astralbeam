@@ -46,6 +46,7 @@ import { isTrustedProxyAddress, proxySettingsFromValues } from "@/lib/utils.serv
 import {
   assertAuthEmailDelivered,
   deliverBlockingAuthEmail,
+  runWithAuthEmailDeliveryScope,
   withBlockingAuthEmailDelivery,
 } from "./email-delivery.server.ts"
 import type { AuthEmailNotDelivered } from "./errors.ts"
@@ -268,16 +269,14 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
       resetPasswordTokenExpiresIn: PASSWORD_RESET_EXPIRY_SECONDS,
       revokeSessionsOnPasswordReset: true,
       customSyntheticUser: ({ coreFields }) => createSyntheticUser(coreFields),
-      sendResetPassword: ({ user, url }, request) =>
+      sendResetPassword: ({ user, url }) =>
         deliverBlockingAuthEmail(
-          request,
           mailer.sendResetPassword({ user, url, expiresInSeconds: PASSWORD_RESET_EXPIRY_SECONDS }),
         ),
       // A duplicate sign-up gets a synthetic user, so its real owner learns why only from this email.
       // Both branches send one email, so an outage fails either alike. https://better-auth.com/docs/concepts/email
-      onExistingUserSignUp: ({ user }, request) =>
+      onExistingUserSignUp: ({ user }) =>
         deliverBlockingAuthEmail(
-          request,
           user.emailVerified
             ? mailer.sendAccountExists({ user })
             : Effect.flatMap(buildVerificationURL(config, user), (url) =>
@@ -297,9 +296,8 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
       autoSignInAfterVerification: true,
       // Better Auth returns before this callback for an already verified address.
       afterEmailVerification: (user) => welcomeNewUser(mailer, user),
-      sendVerificationEmail: ({ user, url }, request) =>
+      sendVerificationEmail: ({ user, url }) =>
         deliverBlockingAuthEmail(
-          request,
           mailer.sendVerification({
             user,
             url,
@@ -452,7 +450,7 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
         return
       }),
       after: createAuthMiddleware(async (context) => {
-        assertAuthEmailDelivered(context.request)
+        assertAuthEmailDelivered()
         const signedIn = context.context.newSession?.user
         if (signedIn) await enqueueOAuthProfileImage(signedIn.id)
         const { sessionToken, dontRememberToken } = context.context.authCookies
@@ -543,9 +541,8 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
         invitationExpiresIn: ORGANIZATION_INVITATION_EXPIRY_SECONDS,
         requireEmailVerificationOnInvitation: true,
         disableOrganizationDeletion: true,
-        sendInvitationEmail: (data, request) =>
+        sendInvitationEmail: (data) =>
           deliverBlockingAuthEmail(
-            request,
             mailer.sendOrganizationInvitation({
               ...data,
               expiresInSeconds: ORGANIZATION_INVITATION_EXPIRY_SECONDS,
@@ -685,7 +682,9 @@ export class Auth extends Context.Service<
       ) {
         const { auth, config } = yield* configured
         return yield* Effect.promise(() =>
-          auth.handler(withTrustedProxyHeaders(request, peerAddress, config.proxy)),
+          runWithAuthEmailDeliveryScope(() =>
+            auth.handler(withTrustedProxyHeaders(request, peerAddress, config.proxy)),
+          ),
         )
       })
 

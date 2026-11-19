@@ -27,7 +27,6 @@ const prerenderRoutes = [
   "/blog/feed.xml",
   ...blogRoutes,
   "/404",
-  "/favicon.png",
   "/og-image.png",
   "/licenses.txt",
   "/llms.txt",

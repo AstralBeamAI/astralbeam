@@ -1,6 +1,6 @@
 {
   "name": "@astralbeam/cli",
-  "version": "0.30.7",
+  "version": "0.30.8",
   "description": "Command-line interface for AstralBeam organization admins and their coding agents",
   "homepage": "https://astralbeam.ai/docs/cli/getting-started",
   "bugs": "https://github.com/AstralBeamAI/astralbeam/issues",
@@ -45,7 +45,7 @@
   },
   "devDependencies": {
     "@astralbeam/sdk": "workspace:*",
-    "@effect/tsgo": "0.67.5",
+    "@effect/tsgo": "0.70.0",
     "@types/bun": "1.4.4",
     "@types/node": "^26.2.0",
     "@types/yargs": "17.0.35",

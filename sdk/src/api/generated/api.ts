@@ -279,6 +279,7 @@ export type ChatHistoryPageEncodedMessagesItem = {
   parent_message_id: string | null
   parts: ChatHistoryPageEncodedMessagesItemPartsItem[]
   author_tenant_user_id: string | null
+  client_message_id?: string
   source_assistant_message_id: string | null
   source_tool_part_id: string | null
   response_target_id: string | null
@@ -499,6 +500,7 @@ export interface ChatMessageEncoded {
   parent_message_id: string | null
   parts: ChatMessageEncodedPartsItem[]
   author_tenant_user_id: string | null
+  client_message_id?: string
   source_assistant_message_id: string | null
   source_tool_part_id: string | null
   response_target_id: string | null

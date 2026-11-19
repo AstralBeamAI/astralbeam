@@ -120,10 +120,10 @@ export function describeUsageLimit(limit: { name: string; resetsAt: string }): s
   return `${limit.name} reached. You can chat again after ${resetsAt}.`
 }
 
-export function describeError(error: Error | undefined): string {
+export function describeError(error: Error): string {
   const limit = isAstralBeamApiError(error) ? error.body?.usage_limit : undefined
   if (limit) return describeUsageLimit({ name: limit.name, resetsAt: limit.resets_at })
-  const message = error?.message ?? ""
+  const message = error.message
   const httpStatus = message.match(/status: (\d{3})/)?.[1]
   if (httpStatus) return `The assistant service returned an error (HTTP ${httpStatus}).`
   if (/fetch|network|load failed|connection/i.test(message)) {

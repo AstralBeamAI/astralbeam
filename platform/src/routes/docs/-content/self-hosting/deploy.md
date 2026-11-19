@@ -148,12 +148,12 @@ Local sandboxes require [operator setup](../dashboard/sandboxes.md#local-provide
 In an empty directory, download the Compose file and create a private `.env` once. The command refuses to overwrite an existing file:
 
 ```sh
-curl -fsSLO https://raw.githubusercontent.com/AstralBeamAI/astralbeam/v0.30.7/docker-compose.production.yml
+curl -fsSLO https://raw.githubusercontent.com/AstralBeamAI/astralbeam/v0.30.8/docker-compose.production.yml
 (
   umask 077
   set -C
   printf 'ASTRALBEAM_VERSION=%s\nPOSTGRES_PASSWORD=%s\nDATABASE_ENCRYPTION_KEY=%s\nBETTER_AUTH_SECRET=%s\nALLOW_INSECURE=true\nSKIP_EMAIL_VERIFICATION=true\nTURNSTILE_SITE_KEY=1x00000000000000000000AA\nTURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA\n' \
-    "${ASTRALBEAM_VERSION:-0.30.7}" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" \
+    "${ASTRALBEAM_VERSION:-0.30.8}" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" \
     > .env
 )
 docker compose -f docker-compose.production.yml up --detach --wait
@@ -161,7 +161,7 @@ docker compose -f docker-compose.production.yml up --detach --wait
 
 Open http://localhost:4510/configure and [complete setup](#complete-setup). Configure email before inviting the owner. The stack binds to localhost and stores files at `/var/lib/astralbeam/storage` in its persistent volume. Its HTTP, verification, and Turnstile defaults are for local evaluation.
 
-To upgrade, [back up](./operations.md#backups-and-restore), set `ASTRALBEAM_VERSION` to the new release in `.env`, rerun the startup command, and apply pending migrations. `docker compose -f docker-compose.production.yml down` preserves data. **Adding `--volumes` deletes the database and files.** If existing uploads are at the volume root, stop Platform, back up, and move them into `storage/`, preserving ownership.
+To upgrade, [back up](./operations.md#backups-and-restore) and review the new release's Compose file for service image tag updates. Apply those updates while preserving your local settings. Set `ASTRALBEAM_VERSION` to the new release in `.env`, rerun the startup command, and apply pending migrations. `docker compose -f docker-compose.production.yml down` preserves data. **Adding `--volumes` deletes the database and files.** If existing uploads are at the volume root, stop Platform, back up, and move them into `storage/`, preserving ownership.
 
 ### Existing services
 

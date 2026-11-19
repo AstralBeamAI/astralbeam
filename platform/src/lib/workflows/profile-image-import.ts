@@ -1,11 +1,11 @@
-import { and, eq } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 import { Effect, Schema } from "effect"
 import { Activity, Workflow } from "effect/workflow"
 
 import { Database } from "@/db/database"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate"
 import { member } from "@/db/schema/organizations"
-import { retireImage } from "@/lib/organizations/images.server"
+import { replaceMemberAvatar } from "@/lib/organizations/images.server"
 import { UuidV7Schema } from "@/lib/schemas"
 import { ImageSources } from "@/lib/storage/image-source.server"
 import { StoredFiles } from "@/lib/storage/stored-files.server"
@@ -28,7 +28,6 @@ export const profileImageImportWorkflowLayer = profileImageImport.toLayer((input
         .select({
           id: member.id,
           organizationId: member.organizationId,
-          avatarFileId: member.avatarFileId,
         })
         .from(member)
         .where(eq(member.userId, input.userId))
@@ -37,20 +36,11 @@ export const profileImageImportWorkflowLayer = profileImageImport.toLayer((input
       const image = yield* sources.fetch({ source: input.imageUrl })
       for (const membership of memberships) {
         const file = yield* files.upload({ ...image, organizationId: membership.organizationId })
-        yield* db
-          .update(member)
-          .set({ avatarFileId: file.id })
-          .where(
-            and(
-              eq(member.organizationId, membership.organizationId),
-              eq(member.id, membership.id),
-              eq(member.userId, input.userId),
-            ),
-          )
-          .pipe(mapDatabaseErrors())
-        yield* retireImage({
+        yield* replaceMemberAvatar({
           organizationId: membership.organizationId,
-          fileId: membership.avatarFileId,
+          memberId: membership.id,
+          userId: input.userId,
+          fileId: file.id,
         })
       }
     }).pipe(Effect.catchCause(() => Effect.logWarning("Optional profile image import failed"))),

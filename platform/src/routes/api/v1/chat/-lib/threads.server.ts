@@ -95,6 +95,7 @@ export const chatMessageRecord = Schema.Struct({
   parentMessageId: Schema.NullOr(ApiUuidSchema),
   parts: Schema.Array(Schema.JsonObject),
   authorTenantUserId: Schema.NullOr(ApiUuidSchema),
+  clientMessageId: Schema.optionalKey(ApiUuidSchema),
   sourceAssistantMessageId: Schema.NullOr(ApiUuidSchema),
   sourceToolPartId: Schema.NullOr(Schema.String),
   responseTargetId: Schema.NullOr(Schema.String),
@@ -104,6 +105,7 @@ export const chatMessageRecord = Schema.Struct({
   Schema.encodeKeys({
     parentMessageId: "parent_message_id",
     authorTenantUserId: "author_tenant_user_id",
+    clientMessageId: "client_message_id",
     sourceAssistantMessageId: "source_assistant_message_id",
     sourceToolPartId: "source_tool_part_id",
     responseTargetId: "response_target_id",
@@ -340,6 +342,7 @@ function chatParticipantResource(row: ParticipantRecord) {
 }
 
 export function messageResource(row: MessageRecord) {
+  const clientMessageId = row.role === "user" ? row.metadata.provenance?.clientMessageId : undefined
   return {
     id: row.id,
     role: row.role,
@@ -365,6 +368,7 @@ export function messageResource(row: MessageRecord) {
       return part
     }),
     authorTenantUserId: row.authorTenantUserId,
+    ...(clientMessageId === undefined ? {} : { clientMessageId }),
     sourceAssistantMessageId: row.sourceAssistantMessageId,
     sourceToolPartId: row.sourceToolPartId,
     responseTargetId: row.responseTargetId,

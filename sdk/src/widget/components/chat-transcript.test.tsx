@@ -50,3 +50,30 @@ test("an empty saved reply keeps its interruption warning", () => {
   )
   expect(html).toContain("Response interrupted")
 })
+
+test("an expired send remains visible without a Retry action", () => {
+  const html = renderToStaticMarkup(
+    <ChatTranscript
+      messages={[]}
+      submission={{
+        id: "original",
+        content: "Copy this unsent message",
+        phase: "failed",
+        retryExpired: true,
+      }}
+      currentTenantUserId="author"
+      widgets={{}}
+      toolTitles={{}}
+      activeSlots={new Map()}
+      interactiveToolIds={new Set()}
+      hasOlder={false}
+      loadingOlder={false}
+      onLoadOlder={() => Promise.resolve()}
+      isBusy={false}
+      awaitingReply={false}
+      onQuestionnaireAnswers={() => {}}
+    />,
+  )
+  expect(html).toContain("Copy this unsent message")
+  expect(html).not.toContain(">Retry<")
+})
