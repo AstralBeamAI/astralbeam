@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import type { ModelConfiguration } from "./schemas.ts"
 import { modelUsageCost } from "./usage-cost.ts"
+import { chatNativeCompactionUsage } from "../chat/compaction-usage"
 
 const configuration: ModelConfiguration = {
   currency: "USD",
@@ -92,5 +93,27 @@ describe("modelUsageCost", () => {
         providerUsageDetails: { requestUsage },
       }),
     ).toBe("0.66")
+  })
+
+  it("prices native compaction iterations separately with their cache reads and writes", () => {
+    const iteration = {
+      type: "compaction",
+      inputTokens: 90_000,
+      outputTokens: 1_000,
+      cacheReadInputTokens: 50_000,
+      cacheCreationInputTokens: 10_000,
+    }
+    const usage = chatNativeCompactionUsage({
+      promptTokens: 300_000,
+      completionTokens: 2_000,
+      totalTokens: 302_000,
+      providerUsageDetails: { iterations: [iteration, iteration] },
+    })
+    expect(
+      modelUsageCost(
+        { ...configuration, prices: { ...configuration.prices, cacheWritePerMillion: "4" } },
+        usage,
+      ),
+    ).toBe("0.68")
   })
 })

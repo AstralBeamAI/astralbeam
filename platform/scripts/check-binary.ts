@@ -504,8 +504,14 @@ async function runBinaryCheck() {
       redirect: "manual",
     })
     await missingAsset.body?.cancel()
-    if (missingAsset.ok || missingAsset.headers.get("cache-control") !== "private, no-store") {
-      throw new Error("Binary allowed a missing asset to inherit immutable caching")
+    if (
+      missingAsset.status !== 404 ||
+      !missingAsset.headers
+        .get("cache-control")
+        ?.split(",")
+        .some((value) => value.trim() === "no-store")
+    ) {
+      throw new Error("Binary did not return a 404 with no-store for a missing asset")
     }
     await checkBinaryDocsDiscovery(baseUrl)
     if (expectedWorkers > 1) {

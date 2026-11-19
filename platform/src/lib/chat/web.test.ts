@@ -4,7 +4,9 @@ import {
   modelMessagesToUIMessages,
   StreamProcessor,
   toolDefinition,
+  type AnyTextAdapter,
   type ModelMessage,
+  type TokenUsage,
 } from "@tanstack/ai"
 import { chat } from "@tanstack/ai-effect"
 import { Effect, Schema, Stream } from "effect"
@@ -14,7 +16,8 @@ import { createChatAdapter } from "./adapter"
 import { chatWebTools } from "./web"
 import { modelWebAccess } from "@/lib/model-providers/web.server"
 import { managedChatMiddleware, managedChatDelivery } from "./threads/stream"
-import { projectChatModelHistory } from "./threads/projection"
+import { chatStoredJson, projectChatModelHistory } from "./threads/projection"
+import { chatCompactionMessages } from "./compaction"
 import type { ChatThreads } from "./threads/threads"
 import type { ChatMessagePayload, ChatWriterClaim, ChatToolResolution } from "./threads/schemas"
 
@@ -251,6 +254,7 @@ async function exerciseNativeWeb(provider: "openai" | "anthropic", application: 
   const chunks = await Effect.runPromise(
     Stream.runCollect(managedChatDelivery({ managed, state: bridge.state, source })),
   )
+  let messages = history
   if (!application) {
     const replay = projectChatModelHistory(
       [
@@ -268,18 +272,19 @@ async function exerciseNativeWeb(provider: "openai" | "anthropic", application: 
         webAccessEnabled: true,
       },
     )
+    messages = [...history, ...replay]
     await Effect.runPromise(
       Stream.runDrain(
         chat({
           adapter: createChatAdapter(model),
           threadId: claim.threadId,
           tools,
-          messages: [...history, ...replay, { role: "user", content: "Continue" }],
+          messages: [...messages, { role: "user", content: "Continue" }],
         }),
       ),
     )
   }
-  return { model, claim, saved, applicationResults, requests, chunks }
+  return { model, claim, saved, applicationResults, requests, chunks, messages }
 }
 
 test.each(["openai", "anthropic"] as const)(
@@ -389,6 +394,96 @@ test.each(["openai", "anthropic"] as const)(
     expect(live[0]?.state).toBe("complete")
   },
 )
+
+test("Anthropic compaction preserves signed context through storage and native web replay", async () => {
+  const { model, messages } = await exerciseNativeWeb("anthropic", false)
+  const requests: Request[] = []
+  const usage: TokenUsage[] = []
+  const block = {
+    type: "compaction",
+    content: "Verified page and completed work.",
+    signature: "synthetic-compaction-signature",
+    encrypted_content: "synthetic-encrypted-context",
+    tool_changes: [],
+  }
+  const adapter: AnyTextAdapter = createChatAdapter({
+    ...model,
+    fetch: (input, init) => {
+      requests.push(new Request(input, init))
+      return Promise.resolve(
+        requests.length === 1
+          ? Response.json({
+              id: "compacted",
+              type: "message",
+              role: "assistant",
+              model: model.modelId,
+              content: [block],
+              stop_reason: "compaction",
+              usage: {
+                input_tokens: 0,
+                output_tokens: 0,
+                iterations: [
+                  {
+                    type: "compaction",
+                    input_tokens: 100,
+                    output_tokens: 10,
+                    cache_creation_input_tokens: 0,
+                    cache_read_input_tokens: 0,
+                    cache_creation: null,
+                  },
+                ],
+              },
+            })
+          : webResponse("anthropic"),
+      )
+    },
+  })
+  const tools = chatWebTools(model, true, [])
+  const compacted = await adapter.compact!({
+    messages,
+    model: model.modelId,
+    tools,
+    modelOptions: { max_tokens: 4096 },
+    addUsage: (value) => usage.push(value),
+  })
+  expect(usage).toMatchObject([{ promptTokens: 100, completionTokens: 10, totalTokens: 110 }])
+  const restored = chatCompactionMessages({
+    version: 1,
+    kind: "native",
+    messages: compacted.map(chatStoredJson),
+  })
+  await Effect.runPromise(
+    Stream.runDrain(
+      chat({
+        adapter,
+        threadId: "thread",
+        tools,
+        messages: [...restored, { role: "user", content: "Continue" }],
+      }),
+    ),
+  )
+  expect(requests).toHaveLength(2)
+  const compaction = Schema.decodeUnknownSync(Schema.JsonObject)(await requests[0]!.json())
+  const replay = Schema.decodeUnknownSync(Schema.JsonObject)(await requests[1]!.json())
+  expect(compaction).toMatchObject({
+    compaction: { type: "summarize" },
+    max_tokens: 4096,
+    tools: [{ name: "web_search" }, { name: "web_fetch" }],
+  })
+  expect(anthropicReplayBlockTypes(compaction)).toContain("web_fetch_tool_result")
+  const replayMessages = Schema.decodeUnknownSync(Schema.Array(Schema.JsonObject))(replay.messages)
+  expect(replayMessages).toHaveLength(2)
+  expect(replayMessages[0]).toEqual({ role: "assistant", content: [block] })
+  expect(replayMessages[1]).toMatchObject({
+    role: "user",
+    content: [{ type: "text", text: "Continue" }],
+  })
+  expect(
+    requests.every((request) =>
+      request.headers.get("anthropic-beta")?.includes("compact-2026-09-04"),
+    ),
+  ).toBe(true)
+})
 
 test("disabled access, unsupported models and reserved browser names enforce the grant", () => {
   const model = {

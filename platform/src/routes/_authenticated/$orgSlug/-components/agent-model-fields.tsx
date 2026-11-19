@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router"
 
+import { DocsLink } from "@/components/docs-link"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
   Field,
@@ -98,6 +99,12 @@ export function AgentModelFields({
               ))}
             </SelectContent>
           </Select>
+          <FieldDescription>
+            Long chats use this model’s token limits for automatic compaction.{" "}
+            <DocsLink href="/docs/dashboard/models#automatic-compaction">
+              How automatic compaction works
+            </DocsLink>
+          </FieldDescription>
         </Field>
       )}
     </FieldSet>

@@ -47,6 +47,7 @@ interface ChatTranscriptProps {
   loadingOlder: boolean
   onLoadOlder: () => Promise<void>
   isBusy: boolean
+  preparingContext?: boolean
   /** The stream is busy but nothing visible has progressed yet; shows the "Thinking…" marker. */
   awaitingReply: boolean
   onQuestionnaireAnswers: (toolCallId: string, answers: QuestionnaireAnswer[]) => void
@@ -193,6 +194,7 @@ export function ChatTranscript({
   onLoadOlder,
   isBusy,
   awaitingReply,
+  preparingContext = false,
   onQuestionnaireAnswers,
 }: ChatTranscriptProps) {
   const loadingEarlier = useRef(false)
@@ -317,13 +319,15 @@ export function ChatTranscript({
                 onRetrySubmission={message === failedMessage ? onRetrySubmission : undefined}
               />
             ))}
-            {awaitingReply && (
+            {(awaitingReply || preparingContext) && (
               <MessageScrollerItem messageId="astralbeam-thinking" className={LATEST_TURN}>
                 <Marker role="status">
                   <MarkerIcon>
                     <Spinner />
                   </MarkerIcon>
-                  <MarkerContent className="shimmer">Thinking…</MarkerContent>
+                  <MarkerContent className="shimmer">
+                    {preparingContext ? "Summarizing earlier messages…" : "Thinking…"}
+                  </MarkerContent>
                 </Marker>
               </MessageScrollerItem>
             )}

@@ -1,11 +1,11 @@
 diff --git a/dist/runtime/internal/static.mjs b/dist/runtime/internal/static.mjs
-index 50182be73..070943974 100644
+index 50182be73..33b25e59d 100644
 --- a/dist/runtime/internal/static.mjs
 +++ b/dist/runtime/internal/static.mjs
 @@ -17 +17,3 @@ var static_default = defineHandler((event) => {
 -	const encodings = [...(event.req.headers.get("accept-encoding") || "").split(",").map((entry) => {
 +	// Remove when Nitro handles identity, wildcard exclusions and the first matching encoding.
-+	// https://github.com/nitrojs/nitro/issues/4457
++	// https://github.com/nitrojs/nitro/issues/5158
 +	const weights = new Map((event.req.headers.get("accept-encoding") || "").split(",").map((entry) => {
 @@ -20,12 +22,18 @@ var static_default = defineHandler((event) => {
 -		const weight = quality === void 0 ? 1 : Number.parseFloat(quality);

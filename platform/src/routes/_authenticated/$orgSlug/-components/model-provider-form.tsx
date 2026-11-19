@@ -310,7 +310,10 @@ export function ModelProviderForm({
                         ))}
                       </SelectContent>
                     </Select>
-                    <FieldDescription>Use the API format your endpoint supports.</FieldDescription>
+                    <FieldDescription>
+                      Use the API format your endpoint supports. The official OpenAI Responses
+                      endpoint can compact context natively when the agent’s Web access is off.
+                    </FieldDescription>
                   </Field>
                 )}
               </CollapsibleContent>
@@ -325,7 +328,13 @@ export function ModelProviderForm({
             />
             <FieldDescription>
               Catalog prices are provider list prices in USD per million tokens. Override them for
-              negotiated or gateway rates. Token limits are saved, but not enforced yet.
+              negotiated or gateway rates.
+            </FieldDescription>
+            <FieldDescription>
+              Chat uses each model’s token limits to compact older context automatically.{" "}
+              <DocsLink href="/docs/dashboard/models#automatic-compaction">
+                How automatic compaction works
+              </DocsLink>
             </FieldDescription>
             {models.map((model, index) => (
               <ProviderModelConfigurationFields

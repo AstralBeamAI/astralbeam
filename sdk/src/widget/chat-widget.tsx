@@ -419,6 +419,7 @@ export function ChatWidget({
       )}
       <CardContent className="min-h-0 flex-1 overflow-hidden p-0">
         <ChatTranscript
+          preparingContext={chatState.preparingContext}
           readOnly={chatState.thread?.role === "viewer"}
           messages={messages}
           submission={submission}

@@ -36,6 +36,7 @@ import {
   agent,
   agentModel,
   cacheEntry,
+  chatCompaction,
   chatMessage,
   chatMessagePart,
   chatParticipant,
@@ -252,6 +253,17 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       messageId: result!.id,
       position: 0,
       payload: { version: 1, type: "tool-result", outcome: "succeeded", output: true },
+    })
+    await db.insert(chatCompaction).values({
+      ...chatScope,
+      coveredThroughMessageId: result!.id,
+      compatibilityKey: "test",
+      payload: {
+        version: 1,
+        kind: "portable",
+        messages: [{ role: "user", content: "Historical context" }],
+      },
+      usage: {},
     })
     await db.insert(chatToolResponse).values({
       ...chatScope,
@@ -581,6 +593,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       mcpConnection,
       chatThread,
       chatParticipant,
+      chatCompaction,
       chatMessage,
       chatMessagePart,
       chatToolResponse,
@@ -614,6 +627,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       mcpConnection,
       chatThread,
       chatParticipant,
+      chatCompaction,
       chatMessage,
       chatMessagePart,
       chatToolResponse,
