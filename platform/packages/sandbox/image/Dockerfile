@@ -19,7 +19,7 @@ RUN apt-get update \
         poppler-utils qpdf tesseract-ocr tesseract-ocr-eng \
     && ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
     && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
-    && npm install --global typescript \
+    && npm install --global npm@11.21.3 typescript \
     && npm cache clean --force \
     && rm -rf /var/lib/apt/lists/*
 

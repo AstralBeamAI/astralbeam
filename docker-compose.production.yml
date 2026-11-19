@@ -32,7 +32,7 @@ services:
       - file-storage:/var/lib/astralbeam
 
   postgres:
-    image: postgres:18
+    image: postgres:18.7@sha256:37586cb420551a1d64a424c5d02e93642692499f70919dda80e4bdafbb0a9533
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-astralbeam}
