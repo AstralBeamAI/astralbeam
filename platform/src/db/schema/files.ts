@@ -1,12 +1,4 @@
-import {
-  bigint,
-  index,
-  pgEnum,
-  uniqueIndex,
-  primaryKey,
-  snakeCase,
-  uuid,
-} from "drizzle-orm/pg-core"
+import { bigint, index, pgEnum, uniqueIndex, primaryKey, snakeCase } from "drizzle-orm/pg-core"
 
 import { timestamps, uuidV7, text } from "../lib/columns.ts"
 import { organizationForeignKey } from "./organizations.ts"
@@ -18,7 +10,7 @@ const fileObjectStatus = pgEnum("file_object_status", ["pending", "stored", "pur
 export const fileObject = snakeCase.table(
   "file_object",
   {
-    organizationId: uuid().notNull(),
+    organizationId: uuidV7({ generated: false }).notNull(),
     id: uuidV7(),
     objectKey: text().notNull(),
     contentType: text().notNull(),

@@ -9,7 +9,6 @@ import {
   unique,
   primaryKey,
   snakeCase,
-  uuid,
 } from "drizzle-orm/pg-core"
 
 import {
@@ -90,12 +89,12 @@ export const UsageLimitRowSchema = createSelectSchema(usageLimit, usageLimitColu
 export const usageLimitCounter = snakeCase.table(
   "usage_limit_counter",
   {
-    organizationId: uuid().$type<OrganizationId>().notNull(),
+    organizationId: uuidV7({ generated: false }).$type<OrganizationId>().notNull(),
     id: uuidV7(),
-    usageLimitId: uuid().notNull(),
-    tenantId: uuid().$type<TenantId>(),
-    tenantUserId: uuid().$type<TenantUserId>(),
-    threadId: uuid(),
+    usageLimitId: uuidV7({ generated: false }).notNull(),
+    tenantId: uuidV7({ generated: false }).$type<TenantId>(),
+    tenantUserId: uuidV7({ generated: false }).$type<TenantUserId>(),
+    threadId: uuidV7({ generated: false }),
     // Recording usage at or after this end starts a new window with only the new usage.
     windowEndsAt: timestampWithTimeZone().notNull(),
     tokens: bigint({ mode: "number" }).notNull(),

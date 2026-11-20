@@ -1,4 +1,4 @@
-import { index, unique, primaryKey, snakeCase, uuid } from "drizzle-orm/pg-core"
+import { index, unique, primaryKey, snakeCase } from "drizzle-orm/pg-core"
 import {
   deferrableForeignKey,
   encryptedJson,
@@ -15,7 +15,7 @@ import { McpCredentialEnvelopeSchema, McpStoredAuthConfigSchema } from "@/lib/mc
 export const mcpServer = snakeCase.table(
   "mcp_server",
   {
-    organizationId: uuid().$type<OrganizationId>().notNull(),
+    organizationId: uuidV7({ generated: false }).$type<OrganizationId>().notNull(),
     id: uuidV7(),
     endpointUrl: text().notNull(),
     authConfig: jsonb({ schema: McpStoredAuthConfigSchema }).notNull(),
@@ -31,11 +31,11 @@ export const mcpServer = snakeCase.table(
 export const mcpConnection = snakeCase.table(
   "mcp_connection",
   {
-    organizationId: uuid().$type<OrganizationId>().notNull(),
-    tenantId: uuid().$type<TenantId>().notNull(),
+    organizationId: uuidV7({ generated: false }).$type<OrganizationId>().notNull(),
+    tenantId: uuidV7({ generated: false }).$type<TenantId>().notNull(),
     id: uuidV7(),
-    tenantUserId: uuid().$type<TenantUserId>().notNull(),
-    mcpServerId: uuid().notNull(),
+    tenantUserId: uuidV7({ generated: false }).$type<TenantUserId>().notNull(),
+    mcpServerId: uuidV7({ generated: false }).notNull(),
     credentials: encryptedJson({ schema: McpCredentialEnvelopeSchema }),
     lockVersion: lockVersion(),
     ...timestamps(),
