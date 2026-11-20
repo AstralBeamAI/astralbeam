@@ -18,11 +18,12 @@ import {
   or,
   sql,
 } from "drizzle-orm"
+import type { AnyPgColumn } from "drizzle-orm/pg-core"
 import { Array as EffectArray, Context, Effect, Layer, Schema } from "effect"
 
 import { Database, type EffectDatabase } from "@/db/database"
 import { cacheEntry } from "@/db/schema/cache"
-import { databasePage, type DatabasePage, type DatabasePageOptions } from "@/db/lib/pagination"
+import { databasePage, type DatabasePageOptions } from "@/db/lib/pagination"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate"
 import { deleteWithOptimisticLock, updateWithOptimisticLock } from "@/db/lib/optimistic-locking"
 import {
@@ -50,8 +51,7 @@ import { fileObject } from "@/db/schema/files"
 import { CHAT_ATTACHMENT_MAX_TOTAL_BYTES } from "../attachments/constants"
 import { parseAgentId } from "@/lib/agents/schemas"
 import { tenantUserEmail } from "@/lib/tenants/schemas"
-import type { TenantScope } from "@/lib/tenants/tenants"
-import { tenantSearchPattern } from "@/lib/tenants/tenants"
+import { tenantScopeWhere, tenantSearchPattern, type TenantScope } from "@/lib/tenants/tenants"
 import {
   ChatThreadConflict,
   ChatThreadForbidden,
@@ -131,24 +131,19 @@ const threadExecutionActive = sql<boolean>`exists (
     and execution.thread_id = ${chatThread.id}
     and execution.turn_state = 'running'
 )`.mapWith(Boolean)
-const scopeWhere = (scope: ChatReadScope, id: string) =>
-  and(
-    eq(chatThread.organizationId, scope.organizationId),
-    eq(chatThread.tenantId, scope.tenantId),
-    eq(chatThread.id, id),
-  )!
-const messageWhere = (scope: ChatReadScope, id: string) =>
-  and(
-    eq(chatMessage.organizationId, scope.organizationId),
-    eq(chatMessage.tenantId, scope.tenantId),
-    eq(chatMessage.threadId, id),
-  )
-const participantWhere = (scope: ChatThreadScope, id: string) =>
-  and(
-    eq(chatParticipant.organizationId, scope.organizationId),
-    eq(chatParticipant.tenantId, scope.tenantId),
-    eq(chatParticipant.threadId, id),
-  )
+const threadScopeWhere =
+  (table: Record<"organizationId" | "tenantId", AnyPgColumn>, threadId: AnyPgColumn) =>
+  (scope: ChatReadScope, id: string) =>
+    and(
+      eq(table.organizationId, scope.organizationId),
+      eq(table.tenantId, scope.tenantId),
+      eq(threadId, id),
+    )!
+const scopeWhere = threadScopeWhere(chatThread, chatThread.id)
+const messageWhere = threadScopeWhere(chatMessage, chatMessage.threadId)
+const participantWhere = threadScopeWhere(chatParticipant, chatParticipant.threadId)
+const chatPartWhere = threadScopeWhere(chatMessagePart, chatMessagePart.threadId)
+const chatResponseWhere = threadScopeWhere(chatToolResponse, chatToolResponse.threadId)
 const rowScope = (scope: ChatThreadScope) => ({
   organizationId: scope.organizationId,
   tenantId: scope.tenantId,
@@ -162,23 +157,32 @@ const validateCompletePayload = Effect.fnUntraced(function* (payload: ChatMessag
   }
 })
 
-const chatPartWhere = (scope: ChatReadScope, id: string) =>
-  and(
-    eq(chatMessagePart.organizationId, scope.organizationId),
-    eq(chatMessagePart.tenantId, scope.tenantId),
-    eq(chatMessagePart.threadId, id),
-  )
-const chatResponseWhere = (scope: ChatReadScope, id: string) =>
-  and(
-    eq(chatToolResponse.organizationId, scope.organizationId),
-    eq(chatToolResponse.tenantId, scope.tenantId),
-    eq(chatToolResponse.threadId, id),
-  )
-
 function chatMetadata(payload: ChatMessagePayload): typeof chatMessage.$inferInsert.metadata {
   const { parts: _parts, turnId: _turn, ...metadata } = payload
   return metadata
 }
+
+const chatPartResponseJoin = and(
+  eq(chatMessagePart.organizationId, chatToolResponse.organizationId),
+  eq(chatMessagePart.tenantId, chatToolResponse.tenantId),
+  eq(chatMessagePart.threadId, chatToolResponse.threadId),
+  eq(chatMessagePart.id, chatToolResponse.toolPartId),
+)
+
+const chatMessagePartJoin = and(
+  eq(chatMessage.organizationId, chatMessagePart.organizationId),
+  eq(chatMessage.tenantId, chatMessagePart.tenantId),
+  eq(chatMessage.threadId, chatMessagePart.threadId),
+  eq(chatMessage.id, chatMessagePart.messageId),
+)
+
+const chatParticipantThreadJoin = (tenantUserId: TenantUserId) =>
+  and(
+    eq(chatParticipant.organizationId, chatThread.organizationId),
+    eq(chatParticipant.tenantId, chatThread.tenantId),
+    eq(chatParticipant.threadId, chatThread.id),
+    eq(chatParticipant.tenantUserId, tenantUserId),
+  )
 
 const readChatMessages = Effect.fnUntraced(function* (
   db: Executor,
@@ -203,15 +207,7 @@ const readChatMessages = Effect.fnUntraced(function* (
   const responses = yield* db
     .select({ response: chatToolResponse, messageId: chatMessagePart.messageId })
     .from(chatToolResponse)
-    .innerJoin(
-      chatMessagePart,
-      and(
-        eq(chatMessagePart.organizationId, chatToolResponse.organizationId),
-        eq(chatMessagePart.tenantId, chatToolResponse.tenantId),
-        eq(chatMessagePart.threadId, chatToolResponse.threadId),
-        eq(chatMessagePart.id, chatToolResponse.toolPartId),
-      ),
-    )
+    .innerJoin(chatMessagePart, chatPartResponseJoin)
     .where(
       and(
         chatResponseWhere(scope, id),
@@ -381,6 +377,12 @@ const saveChatParts = Effect.fnUntraced(function* (
   }
 })
 
+const threadRecordColumns = {
+  ...getTableColumns(chatThread),
+  role: chatParticipant.role,
+  writerActive: threadExecutionActive,
+}
+
 const readThread = Effect.fnUntraced(function* (db: Executor, input: ThreadInput, lock = false) {
   if (lock)
     yield* db
@@ -389,21 +391,9 @@ const readThread = Effect.fnUntraced(function* (db: Executor, input: ThreadInput
       .where(scopeWhere(input.scope, input.id))
       .for("update")
   const [row] = yield* db
-    .select({
-      ...getTableColumns(chatThread),
-      role: chatParticipant.role,
-      writerActive: threadExecutionActive,
-    })
+    .select(threadRecordColumns)
     .from(chatThread)
-    .innerJoin(
-      chatParticipant,
-      and(
-        eq(chatParticipant.organizationId, chatThread.organizationId),
-        eq(chatParticipant.tenantId, chatThread.tenantId),
-        eq(chatParticipant.threadId, chatThread.id),
-        eq(chatParticipant.tenantUserId, input.scope.tenantUserId),
-      ),
-    )
+    .innerJoin(chatParticipant, chatParticipantThreadJoin(input.scope.tenantUserId))
     .where(scopeWhere(input.scope, input.id))
     .limit(1)
   if (!row) return yield* new ChatThreadNotFound()
@@ -687,16 +677,6 @@ const directoryTenantJoin = and(
   eq(tenant.organizationId, chatThread.organizationId),
   eq(tenant.id, chatThread.tenantId),
 )
-function directoryThreadWhere(scope: TenantScope) {
-  return and(
-    eq(chatThread.organizationId, scope.organizationId),
-    scope.tenantId === undefined
-      ? undefined
-      : scope.tenantId === null
-        ? sql`false`
-        : eq(chatThread.tenantId, scope.tenantId),
-  )
-}
 const readDirectoryThread = Effect.fnUntraced(function* (
   db: Executor,
   input: DirectoryThreadInput,
@@ -707,7 +687,7 @@ const readDirectoryThread = Effect.fnUntraced(function* (
     .innerJoin(tenant, directoryTenantJoin)
     .where(
       and(
-        directoryThreadWhere(input.scope),
+        tenantScopeWhere(input.scope, chatThread),
         eq(chatThread.tenantId, input.tenantId),
         eq(chatThread.id, input.id),
       ),
@@ -734,24 +714,8 @@ const unresolvedCalls = Effect.fnUntraced(function* (
   const outstanding = yield* db
     .select({ message: chatMessage, partId: chatMessagePart.id, targetId: chatToolResponse.id })
     .from(chatToolResponse)
-    .innerJoin(
-      chatMessagePart,
-      and(
-        eq(chatMessagePart.organizationId, chatToolResponse.organizationId),
-        eq(chatMessagePart.tenantId, chatToolResponse.tenantId),
-        eq(chatMessagePart.threadId, chatToolResponse.threadId),
-        eq(chatMessagePart.id, chatToolResponse.toolPartId),
-      ),
-    )
-    .innerJoin(
-      chatMessage,
-      and(
-        eq(chatMessage.organizationId, chatMessagePart.organizationId),
-        eq(chatMessage.tenantId, chatMessagePart.tenantId),
-        eq(chatMessage.threadId, chatMessagePart.threadId),
-        eq(chatMessage.id, chatMessagePart.messageId),
-      ),
-    )
+    .innerJoin(chatMessagePart, chatPartResponseJoin)
+    .innerJoin(chatMessage, chatMessagePartJoin)
     .where(
       and(
         chatResponseWhere(scope, thread.id),
@@ -956,122 +920,41 @@ const appendResults = Effect.fnUntraced(function* (
   return { row: current, insertedSource }
 })
 
-export class ChatThreads extends Context.Service<
-  ChatThreads,
+export class ChatThreads extends Context.Service<ChatThreads>()(
+  "astralbeam/chat/threads/ChatThreads",
   {
-    readonly hasCompletedReply: (input: {
-      organizationId: OrganizationId
-    }) => Effect.Effect<boolean>
-    readonly directoryList: (
-      input: DatabasePageOptions & { scope: TenantScope; search?: string | undefined },
-    ) => Effect.Effect<DatabasePage<DirectoryThreadRecord>>
-    readonly directorySnapshot: (
-      input: DirectoryThreadInput & DatabasePageOptions,
-    ) => Effect.Effect<
-      { thread: DirectoryThreadRecord; messages: DatabasePage<MessageRecord> },
-      ChatThreadNotFound
-    >
-    readonly directoryGet: (
-      input: DirectoryThreadInput,
-    ) => Effect.Effect<DirectoryThreadRecord, ChatThreadNotFound>
-    readonly resolveScope: (input: {
-      principal: ChatPrincipal
-    }) => Effect.Effect<ChatThreadScope, ChatIdentityNotSynchronized>
-    readonly create: (input: {
-      scope: ChatThreadScope
-      agentId?: string | undefined
-      title?: string | undefined
-    }) => Effect.Effect<ThreadRecord, ChatThreadError>
-    readonly list: (
-      input: DatabasePageOptions & { scope: ChatThreadScope; search?: string | undefined },
-    ) => Effect.Effect<DatabasePage<ThreadRecord>>
-    readonly get: (input: ThreadInput) => Effect.Effect<ThreadRecord, ChatThreadError>
-    readonly snapshot: (input: ThreadInput & DatabasePageOptions) => Effect.Effect<
-      {
-        thread: ThreadRecord
-        messages: DatabasePage<MessageRecord>
-        pending: PendingChatInteraction[]
-      },
-      ChatThreadError
-    >
-    readonly history: (
-      input: ThreadInput & { messageId?: string },
-    ) => Effect.Effect<MessageRecord[], ChatThreadError>
-    readonly authorizeToolResponse: (
-      input: ToolResponseInput,
-    ) => Effect.Effect<Schema.JsonObject & { toolCallId: string }, ChatThreadError>
-    readonly rename: (
-      input: ThreadInput & { lockVersion: number; title: string },
-    ) => Effect.Effect<ThreadRecord, ChatThreadError>
-    readonly remove: (
-      input: ThreadInput & { lockVersion: number },
-    ) => Effect.Effect<void, ChatThreadError>
-    readonly participants: (
-      input: ThreadInput & DatabasePageOptions,
-    ) => Effect.Effect<DatabasePage<ParticipantRecord>, ChatThreadError>
-    readonly setParticipant: (
-      input: ThreadInput & {
-        lockVersion: number
-        tenantUserId: TenantUserId
-        role: ChatParticipantRole
-      },
-    ) => Effect.Effect<ParticipantRecord, ChatThreadError>
-    readonly removeParticipant: (
-      input: ThreadInput & { lockVersion: number; tenantUserId: TenantUserId },
-    ) => Effect.Effect<void, ChatThreadError>
-    // Admission commits prepared references, with permissions and file ownership checked in SQL.
-    readonly admit: (input: AdmitInput) => Effect.Effect<ChatAdmission, ChatThreadError>
-    readonly checkpoint: (input: {
-      claim: ChatWriterClaim
-      payload: ChatMessagePayload
-      state: "draft" | "complete"
-      cache?: ChatFileCache
-    }) => Effect.Effect<void, ChatThreadError>
-    readonly assertActive: (input: {
-      claim: ChatWriterClaim
-    }) => Effect.Effect<void, ChatThreadError>
-    readonly publishArtifact: (input: {
-      claim: ChatWriterClaim
-      bytes: Uint8Array
-    }) => Effect.Effect<string, ChatThreadError>
-    readonly nextDraft: (input: {
-      claim: ChatWriterClaim
-    }) => Effect.Effect<ChatWriterClaim, ChatThreadError>
-    readonly appendToolResults: (input: {
-      claim: ChatWriterClaim
-      results: readonly ChatToolResolution[]
-    }) => Effect.Effect<void, ChatThreadError>
-    readonly resolveTools: (
-      input: ResolveToolsInput,
-    ) => Effect.Effect<ChatAdmission, ChatThreadError>
-    readonly finish: (input: { claim: ChatWriterClaim }) => Effect.Effect<void, ChatThreadError>
-    readonly interrupt: (input: { claim: ChatWriterClaim }) => Effect.Effect<void, ChatThreadError>
-  }
->()("astralbeam/chat/threads/ChatThreads") {
-  static readonly layerNoDeps = Layer.effect(
-    ChatThreads,
-    Effect.gen(function* () {
+    make: Effect.gen(function* () {
       const db = yield* Database
       const files = yield* ChatFiles
       const storedFiles = yield* StoredFiles
+      const withChatClaim = <A, E, R>(
+        claim: ChatWriterClaim,
+        write: (
+          tx: Executor,
+          locked: Effect.Success<ReturnType<typeof checkClaim>>,
+        ) => Effect.Effect<A, E, R>,
+      ) =>
+        db
+          .transaction((tx) => Effect.flatMap(checkClaim(tx, claim), (locked) => write(tx, locked)))
+          .pipe(mapDatabaseErrors())
       const hasCompletedReply = Effect.fn("ChatThreads.hasCompletedReply")(function* (input: {
         organizationId: OrganizationId
       }) {
         const [result] = yield* db.execute<{ value: boolean }>(
           sql`select exists (
-            select 1 from chat_message reply
-            join chat_message input on input.id = reply.turn_message_id
-              and input.organization_id = reply.organization_id
-              and input.tenant_id = reply.tenant_id and input.thread_id = reply.thread_id
-            join chat_message_part part on part.message_id = reply.id
-              and part.organization_id = reply.organization_id
-              and part.tenant_id = reply.tenant_id and part.thread_id = reply.thread_id
-            where reply.organization_id = ${input.organizationId}
-              and reply.role = 'assistant' and reply.state = 'complete'
-              and input.turn_state = 'completed'
-              and part.payload->>'type' = 'text'
-              and part.payload->>'content' ~ '[^[:space:]]'
-          ) as value`,
+          select 1 from chat_message reply
+          join chat_message input on input.id = reply.turn_message_id
+            and input.organization_id = reply.organization_id
+            and input.tenant_id = reply.tenant_id and input.thread_id = reply.thread_id
+          join chat_message_part part on part.message_id = reply.id
+            and part.organization_id = reply.organization_id
+            and part.tenant_id = reply.tenant_id and part.thread_id = reply.thread_id
+          where reply.organization_id = ${input.organizationId}
+            and reply.role = 'assistant' and reply.state = 'complete'
+            and input.turn_state = 'completed'
+            and part.payload->>'type' = 'text'
+            and part.payload->>'content' ~ '[^[:space:]]'
+        ) as value`,
           "objects",
         )
         return result!.value
@@ -1095,7 +978,7 @@ export class ChatThreads extends Context.Service<
               .innerJoin(tenant, directoryTenantJoin)
               .where(
                 and(
-                  directoryThreadWhere(input.scope),
+                  tenantScopeWhere(input.scope, chatThread),
                   isNotNull(chatThread.currentLeafMessageId),
                   input.search
                     ? ilike(chatThread.title, tenantSearchPattern(input.search))
@@ -1141,26 +1024,20 @@ export class ChatThreads extends Context.Service<
       }: {
         principal: ChatPrincipal
       }) {
-        const [row] = yield* db
-          .select({ tenantId: tenant.id, tenantUserId: tenantUser.id })
-          .from(tenant)
-          .innerJoin(
-            tenantUser,
-            and(
-              eq(tenantUser.organizationId, tenant.organizationId),
-              eq(tenantUser.tenantId, tenant.id),
-              eq(tenantUser.externalId, principal.tenantUser.id),
-            ),
-          )
-          .where(
-            and(
-              eq(tenant.organizationId, principal.organization.id),
-              eq(tenant.externalId, principal.tenantUser.tenant.id),
-            ),
-          )
-          .limit(1)
+        const row = yield* db.query.tenantUser.findFirst({
+          columns: { tenantId: true, id: true },
+          where: {
+            organizationId: principal.organization.id,
+            externalId: principal.tenantUser.id,
+            tenant: { externalId: principal.tenantUser.tenant.id },
+          },
+        })
         if (!row) return yield* new ChatIdentityNotSynchronized()
-        return { organizationId: principal.organization.id, ...row }
+        return {
+          organizationId: principal.organization.id,
+          tenantId: row.tenantId,
+          tenantUserId: row.id,
+        }
       }, mapDatabaseErrors())
 
       const create = Effect.fn("ChatThreads.create")(function* (input: {
@@ -1217,21 +1094,11 @@ export class ChatThreads extends Context.Service<
           (position, limit, backward) =>
             db
               .select({
-                ...getTableColumns(chatThread),
-                role: chatParticipant.role,
-                writerActive: threadExecutionActive,
+                ...threadRecordColumns,
                 cursorUpdatedAt: sql<string>`${chatThread.updatedAt}::text`,
               })
               .from(chatThread)
-              .innerJoin(
-                chatParticipant,
-                and(
-                  eq(chatParticipant.organizationId, chatThread.organizationId),
-                  eq(chatParticipant.tenantId, chatThread.tenantId),
-                  eq(chatParticipant.threadId, chatThread.id),
-                  eq(chatParticipant.tenantUserId, input.scope.tenantUserId),
-                ),
-              )
+              .innerJoin(chatParticipant, chatParticipantThreadJoin(input.scope.tenantUserId))
               .where(
                 and(
                   eq(chatThread.organizationId, input.scope.organizationId),
@@ -1297,7 +1164,9 @@ export class ChatThreads extends Context.Service<
           ),
       )
       const authorizeToolResponse = Effect.fn("ChatThreads.authorizeToolResponse")(
-        (input: ToolResponseInput) =>
+        (
+          input: ToolResponseInput,
+        ): Effect.Effect<Schema.JsonObject & { toolCallId: string }, ChatThreadError> =>
           readSnapshot((tx) =>
             Effect.gen(function* () {
               const row = yield* readThread(tx, input)
@@ -1466,40 +1335,33 @@ export class ChatThreads extends Context.Service<
               expectedLockVersion: input.lockVersion,
               set: {},
             }).pipe(Effect.catchTag("OptimisticLockError", () => new ChatThreadConflict()))
+            const threadParticipants = participantWhere(input.scope, input.id)
+            const targetParticipant = and(
+              threadParticipants,
+              eq(chatParticipant.tenantUserId, input.tenantUserId),
+            )
             const [person] = yield* tx
               .select({
-                id: tenantUser.id,
                 name: tenantUser.name,
                 externalId: tenantUser.externalId,
                 metadata: tenantUser.metadata,
+                previousRole: chatParticipant.role,
               })
               .from(tenantUser)
+              .leftJoin(chatParticipant, targetParticipant)
               .where(
                 and(
-                  eq(tenantUser.organizationId, input.scope.organizationId),
-                  eq(tenantUser.tenantId, input.scope.tenantId),
+                  tenantScopeWhere(input.scope, tenantUser),
                   eq(tenantUser.id, input.tenantUserId),
                 ),
               )
               .limit(1)
             if (!person) return yield* new ChatThreadNotFound()
-            const [previous] = yield* tx
-              .select({ role: chatParticipant.role })
-              .from(chatParticipant)
-              .where(
-                and(
-                  participantWhere(input.scope, input.id),
-                  eq(chatParticipant.tenantUserId, input.tenantUserId),
-                ),
-              )
-              .limit(1)
-            if (previous?.role === "manager" && input.role !== "manager") {
+            if (person.previousRole === "manager" && input.role !== "manager") {
               const [managers] = yield* tx
                 .select({ count: count() })
                 .from(chatParticipant)
-                .where(
-                  and(participantWhere(input.scope, input.id), eq(chatParticipant.role, "manager")),
-                )
+                .where(and(threadParticipants, eq(chatParticipant.role, "manager")))
               if (managers!.count === 1) return yield* new ChatThreadConflict()
             }
             let result: ParticipantRecord | undefined
@@ -1528,15 +1390,7 @@ export class ChatThreads extends Context.Service<
                 externalId: person.externalId,
                 email: tenantUserEmail(person),
               }
-            } else
-              yield* tx
-                .delete(chatParticipant)
-                .where(
-                  and(
-                    participantWhere(input.scope, input.id),
-                    eq(chatParticipant.tenantUserId, input.tenantUserId),
-                  ),
-                )
+            } else yield* tx.delete(chatParticipant).where(targetParticipant)
             if (input.role === undefined || input.role === "viewer") {
               const turns = yield* tx
                 .update(chatMessage)
@@ -1546,13 +1400,13 @@ export class ChatThreads extends Context.Service<
                     messageWhere(input.scope, input.id),
                     eq(chatMessage.turnState, "running"),
                     sql`exists (select 1 from chat_message output
-                      where output.organization_id = ${chatMessage.organizationId}
-                        and output.tenant_id = ${chatMessage.tenantId}
-                        and output.thread_id = ${chatMessage.threadId}
-                        and output.turn_message_id = ${chatMessage.id}
-                        and output.role = 'assistant'
-                        and output.metadata->>'invocationId' = ${chatMessage.metadata}->>'invocationId'
-                        and output.metadata->'provenance'->>'initiatorTenantUserId' = ${input.tenantUserId})`,
+                    where output.organization_id = ${chatMessage.organizationId}
+                      and output.tenant_id = ${chatMessage.tenantId}
+                      and output.thread_id = ${chatMessage.threadId}
+                      and output.turn_message_id = ${chatMessage.id}
+                      and output.role = 'assistant'
+                      and output.metadata->>'invocationId' = ${chatMessage.metadata}->>'invocationId'
+                      and output.metadata->'provenance'->>'initiatorTenantUserId' = ${input.tenantUserId})`,
                   ),
                 )
                 .returning({ id: chatMessage.id })
@@ -1576,15 +1430,23 @@ export class ChatThreads extends Context.Service<
         )
       }, mapDatabaseErrors())
       const setParticipant = Effect.fn("ChatThreads.setParticipant")(
-        (input: Parameters<typeof ChatThreads.Service.setParticipant>[0]) =>
-          changeParticipant(input).pipe(Effect.map((row) => row!)),
+        (
+          input: ThreadInput & {
+            lockVersion: number
+            tenantUserId: TenantUserId
+            role: ChatParticipantRole
+          },
+        ) => changeParticipant(input).pipe(Effect.map((row) => row!)),
       )
       const removeParticipant = Effect.fn("ChatThreads.removeParticipant")(
-        (input: Parameters<typeof ChatThreads.Service.removeParticipant>[0]) =>
+        (input: ThreadInput & { lockVersion: number; tenantUserId: TenantUserId }) =>
           changeParticipant(input).pipe(Effect.asVoid),
       )
 
-      const admit = Effect.fn("ChatThreads.admit")(function* (input: AdmitInput) {
+      // Admission commits prepared references, with permissions and file ownership checked in SQL.
+      const admit = Effect.fn("ChatThreads.admit")(function* (
+        input: AdmitInput,
+      ): Effect.fn.Return<ChatAdmission, ChatThreadError> {
         const scope = { ...input.scope, threadId: input.id }
         return yield* db
           .transaction((tx) =>
@@ -1624,15 +1486,7 @@ export class ChatThreads extends Context.Service<
                         ),
                       })
                       .from(chatMessagePart)
-                      .innerJoin(
-                        chatMessage,
-                        and(
-                          eq(chatMessage.organizationId, chatMessagePart.organizationId),
-                          eq(chatMessage.tenantId, chatMessagePart.tenantId),
-                          eq(chatMessage.threadId, chatMessagePart.threadId),
-                          eq(chatMessage.id, chatMessagePart.messageId),
-                        ),
-                      )
+                      .innerJoin(chatMessage, chatMessagePartJoin)
                       .innerJoin(
                         fileObject,
                         and(
@@ -1712,27 +1566,21 @@ export class ChatThreads extends Context.Service<
           payload: input.payload,
           ...(input.cache ? { cache: input.cache } : {}),
         })
-        yield* db
-          .transaction((tx) =>
-            Effect.gen(function* () {
-              const { message } = yield* checkClaim(tx, input.claim)
-              yield* files.attach({ scope, messageId: message.id, value: stored.parts })
-              yield* files.attach({
-                scope,
-                messageId: message.id,
-                value: stored.modelMessages ?? [],
-              })
-              yield* persistChatOutput(tx, input.claim, message, stored, input.state)
-            }),
-          )
-          .pipe(mapDatabaseErrors())
+        yield* withChatClaim(input.claim, (tx, { message }) =>
+          Effect.gen(function* () {
+            yield* files.attach({ scope, messageId: message.id, value: stored.parts })
+            yield* files.attach({
+              scope,
+              messageId: message.id,
+              value: stored.modelMessages ?? [],
+            })
+            yield* persistChatOutput(tx, input.claim, message, stored, input.state)
+          }),
+        )
       })
 
       const assertActive = Effect.fn("ChatThreads.assertActive")(
-        ({ claim }: { claim: ChatWriterClaim }) =>
-          db
-            .transaction((tx) => checkClaim(tx, claim).pipe(Effect.asVoid))
-            .pipe(mapDatabaseErrors()),
+        ({ claim }: { claim: ChatWriterClaim }) => withChatClaim(claim, () => Effect.void),
       )
 
       // Publication belongs to the assistant message that requested it, even after sandbox shutdown.
@@ -1751,142 +1599,126 @@ export class ChatThreads extends Context.Service<
             contentType: detectSandboxArtifactMimeType(bytes),
           })
           .pipe(Effect.mapError(() => new ChatFileUnavailable()))
-        yield* db
-          .transaction((tx) =>
-            Effect.gen(function* () {
-              yield* checkClaim(tx, claim)
-              yield* tx.insert(chatFile).values({
-                ...rowScope(claim.scope),
-                uploaderTenantUserId: claim.scope.tenantUserId,
-                fileObjectId: file.id,
-                threadId: claim.threadId,
-                messageId: claim.assistantMessageId,
-              })
-            }),
-          )
-          .pipe(mapDatabaseErrors())
+        yield* withChatClaim(claim, (tx) =>
+          tx.insert(chatFile).values({
+            ...rowScope(claim.scope),
+            uploaderTenantUserId: claim.scope.tenantUserId,
+            fileObjectId: file.id,
+            threadId: claim.threadId,
+            messageId: claim.assistantMessageId,
+          }),
+        )
         return file.id
       })
 
       const nextDraft = Effect.fn("ChatThreads.nextDraft")(
         ({ claim }: { claim: ChatWriterClaim }) =>
+          withChatClaim(claim, (tx, { thread: row, message: previous }) =>
+            Effect.gen(function* () {
+              if (
+                previous.state !== "complete" ||
+                (yield* unresolvedCalls(tx, claim.scope, row, claim.assistantMessageId)).length > 0
+              )
+                return yield* new ChatThreadConflict()
+              const message = yield* appendDraft(
+                tx,
+                claim.scope,
+                row,
+                claim.inputMessageId,
+                claim.invocationId,
+              )
+              return { ...claim, assistantMessageId: message.id }
+            }),
+          ),
+      )
+
+      const appendToolResults = Effect.fn("ChatThreads.appendToolResults")(
+        ({ claim, results }: { claim: ChatWriterClaim; results: readonly ChatToolResolution[] }) =>
+          withChatClaim(claim, (tx, { thread: row }) =>
+            Effect.gen(function* () {
+              if (results.some((result) => result.assistantMessageId !== claim.assistantMessageId))
+                return yield* new ChatThreadConflict()
+              yield* appendResults(
+                tx,
+                { scope: claim.scope, id: claim.threadId },
+                row,
+                results,
+                true,
+              )
+            }),
+          ),
+      )
+
+      const resolveTools = Effect.fn("ChatThreads.resolveTools")(
+        (input: ResolveToolsInput): Effect.Effect<ChatAdmission, ChatThreadError> =>
           db
             .transaction((tx) =>
               Effect.gen(function* () {
-                const { thread: row, message: previous } = yield* checkClaim(tx, claim)
-                if (
-                  previous.state !== "complete" ||
-                  (yield* unresolvedCalls(tx, claim.scope, row, claim.assistantMessageId)).length >
-                    0
-                )
-                  return yield* new ChatThreadConflict()
-                const message = yield* appendDraft(
+                const row = yield* readThread(tx, input, true)
+                yield* requireRole(row)
+                if (input.results.length === 0) return yield* new ChatThreadInvalid()
+                const result = yield* appendResults(
                   tx,
-                  claim.scope,
+                  input,
                   row,
-                  claim.inputMessageId,
-                  claim.invocationId,
+                  input.results,
+                  false,
+                  input.clientId,
                 )
-                return { ...claim, assistantMessageId: message.id }
+                const source =
+                  result.insertedSource ??
+                  (yield* readMessage(tx, input, input.results[0]!.assistantMessageId))
+                const turnId = source.payload.turnId
+                if (!turnId) return yield* new ChatThreadInvalid()
+                const userMessage = yield* readMessage(tx, input, turnId)
+                if (
+                  !result.insertedSource ||
+                  (yield* unresolvedCalls(tx, input.scope, result.row)).some(
+                    ({ message }) => message.turnMessageId === turnId,
+                  )
+                )
+                  return {
+                    thread: yield* readThread(tx, input),
+                    inputMessage: userMessage,
+                    assistantMessage: null,
+                    claim: null,
+                  }
+                const invocationId = yield* acquireChatTurn(tx, input.scope, input.id, turnId)
+                const assistantMessage = yield* appendDraft(
+                  tx,
+                  input.scope,
+                  result.row,
+                  turnId,
+                  invocationId,
+                )
+                return {
+                  thread: yield* readThread(tx, input),
+                  inputMessage: userMessage,
+                  assistantMessage,
+                  claim: {
+                    scope: input.scope,
+                    threadId: input.id,
+                    assistantMessageId: assistantMessage.id,
+                    inputMessageId: userMessage.id,
+                    invocationId,
+                  },
+                }
               }),
             )
             .pipe(mapDatabaseErrors()),
       )
 
-      const appendToolResults = Effect.fn("ChatThreads.appendToolResults")(
-        ({ claim, results }: { claim: ChatWriterClaim; results: readonly ChatToolResolution[] }) =>
-          db
-            .transaction((tx) =>
-              Effect.gen(function* () {
-                const { thread: row } = yield* checkClaim(tx, claim)
-                if (
-                  results.some((result) => result.assistantMessageId !== claim.assistantMessageId)
-                )
-                  return yield* new ChatThreadConflict()
-                yield* appendResults(
-                  tx,
-                  { scope: claim.scope, id: claim.threadId },
-                  row,
-                  results,
-                  true,
-                )
-              }),
-            )
-            .pipe(Effect.asVoid, mapDatabaseErrors()),
-      )
-
-      const resolveTools = Effect.fn("ChatThreads.resolveTools")((input: ResolveToolsInput) =>
-        db
-          .transaction((tx) =>
-            Effect.gen(function* () {
-              const row = yield* readThread(tx, input, true)
-              yield* requireRole(row)
-              if (input.results.length === 0) return yield* new ChatThreadInvalid()
-              const result = yield* appendResults(
-                tx,
-                input,
-                row,
-                input.results,
-                false,
-                input.clientId,
-              )
-              const source =
-                result.insertedSource ??
-                (yield* readMessage(tx, input, input.results[0]!.assistantMessageId))
-              const turnId = source.payload.turnId
-              if (!turnId) return yield* new ChatThreadInvalid()
-              const userMessage = yield* readMessage(tx, input, turnId)
-              if (
-                !result.insertedSource ||
-                (yield* unresolvedCalls(tx, input.scope, result.row)).some(
-                  ({ message }) => message.turnMessageId === turnId,
-                )
-              )
-                return {
-                  thread: yield* readThread(tx, input),
-                  inputMessage: userMessage,
-                  assistantMessage: null,
-                  claim: null,
-                }
-              const invocationId = yield* acquireChatTurn(tx, input.scope, input.id, turnId)
-              const assistantMessage = yield* appendDraft(
-                tx,
-                input.scope,
-                result.row,
-                turnId,
-                invocationId,
-              )
-              return {
-                thread: yield* readThread(tx, input),
-                inputMessage: userMessage,
-                assistantMessage,
-                claim: {
-                  scope: input.scope,
-                  threadId: input.id,
-                  assistantMessageId: assistantMessage.id,
-                  inputMessageId: userMessage.id,
-                  invocationId,
-                },
-              }
-            }),
-          )
-          .pipe(mapDatabaseErrors()),
-      )
-
       const finish = Effect.fn("ChatThreads.finish")(({ claim }: { claim: ChatWriterClaim }) =>
-        db
-          .transaction((tx) =>
-            Effect.gen(function* () {
-              const { message, thread } = yield* checkClaim(tx, claim)
-              if (message.state === "draft")
-                yield* persistChatOutput(tx, claim, message, message.payload, "complete")
-              const pending = (yield* unresolvedCalls(tx, claim.scope, thread)).some(
-                ({ message: source }) => source.turnMessageId === claim.inputMessageId,
-              )
-              yield* releaseChatTurn(tx, claim, pending ? "waiting" : "completed")
-            }),
-          )
-          .pipe(mapDatabaseErrors()),
+        withChatClaim(claim, (tx, { message, thread }) =>
+          Effect.gen(function* () {
+            if (message.state === "draft")
+              yield* persistChatOutput(tx, claim, message, message.payload, "complete")
+            const pending = (yield* unresolvedCalls(tx, claim.scope, thread)).some(
+              ({ message: source }) => source.turnMessageId === claim.inputMessageId,
+            )
+            yield* releaseChatTurn(tx, claim, pending ? "waiting" : "completed")
+          }),
+        ),
       )
 
       const interrupt = Effect.fn("ChatThreads.interrupt")(
@@ -1918,7 +1750,7 @@ export class ChatThreads extends Context.Service<
             .pipe(mapDatabaseErrors()),
       )
 
-      return ChatThreads.of({
+      return {
         hasCompletedReply,
         directoryList,
         directorySnapshot,
@@ -1944,9 +1776,11 @@ export class ChatThreads extends Context.Service<
         resolveTools,
         finish,
         interrupt,
-      })
+      }
     }),
-  )
+  },
+) {
+  static readonly layerNoDeps = Layer.effect(this, this.make)
   static readonly layer = ChatThreads.layerNoDeps.pipe(
     Layer.provide([Database.layer, ChatFiles.layer, StoredFiles.layer]),
   )
