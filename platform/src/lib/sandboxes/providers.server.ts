@@ -32,7 +32,6 @@ import {
   SandboxProviderIdSchema,
   SandboxProviderNameSchema,
   type SandboxProviderOptions,
-  type SandboxTestMetadata,
   SandboxTestMetadataSchema,
 } from "./schemas.ts"
 
@@ -65,14 +64,14 @@ export type OrganizationSandboxProvider = SandboxProviderRow & {
   credentialsReadable: boolean
 }
 
-export interface SandboxProviderConfiguration {
+interface SandboxProviderConfiguration {
   readonly name: string
   readonly provider: SandboxProviderId
   readonly options: SandboxProviderOptions[SandboxProviderId]
   readonly credentials: SandboxProviderCredentials[SandboxProviderId]
 }
 
-export interface SaveSandboxProviderInput<Provider extends SandboxProviderId = SandboxProviderId> {
+interface SaveSandboxProviderInput<Provider extends SandboxProviderId = SandboxProviderId> {
   readonly organizationId: string
   readonly name: string
   readonly providerType: Provider
@@ -127,51 +126,10 @@ const mapSandboxProviderWriteErrors = mapDatabaseErrors({
   sandbox_provider_organization_id_name_uidx: () => new SandboxProviderNameTaken(),
 })
 
-export class SandboxProviders extends Context.Service<
-  SandboxProviders,
+export class SandboxProviders extends Context.Service<SandboxProviders>()(
+  "astralbeam/sandboxes/SandboxProviders",
   {
-    /** The list page's read, which leaves credentials encrypted. */
-    readonly listSummaries: (input: {
-      readonly organizationId: string
-    }) => Effect.Effect<readonly OrganizationSandboxProviderSummary[]>
-    readonly get: (input: {
-      readonly organizationId: string
-      readonly id: string
-    }) => Effect.Effect<OrganizationSandboxProvider | null>
-    /** Tests changed connection settings before storing them, and returns the provider's ID. */
-    readonly save: (
-      input: SaveSandboxProviderInput,
-    ) => Effect.Effect<
-      string,
-      | SandboxProviderChanged
-      | SandboxProviderNameTaken
-      | SandboxConnectionFailed
-      | SandboxCleanupFailed
-    >
-    /** Tests a saved provider and records the outcome, which it returns rather than fails with. */
-    readonly testConnection: (input: {
-      readonly organizationId: string
-      readonly id: string
-      readonly lockVersion: number
-    }) => Effect.Effect<SandboxTestMetadata, SandboxProviderChanged | SandboxProviderUnreadable>
-    readonly remove: (input: {
-      readonly organizationId: string
-      readonly id: string
-      readonly lockVersion: number
-    }) => Effect.Effect<void, SandboxProviderChanged | SandboxProviderInUse>
-    /** Enabled, readable configuration for chat and new sandbox-only attachments. */
-    readonly resolveConfiguration: (input: {
-      readonly organizationId: string
-      readonly id: string
-    }) => Effect.Effect<
-      SandboxProviderConfiguration,
-      SandboxProviderNotFound | SandboxProviderUnreadable | SandboxProviderUnavailable
-    >
-  }
->()("astralbeam/sandboxes/SandboxProviders") {
-  static readonly layerNoDeps = Layer.effect(
-    SandboxProviders,
-    Effect.gen(function* () {
+    make: Effect.gen(function* () {
       const db = yield* Database
 
       const readRow = Effect.fnUntraced(function* (organizationId: string, id: string) {
@@ -217,6 +175,7 @@ export class SandboxProviders extends Context.Service<
         } satisfies OrganizationSandboxProvider
       })
 
+      /** Tests changed connection settings before storing them, and returns the provider's ID. */
       const save = Effect.fn("SandboxProviders.save")(function* (input: SaveSandboxProviderInput) {
         const existing = input.id ? yield* readRow(input.organizationId, input.id) : null
         if (
@@ -351,16 +310,18 @@ export class SandboxProviders extends Context.Service<
         },
       )
 
-      return SandboxProviders.of({
+      return {
         listSummaries,
         get,
         save,
         testConnection,
         remove,
         resolveConfiguration,
-      })
+      }
     }),
-  )
+  },
+) {
+  static readonly layerNoDeps = Layer.effect(this, this.make)
 
   static readonly layer = SandboxProviders.layerNoDeps.pipe(Layer.provide(Database.layer))
 }

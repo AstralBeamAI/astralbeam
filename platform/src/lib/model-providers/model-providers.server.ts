@@ -25,7 +25,6 @@ import {
   ModelProviderKeyMissing,
   ModelProviderNameTaken,
   ModelProviderUnreadable,
-  ModelProviderTestFailed,
   ModelProviderTestRateLimited,
   ModelConfigurationMissing,
 } from "./errors.ts"
@@ -98,15 +97,6 @@ type TestModelProviderInput = {
   readonly modelId: string
 }
 
-type ModelProviderWriteError =
-  | ModelProviderChanged
-  | ModelProviderEndpointNotAllowed
-  | ModelProviderInUse
-  | ModelProviderNameTaken
-  | ModelProviderKeyMissing
-  | ModelProviderUnreadable
-  | ModelConfigurationMissing
-
 const modelProviderColumns = {
   columns: { credentials: false },
   extras: {
@@ -167,53 +157,10 @@ const mapModelProviderWriteErrors = mapDatabaseErrors({
   agent_model_provider_model_fk: () => new ModelProviderInUse(),
 })
 
-export class ModelProviders extends Context.Service<
-  ModelProviders,
+export class ModelProviders extends Context.Service<ModelProviders>()(
+  "astralbeam/model-providers/ModelProviders",
   {
-    readonly list: (input: {
-      readonly organizationId: string
-    }) => Effect.Effect<readonly ModelProviderListItem[]>
-    readonly get: (input: {
-      readonly organizationId: string
-      readonly id: string
-    }) => Effect.Effect<OrganizationModelProvider | null>
-    readonly choices: (input: {
-      readonly organizationId: string
-    }) => Effect.Effect<readonly ModelChoice[]>
-    readonly save: (input: SaveModelProviderInput) => Effect.Effect<string, ModelProviderWriteError>
-    readonly remove: (input: {
-      readonly organizationId: string
-      readonly id: string
-      readonly lockVersion: number
-    }) => Effect.Effect<void, ModelProviderChanged | ModelProviderInUse>
-    readonly setupState: (input: { readonly organizationId: string }) => Effect.Effect<{
-      readonly providerCount: number
-      readonly enabledModelCount: number
-      readonly defaultAgentModelCount: number
-      readonly defaultAgentId: string | null
-    }>
-    readonly resolveForAgent: (input: {
-      readonly organizationId: string
-      readonly agentId: string
-    }) => Effect.Effect<ChatModelConfiguration | null, ModelProviderUnreadable>
-    /** A resolved model's effective rates, reading the shared catalog only without a manual override. */
-    readonly pricing: (
-      model: Pick<ChatModelConfiguration, "providerType" | "modelId" | "configured">,
-    ) => Effect.Effect<ModelConfiguration | null>
-    readonly testModel: (
-      input: TestModelProviderInput,
-    ) => Effect.Effect<
-      void,
-      | ModelProviderChanged
-      | ModelProviderUnreadable
-      | ModelProviderTestFailed
-      | ModelProviderTestRateLimited
-    >
-  }
->()("astralbeam/model-providers/ModelProviders") {
-  static readonly layerNoDeps = Layer.effect(
-    ModelProviders,
-    Effect.gen(function* () {
+    make: Effect.gen(function* () {
       const db = yield* Database
       const config = yield* Config
       const rateLimiter = yield* DatabaseRateLimiter
@@ -610,7 +557,7 @@ export class ModelProviders extends Context.Service<
         })
       })
 
-      return ModelProviders.of({
+      return {
         pricing,
         list,
         get,
@@ -620,9 +567,11 @@ export class ModelProviders extends Context.Service<
         setupState,
         resolveForAgent,
         testModel,
-      })
+      }
     }),
-  )
+  },
+) {
+  static readonly layerNoDeps = Layer.effect(this, this.make)
 
   static readonly layer = ModelProviders.layerNoDeps.pipe(
     Layer.provide([Database.layer, Config.layer, DatabaseRateLimiter.layer]),

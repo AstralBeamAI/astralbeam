@@ -115,17 +115,17 @@ const chatMessageStateEnum = pgEnum("chat_message_state", ["draft", "complete", 
 export const chatThread = snakeCase.table(
   "chat_thread",
   {
-    organizationId: uuid().$type<OrganizationId>().notNull(),
-    tenantId: uuid().$type<TenantId>().notNull(),
+    organizationId: uuidV7({ generated: false }).$type<OrganizationId>().notNull(),
+    tenantId: uuidV7({ generated: false }).$type<TenantId>().notNull(),
     id: uuidV7(),
     // Selected Organization-owned agent, bound at creation rather than following default-agent changes.
     // Agent deletion clears only this reference. Null preserves readable history but prevents new generation.
-    agentId: uuid(),
+    agentId: uuidV7({ generated: false }),
     // Empty uses the client's generic label. Renaming updates activity ordering.
     title: text().default("").notNull(),
     // Last node on the default history path. Follow parentMessageId from this node to reconstruct the transcript.
     // Null means no messages. Appends advance it atomically, and completing an older draft must not move it backward.
-    currentLeafMessageId: uuid(),
+    currentLeafMessageId: uuidV7({ generated: false }),
     lockVersion: lockVersion(),
     ...timestamps(),
   },
@@ -161,13 +161,13 @@ export const chatThread = snakeCase.table(
 export const chatParticipant = snakeCase.table(
   "chat_participant",
   {
-    organizationId: uuid().$type<OrganizationId>().notNull(),
-    tenantId: uuid().$type<TenantId>().notNull(),
+    organizationId: uuidV7({ generated: false }).$type<OrganizationId>().notNull(),
+    tenantId: uuidV7({ generated: false }).$type<TenantId>().notNull(),
     id: uuidV7(),
-    threadId: uuid().notNull(),
+    threadId: uuidV7({ generated: false }).notNull(),
     // Internal TenantUser receiving access, not an Organization dashboard user or a browser client identifier.
     // All of this user's authenticated clients share the grant. Deleting the TenantUser cascades the grant.
-    tenantUserId: uuid().$type<TenantUserId>().notNull(),
+    tenantUserId: uuidV7({ generated: false }).$type<TenantUserId>().notNull(),
     // viewer reads history, member also sends and resolves permitted interactions, manager also manages the conversation.
     // Managers can rename, delete, and change participants. The creator starts as a manager, without permanent ownership.
     role: chatParticipantRoleEnum().notNull(),
@@ -215,18 +215,18 @@ const chatMessagePartExecutionLocationEnum = pgEnum("chat_message_part_execution
 export const chatMessage = snakeCase.table(
   "chat_message",
   {
-    organizationId: uuid().$type<OrganizationId>().notNull(),
-    tenantId: uuid().$type<TenantId>().notNull(),
+    organizationId: uuidV7({ generated: false }).$type<OrganizationId>().notNull(),
+    tenantId: uuidV7({ generated: false }).$type<TenantId>().notNull(),
     id: uuidV7(),
-    threadId: uuid().notNull(),
+    threadId: uuidV7({ generated: false }).notNull(),
     // Preceding transcript node, immutable after insertion. Null identifies a root.
-    parentMessageId: uuid(),
+    parentMessageId: uuidV7({ generated: false }),
     // Initiating user input for assistant/tool messages, null on user inputs. This differs from the preceding transcript node.
     // Concurrent participant appends can interleave activity from several turns on the same parent-linked path.
-    turnMessageId: uuid(),
+    turnMessageId: uuidV7({ generated: false }),
     // Human author or browser-result submitter. Membership removal does not erase authorship.
     // The migration defers this reference until commit so whole-Tenant deletion can cascade before authorship is checked.
-    authorTenantUserId: uuid().$type<TenantUserId>(),
+    authorTenantUserId: uuidV7({ generated: false }).$type<TenantUserId>(),
     // Transcript kind, independent of participant permissions and tool execution location.
     role: chatMessageRoleEnum().notNull(),
     // Only assistant output can be draft or interrupted. Complete decisions can still await results.
@@ -296,11 +296,11 @@ export const chatMessage = snakeCase.table(
 export const chatMessagePart = snakeCase.table(
   "chat_message_part",
   {
-    organizationId: uuid().$type<OrganizationId>().notNull(),
-    tenantId: uuid().$type<TenantId>().notNull(),
+    organizationId: uuidV7({ generated: false }).$type<OrganizationId>().notNull(),
+    tenantId: uuidV7({ generated: false }).$type<TenantId>().notNull(),
     id: uuidV7(),
-    threadId: uuid().notNull(),
-    messageId: uuid().notNull(),
+    threadId: uuidV7({ generated: false }).notNull(),
+    messageId: uuidV7({ generated: false }).notNull(),
     // Explicit zero-based order within a message. The scoped message/position unique index rejects ambiguous ordering.
     // Assigned without a default. Draft positions can shift when final reasoning arrives, while part IDs stay stable.
     position: integer().notNull(),
@@ -338,21 +338,21 @@ export const chatMessagePart = snakeCase.table(
 export const chatToolResponse = snakeCase.table(
   "chat_tool_response",
   {
-    organizationId: uuid().$type<OrganizationId>().notNull(),
-    tenantId: uuid().$type<TenantId>().notNull(),
+    organizationId: uuidV7({ generated: false }).$type<OrganizationId>().notNull(),
+    tenantId: uuidV7({ generated: false }).$type<TenantId>().notNull(),
     id: uuidV7(),
-    threadId: uuid().notNull(),
+    threadId: uuidV7({ generated: false }).notNull(),
     // Committed tool-decision part requesting this response, distinct from the provider's tool-call ID.
     // One decision can have several response rows, including different browser clients belonging to the same user.
-    toolPartId: uuid().notNull(),
+    toolPartId: uuidV7({ generated: false }).notNull(),
     // Intended human responder. Null for server API and sandbox executions.
     // The migration defers this reference until commit so Tenant deletion removes response slots before checking recipients.
-    tenantUserId: uuid().$type<TenantUserId>(),
+    tenantUserId: uuidV7({ generated: false }).$type<TenantUserId>(),
     // Intended browser instance. This is a routing identity, never an authorization credential.
     clientId: uuid(),
     // Accepted immutable tool-result message or explicit closure. Outcome and output live in that message's result part.
     // Cascading result deletion keeps whole-thread removal independent of the order of message and part cascades.
-    resultMessageId: uuid(),
+    resultMessageId: uuidV7({ generated: false }),
     ...timestamps(),
   },
   (table) => [
@@ -386,13 +386,13 @@ export const chatToolResponse = snakeCase.table(
 export const chatFile = snakeCase.table(
   "chat_file",
   {
-    organizationId: uuid().$type<OrganizationId>().notNull(),
+    organizationId: uuidV7({ generated: false }).$type<OrganizationId>().notNull(),
     id: uuidV7(),
-    tenantId: uuid().$type<TenantId>().notNull(),
-    uploaderTenantUserId: uuid().$type<TenantUserId>().notNull(),
-    fileObjectId: uuid().notNull(),
-    threadId: uuid(),
-    messageId: uuid(),
+    tenantId: uuidV7({ generated: false }).$type<TenantId>().notNull(),
+    uploaderTenantUserId: uuidV7({ generated: false }).$type<TenantUserId>().notNull(),
+    fileObjectId: uuidV7({ generated: false }).notNull(),
+    threadId: uuidV7({ generated: false }),
+    messageId: uuidV7({ generated: false }),
     ...timestamps(),
   },
   (table) => [

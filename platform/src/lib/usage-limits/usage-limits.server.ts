@@ -58,75 +58,10 @@ const ownUsageLimitId = Effect.fnUntraced(function* (organizationId: string, usa
   return parsed.id
 })
 
-export class UsageLimits extends Context.Service<
-  UsageLimits,
+export class UsageLimits extends Context.Service<UsageLimits>()(
+  "astralbeam/usage-limits/UsageLimits",
   {
-    readonly list: (organizationId: string) => Effect.Effect<readonly UsageLimit[]>
-    readonly get: (input: {
-      readonly organizationId: string
-      readonly usageLimitId: string
-    }) => Effect.Effect<UsageLimit, UsageLimitNotFound>
-    /** Returns the new limit's public ID. */
-    readonly create: (input: {
-      readonly organizationId: string
-      readonly fields: UsageLimitFields
-    }) => Effect.Effect<string>
-    readonly update: (input: {
-      readonly organizationId: UsageSubject["organizationId"]
-      readonly usageLimitId: string
-      readonly lockVersion: number
-      readonly fields: UsageLimitFields
-    }) => Effect.Effect<void, UsageLimitChanged>
-    /** The list page's kill switch, which leaves every other field as it is. */
-    readonly setEnabled: (input: {
-      readonly organizationId: string
-      readonly usageLimitId: string
-      readonly lockVersion: number
-      readonly enabled: boolean
-    }) => Effect.Effect<void, UsageLimitChanged>
-    readonly remove: (input: {
-      readonly organizationId: string
-      readonly usageLimitId: string
-      readonly lockVersion: number
-    }) => Effect.Effect<void, UsageLimitChanged>
-    /** Enabled default limits, plus enabled limits whose public IDs a chat token lists. */
-    readonly applicable: (input: {
-      readonly organizationId: string
-      readonly listedIds: readonly string[]
-    }) => Effect.Effect<readonly UsageLimit[]>
-    /** Each limit's usage in the subject's live window, and when that window resets. */
-    readonly status: (input: {
-      readonly limits: readonly UsageLimit[]
-      readonly subject: UsageSubject
-    }) => Effect.Effect<readonly UsageLimitStatus[]>
-    /** Fails when any limit is used up, naming the one that resets last. */
-    readonly check: (input: {
-      readonly limits: readonly UsageLimit[]
-      readonly subject: UsageSubject
-    }) => Effect.Effect<void, UsageLimitReached>
-    /** Subjects with usage in their live window, most used first. Pages start at 1. */
-    readonly subjects: (input: {
-      readonly organizationId: UsageSubject["organizationId"]
-      readonly usageLimitId: string
-      readonly page: number
-    }) => Effect.Effect<
-      {
-        readonly usageLimit: UsageLimit
-        readonly subjects: readonly UsageLimitSubjectUsage[]
-        readonly total: number
-      },
-      UsageLimitNotFound
-    >
-    readonly record: (input: {
-      readonly limits: readonly UsageLimit[]
-      readonly subject: UsageSubject
-      readonly usage: { readonly tokens: number; readonly spend: string }
-    }) => Effect.Effect<void>
-  }
->()("astralbeam/usage-limits/UsageLimits") {
-  static readonly layerNoDeps = Layer.effect(
-    UsageLimits,
-    Effect.gen(function* () {
+    make: Effect.gen(function* () {
       const db = yield* Database
 
       const list = Effect.fn("UsageLimits.list")(function* (organizationId: string) {
@@ -138,9 +73,10 @@ export class UsageLimits extends Context.Service<
         return (yield* decodeUsageLimitRows(rows)).map(publicUsageLimit)
       }, Effect.orDie)
 
-      const get = Effect.fn("UsageLimits.get")(function* (
-        input: Parameters<typeof UsageLimits.Service.get>[0],
-      ) {
+      const get = Effect.fn("UsageLimits.get")(function* (input: {
+        readonly organizationId: string
+        readonly usageLimitId: string
+      }) {
         const id = yield* ownUsageLimitId(input.organizationId, input.usageLimitId)
         const rows = yield* db
           .select()
@@ -153,9 +89,10 @@ export class UsageLimits extends Context.Service<
         return publicUsageLimit(row)
       })
 
-      const create = Effect.fn("UsageLimits.create")(function* (
-        input: Parameters<typeof UsageLimits.Service.create>[0],
-      ) {
+      const create = Effect.fn("UsageLimits.create")(function* (input: {
+        readonly organizationId: string
+        readonly fields: UsageLimitFields
+      }) {
         const [created] = yield* db
           .insert(usageLimit)
           .values({ organizationId: input.organizationId, ...input.fields })
@@ -164,7 +101,12 @@ export class UsageLimits extends Context.Service<
       }, mapDatabaseErrors())
 
       const update = Effect.fn("UsageLimits.update")(
-        function* (input: Parameters<typeof UsageLimits.Service.update>[0]) {
+        function* (input: {
+          readonly organizationId: UsageSubject["organizationId"]
+          readonly usageLimitId: string
+          readonly lockVersion: number
+          readonly fields: UsageLimitFields
+        }) {
           const id = yield* ownUsageLimitId(input.organizationId, input.usageLimitId)
           yield* db.transaction((transaction) =>
             Effect.gen(function* () {
@@ -214,8 +156,14 @@ export class UsageLimits extends Context.Service<
         }),
       )
 
+      /** The list page's kill switch, which leaves every other field as it is. */
       const setEnabled = Effect.fn("UsageLimits.setEnabled")(
-        function* (input: Parameters<typeof UsageLimits.Service.setEnabled>[0]) {
+        function* (input: {
+          readonly organizationId: string
+          readonly usageLimitId: string
+          readonly lockVersion: number
+          readonly enabled: boolean
+        }) {
           yield* updateWithOptimisticLock({
             executor: db,
             table: usageLimit,
@@ -233,7 +181,11 @@ export class UsageLimits extends Context.Service<
       )
 
       const remove = Effect.fn("UsageLimits.remove")(
-        function* (input: Parameters<typeof UsageLimits.Service.remove>[0]) {
+        function* (input: {
+          readonly organizationId: string
+          readonly usageLimitId: string
+          readonly lockVersion: number
+        }) {
           yield* deleteWithOptimisticLock({
             executor: db,
             table: usageLimit,
@@ -249,9 +201,11 @@ export class UsageLimits extends Context.Service<
         }),
       )
 
-      const applicable = Effect.fn("UsageLimits.applicable")(function* (
-        input: Parameters<typeof UsageLimits.Service.applicable>[0],
-      ) {
+      /** Enabled default limits, plus enabled limits whose public IDs a chat token lists. */
+      const applicable = Effect.fn("UsageLimits.applicable")(function* (input: {
+        readonly organizationId: string
+        readonly listedIds: readonly string[]
+      }) {
         const listed = input.listedIds.flatMap((publicId) => {
           const parsed = parseUsageLimitId(publicId)
           return parsed?.organizationId === input.organizationId ? [parsed.id] : []
@@ -272,9 +226,10 @@ export class UsageLimits extends Context.Service<
         return yield* decodeUsageLimitRows(rows)
       }, Effect.orDie)
 
-      const status = Effect.fn("UsageLimits.status")(function* (
-        input: Parameters<typeof UsageLimits.Service.status>[0],
-      ) {
+      const status = Effect.fn("UsageLimits.status")(function* (input: {
+        readonly limits: readonly UsageLimit[]
+        readonly subject: UsageSubject
+      }) {
         const now = DateTime.toDateUtc(yield* DateTime.now)
         const keyed = input.limits.flatMap((limit) => {
           const key = usageCounterKey(limit.scope, input.subject)
@@ -308,9 +263,11 @@ export class UsageLimits extends Context.Service<
         })
       })
 
-      const check = Effect.fn("UsageLimits.check")(function* (
-        input: Parameters<typeof UsageLimits.Service.check>[0],
-      ) {
+      /** Fails when any limit is used up, naming the one that resets last. */
+      const check = Effect.fn("UsageLimits.check")(function* (input: {
+        readonly limits: readonly UsageLimit[]
+        readonly subject: UsageSubject
+      }): Effect.fn.Return<void, UsageLimitReached> {
         const reached = (yield* status(input))
           .filter(({ limit, used }) => Number(used) >= Number(limit.amount))
           .toSorted((left, right) => right.resetsAt!.getTime() - left.resetsAt!.getTime())[0]
@@ -322,9 +279,12 @@ export class UsageLimits extends Context.Service<
         })
       })
 
-      const subjects = Effect.fn("UsageLimits.subjects")(function* (
-        input: Parameters<typeof UsageLimits.Service.subjects>[0],
-      ) {
+      /** Subjects with usage in their live window, most used first. Pages start at 1. */
+      const subjects = Effect.fn("UsageLimits.subjects")(function* (input: {
+        readonly organizationId: UsageSubject["organizationId"]
+        readonly usageLimitId: string
+        readonly page: number
+      }) {
         const limit = yield* get(input)
         const now = DateTime.toDateUtc(yield* DateTime.now)
         const live = and(
@@ -399,9 +359,11 @@ export class UsageLimits extends Context.Service<
         }
       })
 
-      const record = Effect.fn("UsageLimits.record")(function* (
-        input: Parameters<typeof UsageLimits.Service.record>[0],
-      ) {
+      const record = Effect.fn("UsageLimits.record")(function* (input: {
+        readonly limits: readonly UsageLimit[]
+        readonly subject: UsageSubject
+        readonly usage: { readonly tokens: number; readonly spend: string }
+      }) {
         if (input.limits.length === 0) return
         const now = DateTime.toDateUtc(yield* DateTime.now)
         yield* db.transaction((transaction) =>
@@ -452,7 +414,7 @@ export class UsageLimits extends Context.Service<
         )
       }, Effect.orDie)
 
-      return UsageLimits.of({
+      return {
         list,
         get,
         create,
@@ -464,9 +426,11 @@ export class UsageLimits extends Context.Service<
         check,
         subjects,
         record,
-      })
+      }
     }),
-  )
+  },
+) {
+  static readonly layerNoDeps = Layer.effect(this, this.make)
 
   static readonly layer = UsageLimits.layerNoDeps.pipe(Layer.provide(Database.layer))
 }

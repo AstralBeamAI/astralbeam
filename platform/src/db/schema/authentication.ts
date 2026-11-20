@@ -1,4 +1,4 @@
-import { boolean, index, uniqueIndex, primaryKey, snakeCase, uuid } from "drizzle-orm/pg-core"
+import { boolean, index, uniqueIndex, primaryKey, snakeCase } from "drizzle-orm/pg-core"
 
 import {
   caseInsensitiveText,
@@ -36,9 +36,9 @@ export const session = snakeCase.table(
     token: text().notNull(),
     ipAddress: text(),
     userAgent: text(),
-    userId: uuid().notNull(),
+    userId: uuidV7({ generated: false }).notNull(),
     // Better Auth defines the active organization as a nullable session selector without a foreign key; memberships stay authoritative and stale selections are reconciled on access. https://github.com/better-auth/better-auth/blob/v1.7.2/packages/better-auth/src/plugins/organization/schema.ts#L212-L218
-    activeOrganizationId: uuid(),
+    activeOrganizationId: uuidV7({ generated: false }),
     ...timestamps(),
   },
   (table) => [
@@ -58,7 +58,7 @@ export const account = snakeCase.table(
     id: uuidV7(),
     accountId: text().notNull(),
     providerId: text().notNull(),
-    userId: uuid().notNull(),
+    userId: uuidV7({ generated: false }).notNull(),
     accessToken: text(),
     refreshToken: text(),
     idToken: text(),
