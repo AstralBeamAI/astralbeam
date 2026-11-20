@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm"
+import { and, eq, sql, type SQL } from "drizzle-orm"
 import { Clock, Context, Effect, Layer, Result, Schema } from "effect"
 import { Database } from "@/db/database"
 import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials"
@@ -40,16 +40,17 @@ export function mcpConnectionOwner(actor: McpActor) {
 const mcpReadServers = Effect.fnUntraced(function* (
   db: Pick<typeof Database.Service, "select">,
   organizationId: McpActor["organizationId"],
+  filter?: SQL,
 ) {
   return yield* db
     .select({
       organizationId: mcpServer.organizationId,
       id: mcpServer.id,
       endpointUrl: mcpServer.endpointUrl,
-      storedConfig: sql<unknown>`${mcpServer.authConfig}`,
+      authConfig: sql<unknown>`${mcpServer.authConfig}`,
     })
     .from(mcpServer)
-    .where(eq(mcpServer.organizationId, organizationId))
+    .where(and(eq(mcpServer.organizationId, organizationId), filter))
     .orderBy(mcpServer.id)
     .pipe(Effect.orDie)
 })
@@ -75,7 +76,7 @@ function mcpDecodeServer(
 ): McpAuthConfig | null {
   const decoded = Schema.decodeUnknownResult(McpStoredAuthConfigSchema, {
     onExcessProperty: "error",
-  })(row.storedConfig)
+  })(row.authConfig)
   if (Result.isFailure(decoded)) return null
   if (decoded.success.kind !== "oauth") return decoded.success
   const { client, ...authConfig } = decoded.success
@@ -94,6 +95,7 @@ function mcpDecodeServer(
 const mcpReadConnections = Effect.fnUntraced(function* (
   db: Pick<typeof Database.Service, "select">,
   actor: McpActor,
+  filter?: SQL,
 ) {
   return yield* db
     .select({
@@ -106,7 +108,7 @@ const mcpReadConnections = Effect.fnUntraced(function* (
       storedCredentials: sql<string | null>`${mcpConnection.credentials}::text`,
     })
     .from(mcpConnection)
-    .where(mcpConnectionOwner(actor))
+    .where(and(mcpConnectionOwner(actor), filter))
     .orderBy(mcpConnection.id)
     .pipe(Effect.orDie)
 })
@@ -192,11 +194,11 @@ const makeMcpConnections = Effect.gen(function* () {
     organizationId: McpActor["organizationId"],
     id: string,
   ) {
-    const row = (yield* mcpReadServers(db, organizationId)).find((entry) => entry.id === id)
+    const [row] = yield* mcpReadServers(db, organizationId, eq(mcpServer.id, id))
     if (!row) return yield* new McpNotFound()
     const authConfig = mcpDecodeServer(row)
     if (!authConfig) return yield* new McpAuthorizationRequired()
-    return { organizationId, id, endpointUrl: row.endpointUrl, authConfig }
+    return { ...row, authConfig }
   })
   const createServer = Effect.fn("McpConnections.createServer")(function* (
     organizationId: McpActor["organizationId"],
@@ -216,7 +218,7 @@ const makeMcpConnections = Effect.gen(function* () {
       .from(sql`(values (1)) as generated(value)`)
       .pipe(Effect.orDie)
     const id = generated!.id
-    yield* db
+    const [created] = yield* db
       .insert(mcpServer)
       .values({
         organizationId,
@@ -224,8 +226,9 @@ const makeMcpConnections = Effect.gen(function* () {
         endpointUrl: endpoint.href,
         authConfig: mcpEncodeServer({ organizationId, id, authConfig: fields.authConfig }),
       })
+      .returning()
       .pipe(mapDatabaseErrors({ mcp_server_endpoint_uidx: () => new McpServerExists() }))
-    return (yield* listServers(organizationId)).find((entry) => entry.id === id)!
+    return mcpServerSummary(created!, mcpDecodeServer(created!))
   })
   const removeServer = Effect.fn("McpConnections.removeServer")(function* (
     organizationId: McpActor["organizationId"],
@@ -247,8 +250,10 @@ const makeMcpConnections = Effect.gen(function* () {
       input.reference.tenantId !== input.actor.tenantId
     )
       return yield* new McpForbidden()
-    const connection = (yield* mcpReadConnections(db, input.actor)).find(
-      (entry) => entry.id === input.reference.id,
+    const [connection] = yield* mcpReadConnections(
+      db,
+      input.actor,
+      eq(mcpConnection.id, input.reference.id),
     )
     if (!connection) return yield* new McpNotFound()
     return {
@@ -290,13 +295,13 @@ const makeMcpConnections = Effect.gen(function* () {
     actor: McpActor,
     mcpServerId: string,
   ) {
-    yield* getServer(actor.organizationId, mcpServerId)
+    const server = yield* getServer(actor.organizationId, mcpServerId)
     yield* db
       .insert(mcpConnection)
-      .values({ ...actor, mcpServerId })
+      .values({ ...actor, mcpServerId: server.id })
       .onConflictDoNothing()
       .pipe(Effect.orDie)
-    return (yield* catalog(actor)).connections.find((entry) => entry.mcpServerId === mcpServerId)!
+    return (yield* catalog(actor)).connections.find((entry) => entry.mcpServerId === server.id)!
   })
   const setHeaders = Effect.fn("McpConnections.setHeaders")(function* (input: {
     actor: McpActor

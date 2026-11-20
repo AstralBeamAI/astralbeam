@@ -759,11 +759,13 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
           authConfig: { kind: "static_headers", headerNames: ["Authorization"] },
         }),
       )
-      const connection = await connections((service) => service.createConnection(actor, server.id))
+      const connection = await connections((service) =>
+        service.createConnection(actor, server.id.toUpperCase()),
+      )
       await connections((service) =>
         service.setHeaders({
           actor,
-          reference: connection,
+          reference: { ...connection, id: connection.id.toUpperCase() },
           lockVersion: 0,
           headers: { Authorization: " \tBearer personal-secret \t" },
         }),

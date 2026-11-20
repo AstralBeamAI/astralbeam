@@ -7,7 +7,6 @@ import {
   uniqueIndex,
   primaryKey,
   snakeCase,
-  uuid,
 } from "drizzle-orm/pg-core"
 import type { AnyPgColumn, ForeignKeyBuilder } from "drizzle-orm/pg-core"
 import * as Schema from "effect/Schema"
@@ -77,7 +76,7 @@ export const organization = snakeCase.table(
     // Better Auth requires this column. Keep it null and use logoFileId for logos.
     // https://better-auth.com/docs/plugins/organization#schema
     logo: text(),
-    logoFileId: uuid(),
+    logoFileId: uuidV7({ generated: false }),
     domain: text().notNull(),
     metadata: text(),
     ...timestamps(),
@@ -135,7 +134,7 @@ export const apiKey = snakeCase.table(
     configId: text().default("default").notNull(),
     name: text().notNull(),
     start: text(),
-    organizationId: uuid().notNull(),
+    organizationId: uuidV7({ generated: false }).notNull(),
     prefix: text(),
     // Better Auth stores a SHA-256 digest, not the bearer key. https://better-auth.com/docs/plugins/api-key/reference#schema
     key: text().notNull(),
@@ -198,7 +197,7 @@ export const modelProvider = snakeCase.table(
   "model_provider",
   {
     id: uuidV7(),
-    organizationId: uuid().notNull(),
+    organizationId: uuidV7({ generated: false }).notNull(),
     name: caseInsensitiveText().notNull(),
     providerType: text({ enum: ModelProviderFieldsSchema.fields.providerType.literals }).notNull(),
     api: text({ enum: ModelProviderFieldsSchema.fields.api.literals }).notNull(),
@@ -218,8 +217,8 @@ export const providerModel = snakeCase.table(
   "provider_model",
   {
     id: uuidV7(),
-    organizationId: uuid().notNull(),
-    modelProviderId: uuid().notNull(),
+    organizationId: uuidV7({ generated: false }).notNull(),
+    modelProviderId: uuidV7({ generated: false }).notNull(),
     modelId: text().notNull(),
     name: text().notNull(),
     configuration: jsonb({ schema: ModelConfigurationSchema }),
@@ -282,9 +281,9 @@ export const agentModel = snakeCase.table(
   "agent_model",
   {
     id: uuidV7(),
-    organizationId: uuid().notNull(),
-    agentId: uuid().notNull(),
-    providerModelId: uuid().notNull(),
+    organizationId: uuidV7({ generated: false }).notNull(),
+    agentId: uuidV7({ generated: false }).notNull(),
+    providerModelId: uuidV7({ generated: false }).notNull(),
     position: integer().notNull(),
     ...timestamps(),
   },
@@ -324,8 +323,8 @@ export const organizationConfiguration = snakeCase.table(
   "organization_configuration",
   {
     id: uuidV7(),
-    organizationId: uuid().notNull(),
-    defaultAgentId: uuid(),
+    organizationId: uuidV7({ generated: false }).notNull(),
+    defaultAgentId: uuidV7({ generated: false }),
     lockVersion: lockVersion(),
     ...timestamps(),
   },
@@ -349,7 +348,7 @@ export const organizationConfiguration = snakeCase.table(
 export const tenant = snakeCase.table(
   "tenant",
   {
-    organizationId: uuid().$type<OrganizationId>().notNull(),
+    organizationId: uuidV7({ generated: false }).$type<OrganizationId>().notNull(),
     id: uuidV7().$type<TenantId>(),
     externalId: text().notNull(),
     name: text(),
@@ -372,8 +371,8 @@ export const tenant = snakeCase.table(
 export const tenantUser = snakeCase.table(
   "tenant_user",
   {
-    organizationId: uuid().$type<OrganizationId>().notNull(),
-    tenantId: uuid().$type<TenantId>().notNull(),
+    organizationId: uuidV7({ generated: false }).$type<OrganizationId>().notNull(),
+    tenantId: uuidV7({ generated: false }).$type<TenantId>().notNull(),
     id: uuidV7().$type<TenantUserId>(),
     externalId: text().notNull(),
     name: text(),
@@ -404,9 +403,9 @@ export const member = snakeCase.table(
   "member",
   {
     id: uuidV7(),
-    organizationId: uuid().notNull(),
-    userId: uuid().notNull(),
-    avatarFileId: uuid(),
+    organizationId: uuidV7({ generated: false }).notNull(),
+    userId: uuidV7({ generated: false }).notNull(),
+    avatarFileId: uuidV7({ generated: false }),
     role: text().default("viewer").notNull(),
     ...timestamps(),
   },
@@ -431,12 +430,12 @@ export const invitation = snakeCase.table(
   "invitation",
   {
     id: uuidV7(),
-    organizationId: uuid().notNull(),
+    organizationId: uuidV7({ generated: false }).notNull(),
     email: caseInsensitiveText().notNull(),
     role: text(),
     status: text().default("pending").notNull(),
     expiresAt: timestampWithTimeZone().notNull(),
-    inviterId: uuid().notNull(),
+    inviterId: uuidV7({ generated: false }).notNull(),
     ...timestamps(),
   },
   (table) => [
