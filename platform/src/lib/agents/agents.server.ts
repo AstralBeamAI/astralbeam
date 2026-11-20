@@ -26,6 +26,13 @@ import { type AgentFields, formatAgentId, parseAgentId } from "./schemas.ts"
 /** An agent as the dashboard sees it, addressed by its public ID. */
 export type Agent = typeof AgentRowSchema.Type & { readonly modelIds: readonly string[] }
 
+type AgentTarget = {
+  readonly organizationId: string
+  readonly agentId: string
+}
+
+type VersionedAgentTarget = AgentTarget & { readonly lockVersion: number }
+
 const agentModelValues = ({
   organizationId,
   id,
@@ -182,10 +189,7 @@ export class Agents extends Context.Service<Agents>()("astralbeam/agents/Agents"
       }
     }, Effect.orDie)
 
-    const get = Effect.fn("Agents.get")(function* (input: {
-      readonly organizationId: string
-      readonly agentId: string
-    }) {
+    const get = Effect.fn("Agents.get")(function* (input: AgentTarget) {
       const id = yield* ownAgentId(input.organizationId, input.agentId)
       const row = yield* db.query.agent
         .findFirst({
@@ -224,12 +228,7 @@ export class Agents extends Context.Service<Agents>()("astralbeam/agents/Agents"
     })
 
     const update = Effect.fn("Agents.update")(
-      function* (input: {
-        readonly organizationId: string
-        readonly agentId: string
-        readonly lockVersion: number
-        readonly fields: AgentFields
-      }) {
+      function* (input: VersionedAgentTarget & { readonly fields: AgentFields }) {
         const id = yield* ownAgentId(input.organizationId, input.agentId)
         const { modelIds, ...fields } = input.fields
         yield* db
@@ -267,11 +266,7 @@ export class Agents extends Context.Service<Agents>()("astralbeam/agents/Agents"
     )
 
     const remove = Effect.fn("Agents.remove")(
-      function* (input: {
-        readonly organizationId: string
-        readonly agentId: string
-        readonly lockVersion: number
-      }) {
+      function* (input: VersionedAgentTarget) {
         const id = yield* ownAgentId(input.organizationId, input.agentId)
         yield* db.transaction((transaction) =>
           Effect.gen(function* () {
@@ -306,7 +301,7 @@ export class Agents extends Context.Service<Agents>()("astralbeam/agents/Agents"
     )
 
     const setDefault = Effect.fn("Agents.setDefault")(
-      function* (input: { readonly organizationId: string; readonly agentId: string }) {
+      function* (input: AgentTarget) {
         const id = yield* ownAgentId(input.organizationId, input.agentId)
         yield* db
           .insert(organizationConfiguration)

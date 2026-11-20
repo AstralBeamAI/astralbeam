@@ -544,7 +544,6 @@ export class ModelProviders extends Context.Service<ModelProviders>()(
       })
 
       /** A resolved model's effective rates, reading the shared catalog only without a manual override. */
-      // Reads the shared catalog when the resolved model has no manual rate override.
       const pricing = Effect.fn("ModelProviders.pricing")(function* (
         model: Pick<ChatModelConfiguration, "providerType" | "modelId" | "configured">,
       ) {
