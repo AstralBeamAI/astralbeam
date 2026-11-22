@@ -14,6 +14,8 @@ To add AstralBeam to your app, follow the <a href="https://astralbeam.ai/docs/st
 
 To self-host, follow [Deploy](platform/src/routes/docs/-content/self-hosting/deploy.md). For development, start with [local setup](docs/SETUP.md), then see [contributing](CONTRIBUTING.md) for project structure and validation or [architecture](docs/ARCHITECTURE.md) for implementation boundaries.
 
+To report a vulnerability privately, see the [security policy](SECURITY.md).
+
 ## Licensing
 
 Portions of this repository are licensed as follows:
