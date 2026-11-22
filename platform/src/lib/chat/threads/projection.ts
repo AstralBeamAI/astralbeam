@@ -18,6 +18,7 @@ interface ChatProjectionRecord {
 interface ChatProjectionTarget {
   readonly providerId: string
   readonly protocol: string
+  readonly contextKey?: string | undefined
   readonly modelId: string
   readonly webAccessEnabled?: boolean
 }
@@ -204,6 +205,10 @@ export function projectChatModelHistory(
       provenance?.providerId === target.providerId &&
       provenance.protocol === target.protocol &&
       provenance.modelId === target.modelId &&
+      (provenance.contextKey === target.contextKey ||
+        // Compatible native compaction can preserve thinking from the original prefix.
+        (provenance.contextKey === undefined && target.contextKey?.startsWith("native:")) ||
+        target.protocol === "gemini-generate-content") &&
       (target.webAccessEnabled !== false ||
         !record.payload.parts.some((part) => part.executionLocation === "provider"))
     let messages: ModelMessage[]

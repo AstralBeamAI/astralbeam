@@ -80,7 +80,10 @@ it("stops before the next model call and announces the limit once before the run
   expect(types.filter((type) => type.startsWith("CUSTOM"))).toEqual([
     "CUSTOM astralbeam.usage_limit.reached",
   ])
-  expect(types.slice(-2)).toEqual(["CUSTOM astralbeam.usage_limit.reached", "RUN_FINISHED"])
+  expect(types.at(-1)).toBe(EventType.RUN_FINISHED)
+  expect(types.indexOf("CUSTOM astralbeam.usage_limit.reached")).toBeLessThan(
+    types.indexOf(EventType.RUN_FINISHED),
+  )
 })
 
 it.each([

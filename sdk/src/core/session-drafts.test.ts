@@ -378,6 +378,12 @@ test("new-conversation callbacks acknowledge input while refresh preserves the r
     await chat.reload()
     expect(historyReads).toBe(readsBeforeRefresh)
     expect(settled).not.toHaveBeenCalled()
+    stream!.enqueue(
+      new TextEncoder().encode(
+        `data: ${JSON.stringify({ type: "CUSTOM", name: "compaction:started", value: {} })}\n\n`,
+      ),
+    )
+    await vi.waitFor(() => expect(chat.getState().preparingContext).toBe(true))
     chat.reset()
     stream?.close()
     stream = undefined
@@ -386,6 +392,7 @@ test("new-conversation callbacks acknowledge input while refresh preserves the r
     expect(onThreadReady).toHaveBeenCalledExactlyOnceWith(threadA)
     expect(chat.getState().thread).toBeUndefined()
     expect(chat.getState().submission).toBeUndefined()
+    expect(chat.getState().preparingContext).toBe(false)
   } finally {
     stream?.close()
   }
