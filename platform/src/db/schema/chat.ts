@@ -26,6 +26,15 @@ import { fileObject } from "./files.ts"
 import type { OrganizationId, TenantId, TenantUserId } from "@/db/schema/organizations"
 import { agent, tenantForeignKey, tenantUserForeignKey } from "./organizations.ts"
 
+function chatThreadForeignKey(
+  table: Record<"organizationId" | "tenantId" | "threadId", AnyPgColumn>,
+) {
+  return deferrableForeignKey({
+    columns: [table.organizationId, table.tenantId, table.threadId],
+    foreignColumns: [chatThread.organizationId, chatThread.tenantId, chatThread.id],
+  }).onDelete("cascade")
+}
+
 function chatMessageForeignKey(
   table: Record<"organizationId" | "tenantId" | "threadId", AnyPgColumn>,
   messageId: AnyPgColumn,
@@ -65,6 +74,7 @@ const ChatMessageMetadataSchema = Schema.Struct({
       providerType: Schema.optional(Schema.String),
       protocol: Schema.optional(Schema.String),
       modelId: Schema.optional(Schema.String),
+      contextKey: Schema.optional(Schema.String),
       usage: Schema.optional(Schema.JsonObject),
     }),
   ),
@@ -187,10 +197,7 @@ export const chatParticipant = snakeCase.table(
       table.tenantUserId,
       table.threadId,
     ),
-    deferrableForeignKey({
-      columns: [table.organizationId, table.tenantId, table.threadId],
-      foreignColumns: [chatThread.organizationId, chatThread.tenantId, chatThread.id],
-    }).onDelete("cascade"),
+    chatThreadForeignKey(table),
     tenantUserForeignKey(table).onDelete("cascade"),
   ],
 )
@@ -265,10 +272,7 @@ export const chatMessage = snakeCase.table(
         table.createdAt,
       )
       .where(sql`${table.role} = 'assistant'`),
-    deferrableForeignKey({
-      columns: [table.organizationId, table.tenantId, table.threadId],
-      foreignColumns: [chatThread.organizationId, chatThread.tenantId, chatThread.id],
-    }).onDelete("cascade"),
+    chatThreadForeignKey(table),
     chatMessageForeignKey(table, table.parentMessageId, { name: "chat_message_parent_fk" }),
     chatMessageForeignKey(table, table.turnMessageId, { name: "chat_message_turn_fk" }),
     tenantUserForeignKey(
@@ -407,6 +411,40 @@ export const chatFile = snakeCase.table(
       columns: [table.organizationId, table.fileObjectId],
       foreignColumns: [fileObject.organizationId, fileObject.id],
     }).onDelete("cascade"),
+  ],
+)
+
+const ChatCompactionPayloadSchema = Schema.Struct({
+  version: Schema.Literal(1),
+  kind: Schema.Literals(["portable", "native"]),
+  messages: Schema.Array(Schema.JsonObject),
+})
+
+export const chatCompaction = snakeCase.table(
+  "chat_compaction",
+  {
+    organizationId: uuidV7({ generated: false }).$type<OrganizationId>().notNull(),
+    id: uuidV7(),
+    tenantId: uuidV7({ generated: false }).$type<TenantId>().notNull(),
+    threadId: uuidV7({ generated: false }).notNull(),
+    coveredThroughMessageId: uuidV7({ generated: false }).notNull(),
+    compatibilityKey: text().notNull(),
+    payload: jsonb({ schema: ChatCompactionPayloadSchema }).notNull(),
+    usage: jsonb({ schema: Schema.JsonObject }).notNull(),
+    ...timestamps(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.organizationId, table.tenantId, table.id] }),
+    uniqueIndex("chat_compaction_anchor_uidx").on(
+      table.organizationId,
+      table.tenantId,
+      table.threadId,
+      table.coveredThroughMessageId,
+      table.compatibilityKey,
+      sql`(${table.payload}->>'kind')`,
+    ),
+    chatThreadForeignKey(table),
+    chatMessageForeignKey(table, table.coveredThroughMessageId).onDelete("cascade"),
   ],
 )
 

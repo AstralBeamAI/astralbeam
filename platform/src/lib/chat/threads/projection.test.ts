@@ -157,6 +157,26 @@ describe("stored conversation model projection", () => {
     expect(record).toEqual(before)
   })
 
+  test("replays thinking only with compatible native compaction context", () => {
+    const target = { ...projectionTarget, protocol: "anthropic-messages" }
+    const native = { ...target, contextKey: "native:matching" }
+    const thinking = [{ content: "Reasoning", signature: "bound-signature" }]
+    const payload = {
+      parts: [{ id: "text", type: "text", content: "Answer" }],
+      modelMessages: [{ role: "assistant", content: "Answer", thinking }],
+    }
+    const original = projectionRecord("original", { ...payload, provenance: target })
+    const compacted = projectionRecord("compacted", { ...payload, provenance: native })
+    expect(
+      projectChatModelHistory([original, compacted], native).map((message) => message.thinking),
+    ).toEqual([thinking, thinking])
+    for (const incompatible of [target, { ...native, contextKey: "native:changed" }]) {
+      const [projected] = projectChatModelHistory([compacted], incompatible)
+      expect(projected?.thinking).toBeUndefined()
+      expect(projected?.content).toBe("Answer")
+    }
+  })
+
   test.each([
     { ...projectionTarget, providerId: "provider-two" },
     { ...projectionTarget, protocol: "chat-completions" },

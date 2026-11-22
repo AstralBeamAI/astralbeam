@@ -70,6 +70,9 @@ export function catalogModelConfiguration(input: {
   if (!provider) return null
   const result = calcPrice({}, input.modelId, { provider: provider as Provider })
   if (!result?.model.context_window) return null
+  const contextWindow = result.model.context_window
+  // Leave room for input on models with small context windows.
+  const outputCap = Math.min(4096, Math.floor(contextWindow / 2))
   const prices = result.model_price
   // Native provider tools are excluded from this rate card. Chat declares function tools only.
   // https://github.com/pydantic/genai-prices/tree/main/prices/new_data/v2
@@ -110,10 +113,10 @@ export function catalogModelConfiguration(input: {
       aboveInputTokens,
       prices: ratesAt(aboveInputTokens + 1),
     })),
-    maxInputTokens: result.model.context_window,
-    contextWindowTokens: null,
-    maxOutputTokens: 4096,
-    outputCap: 4096,
+    maxInputTokens: null,
+    contextWindowTokens: contextWindow,
+    maxOutputTokens: outputCap,
+    outputCap,
   })
   return Option.getOrNull(decoded)
 }

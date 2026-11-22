@@ -11,12 +11,12 @@
     "build": "bun run ../../scripts/build-sandbox.ts"
   },
   "devDependencies": {
-    "@tanstack/ai-sandbox": "1.0.0",
-    "@tanstack/ai-sandbox-daytona": "^1.0.0",
-    "@tanstack/ai-sandbox-docker": "^1.0.0",
-    "@tanstack/ai-sandbox-e2b": "^1.0.0",
-    "@tanstack/ai-sandbox-sprites": "^1.0.0",
-    "@tanstack/ai-sandbox-vercel": "^1.0.0",
+    "@tanstack/ai-sandbox": "1.3.0",
+    "@tanstack/ai-sandbox-daytona": "^1.0.1",
+    "@tanstack/ai-sandbox-docker": "^1.1.0",
+    "@tanstack/ai-sandbox-e2b": "^1.1.0",
+    "@tanstack/ai-sandbox-sprites": "^1.1.0",
+    "@tanstack/ai-sandbox-vercel": "^1.0.1",
     "@types/dockerode": "^4.0.2",
     "dockerode": "^5.0.1",
     "microsandbox": "0.7.13"

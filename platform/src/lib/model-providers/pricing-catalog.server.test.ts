@@ -51,8 +51,8 @@ describe("model pricing catalog", () => {
       modelId: "test-model",
     }
     const card = catalogModelConfiguration(lookup)!
-    expect(modelInputAllowance(card)).toBe(128_000)
-    expect(modelInputAllowance({ ...card, outputCap: 1024 })).toBe(128_000)
+    expect(modelInputAllowance(card)).toBe(123_904)
+    expect(modelInputAllowance({ ...card, outputCap: 1024 })).toBe(126_976)
     expect(card.prices).toEqual({
       inputPerMillion: "2",
       outputPerMillion: "8",
@@ -94,13 +94,26 @@ describe("model pricing catalog", () => {
     }
     expect(effectiveModelConfiguration({ ...lookup, configured })).toMatchObject({
       outputCap: 4096,
-      maxInputTokens: 128_000,
-      contextWindowTokens: null,
+      maxInputTokens: null,
+      contextWindowTokens: 128_000,
       prices: { inputPerMillion: "2" },
       contextTiers: [{ aboveInputTokens: 20_000 }, { aboveInputTokens: 60_000 }],
     })
     expect(effectiveModelConfiguration({ ...lookup, modelId: "unknown", configured })).toBe(
       configured,
     )
+  })
+
+  test("keeps a usable input budget for small catalog models", () => {
+    const [provider] = testPriceCatalog.providers
+    const card = catalogModelConfiguration({
+      catalog: {
+        providers: [{ ...provider!, models: [{ ...provider!.models[0]!, context_window: 4095 }] }],
+      },
+      providerType: "openai",
+      modelId: "test-model",
+    })!
+    expect(card.outputCap).toBe(2047)
+    expect(modelInputAllowance(card)).toBe(2048)
   })
 })

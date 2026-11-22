@@ -33,6 +33,7 @@ import {
   chatToolResponse,
   chatParticipant,
   chatFile,
+  chatCompaction,
 } from "@/db/schema/chat"
 import type { OrganizationId, TenantId, TenantUserId } from "@/db/schema/organizations"
 import {
@@ -42,6 +43,7 @@ import {
   agent,
   organizationConfiguration,
 } from "@/db/schema/organizations"
+import { chatCompactionBoundaries } from "../compaction"
 import type { ChatPrincipal } from "../types"
 import { ChatFiles, type ChatFileCache } from "../attachments/attachments"
 import { StoredFiles } from "@/lib/storage/stored-files.server"
@@ -144,6 +146,7 @@ const messageWhere = threadScopeWhere(chatMessage, chatMessage.threadId)
 const participantWhere = threadScopeWhere(chatParticipant, chatParticipant.threadId)
 const chatPartWhere = threadScopeWhere(chatMessagePart, chatMessagePart.threadId)
 const chatResponseWhere = threadScopeWhere(chatToolResponse, chatToolResponse.threadId)
+const compactionWhere = threadScopeWhere(chatCompaction, chatCompaction.threadId)
 const rowScope = (scope: ChatThreadScope) => ({
   organizationId: scope.organizationId,
   tenantId: scope.tenantId,
@@ -1145,6 +1148,68 @@ export class ChatThreads extends Context.Service<ChatThreads>()(
             }),
           ),
       )
+      const compactions = Effect.fn("ChatThreads.compactions")((input: ThreadInput) =>
+        readSnapshot((tx) =>
+          Effect.gen(function* () {
+            yield* readThread(tx, input)
+            return yield* tx
+              .select()
+              .from(chatCompaction)
+              .where(compactionWhere(input.scope, input.id))
+              .orderBy(desc(chatCompaction.createdAt), desc(chatCompaction.id))
+          }),
+        ),
+      )
+      const saveCompaction = Effect.fn("ChatThreads.saveCompaction")(
+        ({
+          claim,
+          leafMessageId,
+          artifact,
+        }: {
+          claim: ChatWriterClaim
+          leafMessageId: string
+          artifact: Pick<
+            typeof chatCompaction.$inferInsert,
+            "coveredThroughMessageId" | "compatibilityKey" | "payload" | "usage"
+          >
+        }) =>
+          withChatClaim(claim, (tx) =>
+            Effect.gen(function* () {
+              const ancestry = yield* historyIds(tx, claim.scope, claim.threadId, leafMessageId)
+              const anchor = ancestry.findIndex(
+                (node) => node.id === artifact.coveredThroughMessageId,
+              )
+              if (anchor < 0) return yield* new ChatThreadConflict()
+              const prefix = yield* historyMessages(
+                tx,
+                claim.scope,
+                claim.threadId,
+                ancestry.slice(0, anchor + 1),
+              )
+              if (!chatCompactionBoundaries(prefix).includes(anchor))
+                return yield* new ChatThreadConflict()
+              const [inserted] = yield* tx
+                .insert(chatCompaction)
+                .values({ ...rowScope(claim.scope), threadId: claim.threadId, ...artifact })
+                .onConflictDoNothing()
+                .returning()
+              if (inserted) return inserted
+              const [existing] = yield* tx
+                .select()
+                .from(chatCompaction)
+                .where(
+                  and(
+                    compactionWhere(claim.scope, claim.threadId),
+                    eq(chatCompaction.coveredThroughMessageId, artifact.coveredThroughMessageId),
+                    eq(chatCompaction.compatibilityKey, artifact.compatibilityKey),
+                    sql`${chatCompaction.payload}->>'kind' = ${artifact.payload.kind}`,
+                  ),
+                )
+              return existing!
+            }),
+          ),
+      )
+
       const snapshot = Effect.fn("ChatThreads.snapshot")(
         (input: ThreadInput & DatabasePageOptions) =>
           readSnapshot((tx) =>
@@ -1761,6 +1826,8 @@ export class ChatThreads extends Context.Service<ChatThreads>()(
         get,
         snapshot,
         history,
+        compactions,
+        saveCompaction,
         authorizeToolResponse,
         rename,
         remove,

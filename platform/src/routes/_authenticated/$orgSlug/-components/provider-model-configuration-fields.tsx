@@ -144,9 +144,9 @@ export function ProviderModelConfigurationFields({
             ))}
           </div>
           <FieldDescription>
-            Set an input maximum or context window. Keep the output cap within the model output
-            maximum. Verify the default 4,096-token output maximum with your provider before
-            increasing it.
+            Set an input maximum, a context window, or both. The output cap limits generation and
+            reserves space within the context window. If you set both, chat uses whichever leaves
+            fewer input tokens.
           </FieldDescription>
           <details>
             <summary className="cursor-pointer text-sm font-medium">Cache pricing</summary>
