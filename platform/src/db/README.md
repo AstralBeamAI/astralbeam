@@ -14,7 +14,7 @@ Tenant services, chat and MCP scopes, and usage-limit subjects use `Organization
 - `schema/` contains responsibility-named domain table and relation modules.
 - `migrations/` contains generated migration SQL, Drizzle snapshots, and optional TypeScript data migrations.
 
-`schema/tables.ts` is the table-only namespace shared by Drizzle and adapters. `schema/relations.ts` defines the query relations used by application code, Better Auth and codec regression tests in one `defineRelations` callback.
+`schema/tables.ts` is the table-only namespace shared by Drizzle and adapters. `schema/relations.ts` defines the query relations used by application code and Better Auth in one `defineRelations` callback.
 
 ## Query from server-only code
 
