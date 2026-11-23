@@ -64,7 +64,5 @@ export function usageCounterIncrement(now: Date) {
     windowEndsAt: sql`case when ${live} then ${usageLimitCounter.windowEndsAt} else excluded.window_ends_at end`,
     tokens: sql`case when ${live} then ${usageLimitCounter.tokens} + excluded.tokens else excluded.tokens end`,
     spend: sql`case when ${live} then ${usageLimitCounter.spend} + excluded.spend else excluded.spend end`,
-    // Drizzle's `updatedAt` hook runs for update statements, not for a conflict clause.
-    updatedAt: sql`now()`,
   }
 }

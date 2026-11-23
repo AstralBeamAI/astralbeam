@@ -89,23 +89,51 @@ describe.skipIf(!usageLimitIntegration.url)("usage limit counters", () => {
       organizationId,
       [
         weeklyTokens,
-        { ...weeklyTokens, name: "Team spend", scope: "tenant", metric: "spend", amount: "1" },
+        {
+          ...weeklyTokens,
+          name: "Team spend",
+          scope: "tenant",
+          metric: "spend",
+          amount: "100000000",
+        },
         { ...weeklyTokens, name: "Conversation", scope: "thread" },
       ],
       (usageLimits) =>
         Effect.gen(function* () {
           const limits = yield* usageLimits.applicable({ organizationId, listedIds: [] })
-          yield* usageLimits.record({ limits, subject: ada, usage: { tokens: 600, spend: "0.4" } })
-          yield* usageLimits.record({ limits, subject: ada, usage: { tokens: 400, spend: "0.4" } })
+          yield* Effect.all(
+            [
+              usageLimits.record({
+                limits,
+                subject: ada,
+                usage: { tokens: 600, spend: "99999999" },
+              }),
+              usageLimits.record({
+                limits,
+                subject: ada,
+                usage: { tokens: 400, spend: "0.899999999" },
+              }),
+            ],
+            { concurrency: "unbounded" },
+          )
           yield* usageLimits.record({ limits, subject: grace, usage: { tokens: 10, spend: "0.1" } })
 
           const graceStatus = yield* usageLimits.status({ limits, subject: grace })
           expect(graceStatus.map(({ limit, used }) => [limit.name, used])).toEqual([
-            ["Team spend", "0.9"],
+            ["Team spend", "99999999.999999999"],
             ["Weekly limit", "10"],
           ])
           yield* usageLimits.check({ limits, subject: grace })
-          return yield* Effect.flip(usageLimits.check({ limits, subject: ada }))
+          const reached = yield* Effect.flip(usageLimits.check({ limits, subject: ada }))
+          yield* usageLimits.record({
+            limits,
+            subject: grace,
+            usage: { tokens: 0, spend: "0.000000001" },
+          })
+          expect(yield* Effect.flip(usageLimits.check({ limits, subject: grace }))).toMatchObject({
+            usageLimit: { name: "Team spend" },
+          })
+          return reached
         }),
     )
     expect(failure).toMatchObject({

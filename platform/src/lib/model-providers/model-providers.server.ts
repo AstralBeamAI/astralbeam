@@ -170,17 +170,6 @@ export class ModelProviders extends Context.Service<ModelProviders>()(
         (value) => value === "true",
       )
 
-      const readModelProviderRow = Effect.fnUntraced(function* (
-        organizationId: string,
-        id: string,
-      ) {
-        const row = yield* db.query.modelProvider.findFirst({
-          ...modelProviderColumns,
-          where: { organizationId, id },
-        })
-        return row ?? null
-      }, Effect.orDie)
-
       // Names the agents still assigned a provider's models, other than those kept by a save.
       const failInUse = Effect.fnUntraced(function* (
         organizationId: string,
@@ -275,7 +264,14 @@ export class ModelProviders extends Context.Service<ModelProviders>()(
 
       const save = Effect.fn("ModelProviders.save")(function* (input: SaveModelProviderInput) {
         const existing =
-          input.id === null ? null : yield* readModelProviderRow(input.organizationId, input.id)
+          input.id === null
+            ? null
+            : yield* db.query.modelProvider
+                .findFirst({
+                  ...modelProviderColumns,
+                  where: { organizationId: input.organizationId, id: input.id },
+                })
+                .pipe(Effect.orDie)
         if (
           input.id === null
             ? input.lockVersion !== null
@@ -500,19 +496,20 @@ export class ModelProviders extends Context.Service<ModelProviders>()(
       const testModel = Effect.fn("ModelProviders.testModel")(function* (
         input: TestModelProviderInput,
       ) {
-        const provider = yield* readModelProviderRow(input.organizationId, input.id)
-        if (provider?.lockVersion !== input.lockVersion) return yield* new ModelProviderChanged()
         const model = yield* db.query.providerModel
           .findFirst({
             columns: { modelId: true },
             where: {
               organizationId: input.organizationId,
-              modelProviderId: provider.id,
+              modelProviderId: input.id,
               id: input.modelId,
             },
+            with: { provider: modelProviderColumns },
           })
           .pipe(Effect.orDie)
-        if (!model) return yield* new ModelProviderChanged()
+        const provider = model?.provider
+        if (!model || provider?.lockVersion !== input.lockVersion)
+          return yield* new ModelProviderChanged()
         const apiKey = readModelProviderKey(provider)
         if (!apiKey) return yield* new ModelProviderUnreadable()
         yield* rateLimiter
@@ -539,7 +536,12 @@ export class ModelProviders extends Context.Service<ModelProviders>()(
           apiKey,
           fetch: (yield* allowsPrivateEndpoints) ? fetchWithTraceContext : fetchPublicModelEndpoint,
         })
-        const current = yield* readModelProviderRow(input.organizationId, input.id)
+        const current = yield* db.query.modelProvider
+          .findFirst({
+            columns: { lockVersion: true },
+            where: { organizationId: input.organizationId, id: input.id },
+          })
+          .pipe(Effect.orDie)
         if (current?.lockVersion !== input.lockVersion) return yield* new ModelProviderChanged()
       })
 

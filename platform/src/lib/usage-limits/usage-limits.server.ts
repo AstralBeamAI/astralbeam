@@ -1,5 +1,5 @@
-import { and, asc, count, desc, eq, gt, inArray, or } from "drizzle-orm"
-import { Clock, Context, DateTime, Effect, Layer, Schema } from "effect"
+import { and, asc, desc, eq, gt, inArray, or, sql } from "drizzle-orm"
+import { BigDecimal, Clock, Context, DateTime, Effect, Layer, Schema } from "effect"
 
 import { Database } from "@/db/database"
 import { deleteWithOptimisticLock, updateWithOptimisticLock } from "@/db/lib/optimistic-locking"
@@ -269,7 +269,12 @@ export class UsageLimits extends Context.Service<UsageLimits>()(
         readonly subject: UsageSubject
       }): Effect.fn.Return<void, UsageLimitReached> {
         const reached = (yield* status(input))
-          .filter(({ limit, used }) => Number(used) >= Number(limit.amount))
+          .filter(({ limit, used }) =>
+            BigDecimal.isGreaterThanOrEqualTo(
+              BigDecimal.fromStringUnsafe(used),
+              BigDecimal.fromStringUnsafe(limit.amount),
+            ),
+          )
           .toSorted((left, right) => right.resetsAt!.getTime() - left.resetsAt!.getTime())[0]
         if (!reached) return
         const now = yield* Clock.currentTimeMillis
@@ -293,18 +298,15 @@ export class UsageLimits extends Context.Service<UsageLimits>()(
           gt(usageLimitCounter.windowEndsAt, now),
         )
         const used = limit.metric === "tokens" ? usageLimitCounter.tokens : usageLimitCounter.spend
-        const [rows, [counted]] = yield* Effect.all(
+        const [subjects, total] = yield* Effect.all(
           [
             db
               .select({
                 id: usageLimitCounter.id,
-                windowEndsAt: usageLimitCounter.windowEndsAt,
-                tokens: usageLimitCounter.tokens,
-                spend: usageLimitCounter.spend,
-                tenantName: tenant.name,
-                tenantExternalId: tenant.externalId,
-                tenantUserName: tenantUser.name,
-                tenantUserExternalId: tenantUser.externalId,
+                resetsAt: usageLimitCounter.windowEndsAt,
+                used: sql<string>`${used}::text`,
+                tenant: { externalId: tenant.externalId, name: tenant.name },
+                tenantUser: { externalId: tenantUser.externalId, name: tenantUser.name },
                 threadTitle: chatThread.title,
               })
               .from(usageLimitCounter)
@@ -335,28 +337,11 @@ export class UsageLimits extends Context.Service<UsageLimits>()(
               .orderBy(desc(used), asc(usageLimitCounter.id))
               .limit(USAGE_LIMIT_SUBJECTS_PAGE_SIZE)
               .offset((input.page - 1) * USAGE_LIMIT_SUBJECTS_PAGE_SIZE),
-            db.select({ total: count() }).from(usageLimitCounter).where(live),
+            db.$count(usageLimitCounter, live),
           ],
           { concurrency: "unbounded" },
         ).pipe(Effect.orDie)
-        return {
-          usageLimit: limit,
-          total: counted?.total ?? 0,
-          subjects: rows.map((row) => ({
-            id: row.id,
-            tenant:
-              row.tenantExternalId === null
-                ? null
-                : { name: row.tenantName, externalId: row.tenantExternalId },
-            tenantUser:
-              row.tenantUserExternalId === null
-                ? null
-                : { name: row.tenantUserName, externalId: row.tenantUserExternalId },
-            threadTitle: row.threadTitle,
-            used: limit.metric === "tokens" ? String(row.tokens) : row.spend,
-            resetsAt: row.windowEndsAt,
-          })),
-        }
+        return { usageLimit: limit, total, subjects }
       })
 
       const record = Effect.fn("UsageLimits.record")(function* (input: {
@@ -383,22 +368,25 @@ export class UsageLimits extends Context.Service<UsageLimits>()(
                   ),
                 ),
               )
+              .orderBy(asc(usageLimit.id))
               .for("share")
-            for (const limit of rows) {
+            const counters = rows.flatMap((limit) => {
               const key = usageCounterKey(limit.scope, input.subject)
-              if (!key) continue
-              yield* transaction
-                .insert(usageLimitCounter)
-                .values({
+              if (!key) return []
+              return [
+                {
                   organizationId: input.subject.organizationId,
                   usageLimitId: limit.id,
                   ...key,
-                  windowEndsAt: usageLimitWindowEnd(
-                    { ...limit, timeZone: limit.timeZone ?? null },
-                    now,
-                  ),
+                  windowEndsAt: usageLimitWindowEnd(limit, now),
                   ...input.usage,
-                })
+                },
+              ]
+            })
+            if (counters.length)
+              yield* transaction
+                .insert(usageLimitCounter)
+                .values(counters)
                 .onConflictDoUpdate({
                   target: [
                     usageLimitCounter.organizationId,
@@ -409,7 +397,6 @@ export class UsageLimits extends Context.Service<UsageLimits>()(
                   ],
                   set: usageCounterIncrement(now),
                 })
-            }
           }),
         )
       }, Effect.orDie)

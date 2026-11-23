@@ -2001,11 +2001,6 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     expect(
       (await runtime.runPromise(service.snapshot({ scope, id: thread.id }))).pending,
     ).toHaveLength(1)
-    const restored = await db.query.chatMessage.findFirst({
-      where: { threadId: thread.id, id: accepted.assistantMessage!.id },
-      with: { parts: { with: { responses: true } } },
-    })
-    expect(restored!.parts[0]!.responses).toHaveLength(2)
     await expect(
       db
         .update(chatMessage)
@@ -2017,12 +2012,6 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     )
     await expect(
       db.select().from(chatMessagePart).where(eq(chatMessagePart.id, partId)),
-    ).rejects.toThrow()
-    await expect(
-      db.query.chatMessage.findFirst({
-        where: { threadId: thread.id, id: accepted.assistantMessage!.id },
-        with: { parts: true },
-      }),
     ).rejects.toThrow()
   })
 })

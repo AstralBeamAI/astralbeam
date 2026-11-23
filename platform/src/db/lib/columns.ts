@@ -157,12 +157,11 @@ export function jsonb<S extends Schema.ConstraintCodec<unknown, unknown>>({
   readonly schema: S
 }) {
   const codec = Schema.toCodecJson(schema)
-  const decode = (value: unknown) =>
-    Result.getOrThrow(
-      Schema.decodeUnknownResult(codec, { onExcessProperty: "error" })(value).pipe(
-        Result.mapError(() => new DatabaseJsonError()),
-      ),
-    )
+  const options = { onExcessProperty: "error" } as const
+  const encode = Schema.encodeUnknownResult(codec, options)
+  const decode = Schema.decodeUnknownResult(codec, options)
+  const fail = () => new DatabaseJsonError()
+  const fromDriver = (value: unknown) => Result.getOrThrowWith(decode(value), fail)
   return schemaColumn(
     customType<{
       data: S["Type"]
@@ -171,16 +170,9 @@ export function jsonb<S extends Schema.ConstraintCodec<unknown, unknown>>({
       jsonData: unknown
     }>({
       dataType: () => "jsonb",
-      toDriver: (value) =>
-        JSON.stringify(
-          Result.getOrThrow(
-            Schema.encodeUnknownResult(codec, { onExcessProperty: "error" })(value).pipe(
-              Result.mapError(() => new DatabaseJsonError()),
-            ),
-          ),
-        ),
-      fromDriver: decode,
-      fromJson: decode,
+      toDriver: (value) => JSON.stringify(Result.getOrThrowWith(encode(value), fail)),
+      fromDriver,
+      fromJson: fromDriver,
     })(),
     schema,
   )

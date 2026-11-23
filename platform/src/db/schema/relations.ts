@@ -26,12 +26,16 @@ export const databaseRelations = defineRelations(schema, (relations) => ({
       from: relations.organization.id,
       to: relations.agent.organizationId,
     }),
-    apiKeys: relations.many.apiKey(),
     members: relations.many.member(),
     invitations: relations.many.invitation(),
-    configuration: relations.one.organizationConfiguration(),
-    sandboxProviders: relations.many.sandboxProvider(),
-    tenants: relations.many.tenant(),
+    configuration: relations.one.organizationConfiguration({
+      from: relations.organization.id,
+      to: relations.organizationConfiguration.organizationId,
+    }),
+    sandboxProviders: relations.many.sandboxProvider({
+      from: relations.organization.id,
+      to: relations.sandboxProvider.organizationId,
+    }),
   },
   agent: {
     models: relations.many.agentModel({
@@ -52,30 +56,6 @@ export const databaseRelations = defineRelations(schema, (relations) => ({
     provider: relations.one.modelProvider({
       from: [relations.providerModel.organizationId, relations.providerModel.modelProviderId],
       to: [relations.modelProvider.organizationId, relations.modelProvider.id],
-    }),
-  },
-  apiKey: {
-    organization: relations.one.organization({
-      from: relations.apiKey.organizationId,
-      to: relations.organization.id,
-    }),
-  },
-  organizationConfiguration: {
-    organization: relations.one.organization({
-      from: relations.organizationConfiguration.organizationId,
-      to: relations.organization.id,
-    }),
-  },
-  sandboxProvider: {
-    organization: relations.one.organization({
-      from: relations.sandboxProvider.organizationId,
-      to: relations.organization.id,
-    }),
-  },
-  tenant: {
-    organization: relations.one.organization({
-      from: relations.tenant.organizationId,
-      to: relations.organization.id,
     }),
   },
   tenantUser: {
@@ -102,42 +82,6 @@ export const databaseRelations = defineRelations(schema, (relations) => ({
     user: relations.one.user({
       from: relations.invitation.inviterId,
       to: relations.user.id,
-    }),
-  },
-  chatMessage: {
-    parts: relations.many.chatMessagePart(),
-  },
-  chatMessagePart: {
-    message: relations.one.chatMessage({
-      from: [
-        relations.chatMessagePart.organizationId,
-        relations.chatMessagePart.tenantId,
-        relations.chatMessagePart.threadId,
-        relations.chatMessagePart.messageId,
-      ],
-      to: [
-        relations.chatMessage.organizationId,
-        relations.chatMessage.tenantId,
-        relations.chatMessage.threadId,
-        relations.chatMessage.id,
-      ],
-    }),
-    responses: relations.many.chatToolResponse(),
-  },
-  chatToolResponse: {
-    toolPart: relations.one.chatMessagePart({
-      from: [
-        relations.chatToolResponse.organizationId,
-        relations.chatToolResponse.tenantId,
-        relations.chatToolResponse.threadId,
-        relations.chatToolResponse.toolPartId,
-      ],
-      to: [
-        relations.chatMessagePart.organizationId,
-        relations.chatMessagePart.tenantId,
-        relations.chatMessagePart.threadId,
-        relations.chatMessagePart.id,
-      ],
     }),
   },
 }))

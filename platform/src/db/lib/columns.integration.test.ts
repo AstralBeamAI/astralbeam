@@ -34,7 +34,7 @@ describe.skipIf(!jsonbIntegration.url)("schema-backed JSONB columns", () => {
     await runtime.dispose()
   })
 
-  test("round trips JSON through writes and ordinary and relational reads", async () => {
+  test("round trips JSON through writes and reads", async () => {
     const [row] = await db
       .insert(tenant)
       .values({ organizationId, externalId: "valid" })
@@ -49,15 +49,6 @@ describe.skipIf(!jsonbIntegration.url)("schema-backed JSONB columns", () => {
     expect((await db.select().from(tenant).where(eq(tenant.id, row!.id)))[0]!.metadata).toEqual(
       metadata,
     )
-    const restored = await runtime.runPromise(
-      Effect.flatMap(Database, (database) =>
-        database.query.organization.findFirst({
-          where: { id: organizationId },
-          with: { tenants: true },
-        }),
-      ),
-    )
-    expect(restored!.tenants[0]!.metadata).toEqual(metadata)
   })
 
   test("optimistic updates return decoded rows and reject stale versions", async () => {
@@ -117,6 +108,14 @@ describe.skipIf(!jsonbIntegration.url)("schema-backed JSONB columns", () => {
         options: {},
       })
       .returning()
+    const joined = Effect.flatMap(Database, (database) =>
+      database.query.organization.findFirst({
+        columns: {},
+        where: { id: organizationId },
+        with: { sandboxProviders: { where: { id: row!.id }, columns: { options: true } } },
+      }),
+    )
+    expect(await runtime.runPromise(joined)).toEqual({ sandboxProviders: [{ options: {} }] })
     for (const invalid of ['{"image":"test-image"}', { image: "test-image", unexpected: true }]) {
       await db.execute(
         sql`update sandbox_provider set options = ${JSON.stringify(invalid)}::jsonb where id = ${row!.id}`,
@@ -124,7 +123,7 @@ describe.skipIf(!jsonbIntegration.url)("schema-backed JSONB columns", () => {
       await expect(
         db.select().from(sandboxProvider).where(eq(sandboxProvider.id, row!.id)),
       ).rejects.toThrow()
-      await expect(db.query.sandboxProvider.findFirst({ where: { id: row!.id } })).rejects.toThrow()
+      await expect(runtime.runPromise(joined)).rejects.toThrow()
     }
   })
 })
