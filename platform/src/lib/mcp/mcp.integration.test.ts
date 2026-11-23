@@ -794,6 +794,32 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
       await expect(
         authority((service) => service.getCredential({ actor: other, reference: second })),
       ).rejects.toThrow()
+      await connections((service) =>
+        service.setHeaders({
+          actor: other,
+          reference: second,
+          lockVersion: 1,
+          headers: { Authorization: "Bearer repaired-secret" },
+        }),
+      )
+      expect(
+        Redacted.value(
+          await authority((service) => service.getCredential({ actor: other, reference: second })),
+        ),
+      ).toMatchObject({
+        kind: "static_headers",
+        headers: { authorization: "Bearer repaired-secret" },
+      })
+      await db.execute(
+        sql`update mcp_connection set credentials = 'corrupt', updated_at = now() where organization_id = ${second.organizationId} and tenant_id = ${second.tenantId} and id = ${second.id}`,
+      )
+      await authority((service) => service.disconnect({ actor: other, reference: second }))
+      expect(
+        await db
+          .select({ id: mcpConnection.id })
+          .from(mcpConnection)
+          .where(eq(mcpConnection.id, second.id)),
+      ).toEqual([])
       expect(JSON.stringify(await connections((service) => service.catalog(actor)))).not.toContain(
         "personal-secret",
       )

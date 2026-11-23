@@ -1,4 +1,5 @@
-import { boolean, index, uniqueIndex, primaryKey, snakeCase } from "drizzle-orm/pg-core"
+import { boolean, index, uniqueIndex } from "drizzle-orm/pg-core"
+import { defineModel, primaryKey } from "@/lib/persistence.server"
 
 import {
   caseInsensitiveText,
@@ -9,7 +10,7 @@ import {
   text,
 } from "../lib/columns.ts"
 
-export const user = snakeCase.table(
+export const user = defineModel(
   "user",
   {
     id: uuidV7(),
@@ -28,7 +29,7 @@ export const user = snakeCase.table(
   ],
 )
 
-export const session = snakeCase.table(
+export const session = defineModel(
   "session",
   {
     id: uuidV7(),
@@ -52,7 +53,7 @@ export const session = snakeCase.table(
   ],
 )
 
-export const account = snakeCase.table(
+export const account = defineModel(
   "account",
   {
     id: uuidV7(),
@@ -79,7 +80,7 @@ export const account = snakeCase.table(
   ],
 )
 
-export const verification = snakeCase.table(
+export const verification = defineModel(
   "verification",
   {
     id: uuidV7(),

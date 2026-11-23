@@ -3,7 +3,6 @@ import { Clock, Context, Effect, Layer, Result, Schema } from "effect"
 import { Database } from "@/db/database"
 import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials"
 import { decryptDatabaseValue, encryptDatabaseValue } from "@/db/lib/encryption"
-import { updateWithOptimisticLock } from "@/db/lib/optimistic-locking"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate"
 import { mcpConnection, mcpServer } from "@/db/schema/mcp"
 import {
@@ -23,6 +22,7 @@ import {
   mcpHeadersAreAllowed,
   type McpActor,
   type McpAuthConfig,
+  type McpCredentialEnvelope,
   type McpReference,
   type McpServerSummary,
   type McpConnectionSummary,
@@ -113,6 +113,30 @@ const mcpReadConnections = Effect.fnUntraced(function* (
     .pipe(Effect.orDie)
 })
 export type McpStoredConnection = Effect.Success<ReturnType<typeof mcpReadConnections>>[number]
+
+export function mcpStoreCredential(input: {
+  actor: McpActor
+  connection: McpStoredConnection
+  lockVersion: number
+  credential: McpCredentialEnvelope["credential"]
+}) {
+  const { actor, connection, lockVersion, credential } = input
+  const credentials: McpCredentialEnvelope = {
+    version: 1,
+    ...actor,
+    id: connection.id,
+    mcpServerId: connection.mcpServerId,
+    lockVersion: lockVersion + 1,
+    credential,
+  }
+  return mcpConnection
+    .update({ ...connection, lockVersion }, { credentials }, { where: mcpConnectionOwner(actor) })
+    .pipe(
+      mapDatabaseErrors(),
+      Effect.catchTag(["NotFound", "StaleWrite"], () => new McpChanged()),
+    )
+}
+
 export function mcpDecodeCredential(row: McpStoredConnection) {
   const decoded = decryptDatabaseValue({
     storedValue: row.storedCredentials,
@@ -183,6 +207,7 @@ function mcpServerSummary(
 
 const makeMcpConnections = Effect.gen(function* () {
   const db = yield* Database
+  const useDatabase = Effect.provideService(Database, db)
   const listServers = Effect.fn("McpConnections.listServers")(function* (
     organizationId: McpActor["organizationId"],
   ) {
@@ -218,29 +243,25 @@ const makeMcpConnections = Effect.gen(function* () {
       .from(sql`(values (1)) as generated(value)`)
       .pipe(Effect.orDie)
     const id = generated!.id
-    const [created] = yield* db
-      .insert(mcpServer)
-      .values({
+    const created = yield* mcpServer
+      .insert({
         organizationId,
         id,
         endpointUrl: endpoint.href,
         authConfig: mcpEncodeServer({ organizationId, id, authConfig: fields.authConfig }),
       })
-      .returning()
       .pipe(mapDatabaseErrors({ mcp_server_endpoint_uidx: () => new McpServerExists() }))
-    return mcpServerSummary(created!, mcpDecodeServer(created!))
-  })
+    return mcpServerSummary(created, mcpDecodeServer(created))
+  }, useDatabase)
   const removeServer = Effect.fn("McpConnections.removeServer")(function* (
     organizationId: McpActor["organizationId"],
     id: string,
   ) {
-    const rows = yield* db
-      .delete(mcpServer)
-      .where(and(eq(mcpServer.organizationId, organizationId), eq(mcpServer.id, id)))
-      .returning({ id: mcpServer.id })
-      .pipe(Effect.orDie)
-    if (!rows.length) return yield* new McpNotFound()
-  })
+    yield* mcpServer.delete({ organizationId, id }).pipe(
+      mapDatabaseErrors(),
+      Effect.catchTag("NotFound", () => new McpNotFound()),
+    )
+  }, useDatabase)
   const getConnection = Effect.fn("McpConnections.getConnection")(function* (input: {
     actor: McpActor
     reference: McpReference
@@ -321,27 +342,12 @@ const makeMcpConnections = Effect.gen(function* () {
       server.authConfig.headerNames.some((name) => !headers[name.toLowerCase()])
     )
       return yield* new McpInvalidConfiguration()
-    yield* updateWithOptimisticLock({
-      executor: db,
-      table: mcpConnection,
-      id: connection.id,
-      scope: mcpConnectionOwner(input.actor),
-      expectedLockVersion: input.lockVersion,
-      set: {
-        credentials: {
-          version: 1,
-          ...input.actor,
-          id: connection.id,
-          mcpServerId: connection.mcpServerId,
-          lockVersion: input.lockVersion + 1,
-          credential: { kind: "static_headers", headers },
-        },
-      },
-    }).pipe(
-      mapDatabaseErrors(),
-      Effect.catchTag("OptimisticLockError", () => Effect.fail(new McpChanged())),
-    )
-  })
+    yield* mcpStoreCredential({
+      ...input,
+      connection,
+      credential: { kind: "static_headers", headers },
+    })
+  }, useDatabase)
   const disconnect = Effect.fn("McpConnections.disconnect")(function* (input: {
     actor: McpActor
     reference: McpReference

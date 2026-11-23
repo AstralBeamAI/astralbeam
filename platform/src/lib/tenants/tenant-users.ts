@@ -52,7 +52,8 @@ interface TenantUserUsageInput {
   readonly end: string
 }
 
-const tenantUserRecordColumns = Struct.pick(tenantUser, Struct.keys(TenantUserRecordSchema.fields))
+const tenantUserRecordFields = Struct.keys(TenantUserRecordSchema.fields)
+const tenantUserRecordColumns = Struct.pick(tenantUser, tenantUserRecordFields)
 
 function tenantUserWhere(scope: TenantScope, tenantId: TenantId, id?: TenantUserId) {
   return and(
@@ -65,6 +66,7 @@ function tenantUserWhere(scope: TenantScope, tenantId: TenantId, id?: TenantUser
 export class TenantUsers extends Context.Service<TenantUsers>()("astralbeam/tenants/TenantUsers", {
   make: Effect.gen(function* () {
     const db = yield* Database
+    const useDatabase = Effect.provideService(Database, db)
     const tenants = yield* Tenants
     const config = yield* Config
 
@@ -262,34 +264,29 @@ export class TenantUsers extends Context.Service<TenantUsers>()("astralbeam/tena
         .from(tenantUser)
         .where(tenantUserWhere(input.scope, input.tenantId, input.id))
         .limit(1)
-        .pipe(mapDatabaseErrors())
       if (!row) return yield* new TenantUserNotFound()
       return row
-    })
+    }, mapDatabaseErrors())
 
+    const mapTenantUserCreateErrors = mapDatabaseErrors({
+      tenant_user_organization_id_tenant_id_external_id_uidx: () => new TenantExternalIdTaken(),
+      tenant_user_organization_id_tenant_id_fk: () => new TenantNotFound(),
+    })
     const create = Effect.fn("TenantUsers.create")(function* (input: {
       readonly scope: TenantScope
       readonly tenantId: TenantId
       readonly fields: typeof TenantUserWriteSchema.Type
     }) {
       yield* requireTenant(input.scope, input.tenantId)
-      const [row] = yield* db
-        .insert(tenantUser)
-        .values({
+      const row = yield* tenantUser
+        .insert({
           ...input.fields,
           organizationId: input.scope.organizationId,
           tenantId: input.tenantId,
         })
-        .returning(tenantUserRecordColumns)
-        .pipe(
-          mapDatabaseErrors({
-            tenant_user_organization_id_tenant_id_external_id_uidx: () =>
-              new TenantExternalIdTaken(),
-            tenant_user_organization_id_tenant_id_fk: () => new TenantNotFound(),
-          }),
-        )
-      return row!
-    })
+        .pipe(useDatabase)
+      return Struct.pick(row, tenantUserRecordFields)
+    }, mapTenantUserCreateErrors)
 
     const update = Effect.fn("TenantUsers.update")(function* (input: {
       readonly scope: TenantScope
@@ -297,15 +294,17 @@ export class TenantUsers extends Context.Service<TenantUsers>()("astralbeam/tena
       readonly id: TenantUserId
       readonly patch: typeof TenantUserPatchSchema.Type
     }) {
-      const [row] = yield* db
-        .update(tenantUser)
-        .set(input.patch)
-        .where(tenantUserWhere(input.scope, input.tenantId, input.id))
-        .returning(tenantUserRecordColumns)
-        .pipe(mapDatabaseErrors())
-      if (!row) return yield* new TenantUserNotFound()
-      return row
-    })
+      const { scope, tenantId, id, patch } = input
+      if (scope.tenantId !== undefined && scope.tenantId?.toLowerCase() !== tenantId.toLowerCase())
+        return yield* new TenantUserNotFound()
+      const row = yield* tenantUser
+        .update({ organizationId: scope.organizationId, tenantId, id }, patch)
+        .pipe(
+          useDatabase,
+          Effect.catchTag("NotFound", () => new TenantUserNotFound()),
+        )
+      return Struct.pick(row, tenantUserRecordFields)
+    }, mapDatabaseErrors())
 
     /**
      * Upserts the signed Tenant and TenantUser identity in one transaction. Omitted profile
@@ -329,10 +328,8 @@ export class TenantUsers extends Context.Service<TenantUsers>()("astralbeam/tena
             })
             .onConflictDoUpdate({
               target: [tenant.organizationId, tenant.externalId],
-              set: {
-                ...tenantFields,
-                updatedAt: sql`now()`,
-              },
+              // Drizzle requires a nonempty conflict update even when the JWT omits profile fields.
+              set: { ...tenantFields, updatedAt: sql`now()` },
             })
             .returning(tenantRecordColumns)
           const [user] = yield* transaction
@@ -345,10 +342,7 @@ export class TenantUsers extends Context.Service<TenantUsers>()("astralbeam/tena
             })
             .onConflictDoUpdate({
               target: [tenantUser.organizationId, tenantUser.tenantId, tenantUser.externalId],
-              set: {
-                ...userFields,
-                updatedAt: sql`now()`,
-              },
+              set: { ...userFields, updatedAt: sql`now()` },
             })
             .returning(tenantUserRecordColumns)
           return { tenant: customer!, user: user! }

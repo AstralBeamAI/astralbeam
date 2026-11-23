@@ -15,7 +15,7 @@ const usageLimitIntegration = vi.hoisted(() => {
   return { url }
 })
 
-import { getAuthDatabase } from "@/db/database"
+import { Database, getAuthDatabase } from "@/db/database"
 import { organization, tenant, tenantUser, usageLimitCounter } from "@/db/schema"
 import { runAppEffect } from "@/lib/runtime/app-effect.server"
 import type { UsageSubject } from "./counters.ts"
@@ -70,13 +70,16 @@ describe.skipIf(!usageLimitIntegration.url)("usage limit counters", () => {
   function withLimits<A, E>(
     organizationId: string,
     fields: readonly UsageLimitFields[],
-    use: (usageLimits: UsageLimits["Service"], ids: string[]) => Effect.Effect<A, E, UsageLimits>,
+    use: (
+      usageLimits: UsageLimits["Service"],
+      ids: string[],
+    ) => Effect.Effect<A, E, UsageLimits | Database>,
   ) {
     return runAppEffect(
       Effect.gen(function* () {
         const usageLimits = yield* UsageLimits
-        const ids = yield* Effect.forEach(fields, (limit) =>
-          usageLimits.create({ organizationId, fields: limit }),
+        const ids = yield* Effect.forEach(fields, (fields) =>
+          usageLimits.create({ organizationId, fields }),
         )
         return yield* use(usageLimits, ids)
       }),
@@ -85,6 +88,13 @@ describe.skipIf(!usageLimitIntegration.url)("usage limit counters", () => {
 
   test("counts each scope's subject separately and refuses once a limit is used up", async () => {
     const { organizationId, ada, grace } = await createSubjects()
+    await expect(
+      withLimits(
+        organizationId,
+        [{ ...weeklyTokens, metric: "spend", amount: "1.234" }],
+        () => Effect.void,
+      ),
+    ).rejects.toThrow(/two decimal places/)
     const failure = await withLimits(
       organizationId,
       [
@@ -143,24 +153,6 @@ describe.skipIf(!usageLimitIntegration.url)("usage limit counters", () => {
     expect(failure.retryAfterSeconds).toBeGreaterThan(6 * 24 * 3600)
   })
 
-  test("restarts an ended window with only the new usage", async () => {
-    const { organizationId, ada } = await createSubjects()
-    const used = await withLimits(organizationId, [weeklyTokens], (usageLimits) =>
-      Effect.gen(function* () {
-        const limits = yield* usageLimits.applicable({ organizationId, listedIds: [] })
-        yield* usageLimits.record({ limits, subject: ada, usage: { tokens: 990, spend: "0" } })
-        yield* Effect.promise(() =>
-          db.update(usageLimitCounter).set({ windowEndsAt: new Date(Date.now() - 1000) }),
-        )
-        const [ended] = yield* usageLimits.status({ limits, subject: ada })
-        expect(ended).toMatchObject({ used: "0", resetsAt: null })
-        yield* usageLimits.record({ limits, subject: ada, usage: { tokens: 5, spend: "0" } })
-        return (yield* usageLimits.status({ limits, subject: ada }))[0]!.used
-      }),
-    )
-    expect(used).toBe("5")
-  })
-
   test("applies listed limits only to this organization's tokens and never disabled ones", async () => {
     const { organizationId } = await createSubjects()
     const names = await withLimits(
@@ -184,7 +176,7 @@ describe.skipIf(!usageLimitIntegration.url)("usage limit counters", () => {
     expect(names).toEqual([["Weekly limit"], ["Pro weekly", "Weekly limit"]])
   })
 
-  test("lists subjects in live windows by usage, most used first, a page at a time", async () => {
+  test("pages live subjects by usage and restarts expired windows with only new usage", async () => {
     const { organizationId, ada, grace } = await createSubjects()
     const pages = await withLimits(organizationId, [weeklyTokens], (usageLimits, [id]) =>
       Effect.gen(function* () {
@@ -201,6 +193,10 @@ describe.skipIf(!usageLimitIntegration.url)("usage limit counters", () => {
         )
         const afterAdaEnded = yield* usageLimits.subjects({ ...input, page: 1 })
         const beyond = yield* usageLimits.subjects({ ...input, page: 2 })
+        const [ended] = yield* usageLimits.status({ limits, subject: ada })
+        expect(ended).toMatchObject({ used: "0", resetsAt: null })
+        yield* usageLimits.record({ limits, subject: ada, usage: { tokens: 5, spend: "0" } })
+        expect((yield* usageLimits.status({ limits, subject: ada }))[0]!.used).toBe("5")
         return [live, afterAdaEnded, beyond]
       }),
     )
@@ -234,15 +230,14 @@ describe.skipIf(!usageLimitIntegration.url)("usage limit counters", () => {
     try {
       await recording.query("begin")
       await recording.query("select id from usage_limit where id = $1 for share", [rowId])
+      const input = {
+        organizationId,
+        usageLimitId: id!,
+        lockVersion: 0,
+        fields: { ...weeklyTokens, windowCount: 2 },
+      }
       const edit = runAppEffect(
-        Effect.flatMap(UsageLimits, (usageLimits) =>
-          usageLimits.update({
-            organizationId,
-            usageLimitId: id!,
-            lockVersion: 0,
-            fields: { ...weeklyTokens, windowCount: 2 },
-          }),
-        ),
+        Effect.flatMap(UsageLimits, (usageLimits) => usageLimits.update(input)),
       )
       await expect
         .poll(
@@ -254,6 +249,7 @@ describe.skipIf(!usageLimitIntegration.url)("usage limit counters", () => {
             ).rows[0]?.waiting,
         )
         .toBe(1)
+      input.organizationId = OrganizationIdSchema.make("01990a5d-ac96-774b-b942-6b13c85384cc")
       await recording.query(
         "insert into usage_limit_counter (organization_id, usage_limit_id, tenant_id, tenant_user_id, window_ends_at, tokens, spend) values ($1, $2, $3, $4, now() + interval '1 day', 900, 0)",
         [organizationId, rowId, ada.tenantId, ada.tenantUserId],
@@ -266,37 +262,62 @@ describe.skipIf(!usageLimitIntegration.url)("usage limit counters", () => {
     expect(await db.select().from(usageLimitCounter)).toEqual([])
   })
 
-  test("window and scope edits restart counting, while name and amount edits keep it", async () => {
+  test("edits reset only affected counters, and stale writes preserve their definition and usage", async () => {
     const { organizationId, ada } = await createSubjects()
-    const counts = await withLimits(organizationId, [weeklyTokens], (usageLimits, [id]) =>
+    await withLimits(organizationId, [weeklyTokens], (usageLimits, [id]) =>
       Effect.gen(function* () {
-        const limits = yield* usageLimits.applicable({ organizationId, listedIds: [] })
-        const counted = Effect.promise(() => db.select().from(usageLimitCounter))
-        const update = (lockVersion: number, fields: Partial<UsageLimitFields>) =>
-          usageLimits.update({
-            organizationId,
-            usageLimitId: id!,
+        const input = { organizationId, usageLimitId: id! }
+        const database = yield* Database
+        const counters = Effect.promise(() => db.select().from(usageLimitCounter))
+        const record = Effect.gen(function* () {
+          const limits = yield* usageLimits.applicable({ organizationId, listedIds: [] })
+          yield* usageLimits.record({ limits, subject: ada, usage: { tokens: 5, spend: "0.4" } })
+        })
+        yield* record
+        yield* usageLimits.setEnabled({ ...input, lockVersion: 0, enabled: false })
+        const beforeToggle = yield* counters
+        const removal = yield* usageLimits.remove({ ...input, lockVersion: 0 }).pipe(Effect.flip)
+        expect(removal).toMatchObject({ _tag: "UsageLimitChanged" })
+        yield* usageLimits.setEnabled({ ...input, lockVersion: 1, enabled: true })
+        expect(yield* counters).toEqual(beforeToggle)
+        let lockVersion = 2
+        for (const [fields, remaining] of [
+          [{ name: "Renamed", amount: "2000" }, 1],
+          [{ windowType: "fixed", timeZone: "UTC" }, 0],
+          [{ windowType: "fixed", timeZone: "Asia/Kolkata" }, 0],
+          [{ windowType: "fixed", timeZone: "Asia/Kolkata", windowUnit: "day" }, 0],
+          [
+            { windowType: "fixed", timeZone: "Asia/Kolkata", windowUnit: "day", scope: "tenant" },
+            0,
+          ],
+        ] as const) {
+          yield* record
+          yield* usageLimits.update({
+            ...input,
             lockVersion,
             fields: { ...weeklyTokens, ...fields },
           })
-        const results: number[] = []
-        for (const [lockVersion, fields] of [
-          [0, { name: "Renamed", amount: "2000" }],
-          [1, { windowType: "fixed", timeZone: "UTC" }],
-          [2, { windowType: "fixed", timeZone: "Asia/Kolkata" }],
-          [3, { windowType: "fixed", timeZone: "Asia/Kolkata", windowUnit: "day" }],
-          [
-            4,
-            { windowType: "fixed", timeZone: "Asia/Kolkata", windowUnit: "day", scope: "tenant" },
-          ],
-        ] as const) {
-          yield* usageLimits.record({ limits, subject: ada, usage: { tokens: 5, spend: "0" } })
-          yield* update(lockVersion, fields)
-          results.push((yield* counted).length)
+          expect(yield* counters).toHaveLength(remaining)
+          lockVersion++
         }
-        return results
+        yield* record
+        const beforeStale = yield* counters
+        const rejected = yield* database.transaction(() =>
+          usageLimits
+            .update({ ...input, lockVersion: 0, fields: { ...weeklyTokens, windowCount: 3 } })
+            .pipe(Effect.result),
+        )
+        expect(rejected).toMatchObject({ _tag: "Failure", failure: { _tag: "UsageLimitChanged" } })
+        expect(yield* usageLimits.get(input)).toMatchObject({
+          scope: "tenant",
+          windowType: "fixed",
+          windowUnit: "day",
+          lockVersion: 7,
+        })
+        expect(yield* counters).toEqual(beforeStale)
+        yield* usageLimits.remove({ ...input, lockVersion: 7 })
+        expect(yield* counters).toEqual([])
       }),
     )
-    expect(counts).toEqual([1, 0, 0, 0, 0])
   })
 })

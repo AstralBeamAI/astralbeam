@@ -1,15 +1,10 @@
 import { and, eq, sql } from "drizzle-orm"
 import { Context, Effect, Layer, Schema } from "effect"
 
+import { withTransaction } from "@/lib/persistence.server"
 import { Database } from "@/db/database"
-import { deleteWithOptimisticLock, updateWithOptimisticLock } from "@/db/lib/optimistic-locking"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate"
-import {
-  agent,
-  agentModel,
-  AgentRowSchema,
-  organizationConfiguration,
-} from "@/db/schema/organizations"
+import { agent, agentModel, organizationConfiguration } from "@/db/schema/organizations"
 import { SandboxProviderIdSchema, SandboxProviderNameSchema } from "@/lib/sandboxes/schemas"
 import { getAvailableSandboxProviderIds } from "@/lib/sandboxes/availability.server"
 import { ModelProviders } from "@/lib/model-providers/model-providers.server"
@@ -24,7 +19,7 @@ import {
 import { type AgentFields, formatAgentId, parseAgentId } from "./schemas.ts"
 
 /** An agent as the dashboard sees it, addressed by its public ID. */
-export type Agent = typeof AgentRowSchema.Type & { readonly modelIds: readonly string[] }
+export type Agent = typeof agent.$inferSelect & { readonly modelIds: readonly string[] }
 
 type AgentTarget = {
   readonly organizationId: string
@@ -80,8 +75,7 @@ const decodeAgentFormOptions = Schema.decodeUnknownEffect(
   { onExcessProperty: "error" },
 )
 
-const decodeAgentRow = Schema.decodeUnknownEffect(AgentRowSchema, { onExcessProperty: "error" })
-
+const decodeAgentRow = Schema.decodeUnknownEffect(agent.schema, { onExcessProperty: "error" })
 const agentModelsSelection = {
   columns: { providerModelId: true },
   orderBy: { position: "asc" },
@@ -93,14 +87,14 @@ const mapAgentWriteErrors = mapDatabaseErrors({
   agent_organization_id_sandbox_provider_id_fk: () => new AgentSandboxProviderInvalid(),
 })
 
-const DEFAULT_AGENT_NAME_SUFFIX = " Assistant"
-const DEFAULT_AGENT_NAME_MAX_LENGTH = 100
-
 /** Names the starter agent after its organization, within the limit the agent form enforces. */
-export function defaultAgentName(organizationName: string): string {
-  const trimmed = organizationName.trim()
-  const room = DEFAULT_AGENT_NAME_MAX_LENGTH - DEFAULT_AGENT_NAME_SUFFIX.length
-  return `${trimmed.length > room ? trimmed.slice(0, room).trimEnd() : trimmed}${DEFAULT_AGENT_NAME_SUFFIX}`
+function defaultAgentName(organizationName: string): string {
+  const suffix = " Assistant"
+  const name = organizationName
+    .trim()
+    .slice(0, 100 - suffix.length)
+    .trimEnd()
+  return `${name}${suffix}`.trimStart()
 }
 
 /** Starter persona. The chat endpoint always prepends its own product-neutral system prompt. */
@@ -144,6 +138,7 @@ const ownAgentId = Effect.fnUntraced(function* (organizationId: string, agentId:
 export class Agents extends Context.Service<Agents>()("astralbeam/agents/Agents", {
   make: Effect.gen(function* () {
     const db = yield* Database
+    const useDatabase = Effect.provideService(Database, db)
     const modelProviders = yield* ModelProviders
 
     const list = Effect.fn("Agents.list")(function* (organizationId: string) {
@@ -202,76 +197,54 @@ export class Agents extends Context.Service<Agents>()("astralbeam/agents/Agents"
     })
 
     const create = Effect.fn("Agents.create")(function* (input: {
-      readonly organizationId: string
-      readonly fields: AgentFields
+      organizationId: string
+      fields: AgentFields
     }) {
       const { modelIds, ...fields } = input.fields
-      return yield* db
-        .transaction((transaction) =>
-          Effect.gen(function* () {
-            const [created] = yield* transaction
-              .insert(agent)
-              .values({ organizationId: input.organizationId, ...fields })
-              .returning({ id: agent.id })
-            if (modelIds)
-              yield* transaction.insert(agentModel).values(
-                agentModelValues({
-                  organizationId: input.organizationId,
-                  id: created!.id,
-                  modelIds,
-                }),
-              )
-            return formatAgentId({ organizationId: input.organizationId, id: created!.id })
-          }),
-        )
-        .pipe(mapAgentWriteErrors)
+      return yield* withTransaction(
+        Effect.gen(function* () {
+          const created = yield* agent.insert({
+            organizationId: input.organizationId,
+            ...fields,
+          })
+          if (modelIds)
+            yield* db.insert(agentModel).values(agentModelValues({ ...created, modelIds }))
+          return formatAgentId(created)
+        }),
+      ).pipe(useDatabase, mapAgentWriteErrors)
     })
 
     const update = Effect.fn("Agents.update")(
       function* (input: VersionedAgentTarget & { readonly fields: AgentFields }) {
         const id = yield* ownAgentId(input.organizationId, input.agentId)
         const { modelIds, ...fields } = input.fields
-        yield* db
-          .transaction((transaction) =>
-            Effect.gen(function* () {
-              yield* updateWithOptimisticLock({
-                executor: transaction,
-                table: agent,
-                id,
-                scope: eq(agent.organizationId, input.organizationId),
-                expectedLockVersion: input.lockVersion,
-                set: fields,
-              })
-              if (modelIds) {
-                yield* transaction
-                  .delete(agentModel)
-                  .where(
-                    and(
-                      eq(agentModel.organizationId, input.organizationId),
-                      eq(agentModel.agentId, id),
-                    ),
-                  )
-                yield* transaction
-                  .insert(agentModel)
-                  .values(agentModelValues({ organizationId: input.organizationId, id, modelIds }))
-              }
-            }),
-          )
-          .pipe(mapAgentWriteErrors)
+        yield* withTransaction(
+          Effect.gen(function* () {
+            const { organizationId } = yield* agent.update({ ...input, id }, fields)
+            if (modelIds) {
+              yield* db
+                .delete(agentModel)
+                .where(
+                  and(eq(agentModel.organizationId, organizationId), eq(agentModel.agentId, id)),
+                )
+              yield* db
+                .insert(agentModel)
+                .values(agentModelValues({ organizationId, id, modelIds }))
+            }
+          }),
+        ).pipe(useDatabase, mapAgentWriteErrors)
       },
-      Effect.catchTags({
-        AgentNotFound: () => Effect.fail(new AgentChanged()),
-        OptimisticLockError: () => Effect.fail(new AgentChanged()),
-      }),
+      Effect.catchTag(["AgentNotFound", "NotFound", "StaleWrite"], () => new AgentChanged()),
     )
 
     const remove = Effect.fn("Agents.remove")(
       function* (input: VersionedAgentTarget) {
-        const id = yield* ownAgentId(input.organizationId, input.agentId)
-        yield* db.transaction((transaction) =>
+        const { organizationId, agentId, lockVersion } = input
+        const id = yield* ownAgentId(organizationId, agentId)
+        yield* withTransaction(
           Effect.gen(function* () {
             // Clear the selection explicitly so the configuration's optimistic lock and timestamp advance too.
-            yield* transaction
+            yield* db
               .update(organizationConfiguration)
               .set({
                 defaultAgentId: null,
@@ -279,25 +252,17 @@ export class Agents extends Context.Service<Agents>()("astralbeam/agents/Agents"
               })
               .where(
                 and(
-                  eq(organizationConfiguration.organizationId, input.organizationId),
+                  eq(organizationConfiguration.organizationId, organizationId),
                   eq(organizationConfiguration.defaultAgentId, id),
                 ),
               )
-            yield* deleteWithOptimisticLock({
-              executor: transaction,
-              table: agent,
-              id,
-              scope: eq(agent.organizationId, input.organizationId),
-              expectedLockVersion: input.lockVersion,
-            })
+            yield* agent.delete({ organizationId, id, lockVersion })
           }),
         )
       },
+      useDatabase,
       mapDatabaseErrors(),
-      Effect.catchTags({
-        AgentNotFound: () => Effect.fail(new AgentChanged()),
-        OptimisticLockError: () => Effect.fail(new AgentChanged()),
-      }),
+      Effect.catchTag(["AgentNotFound", "NotFound", "StaleWrite"], () => new AgentChanged()),
     )
 
     const setDefault = Effect.fn("Agents.setDefault")(
@@ -311,8 +276,6 @@ export class Agents extends Context.Service<Agents>()("astralbeam/agents/Agents"
             set: {
               defaultAgentId: id,
               lockVersion: sql`${organizationConfiguration.lockVersion} + 1`,
-              // Drizzle's `updatedAt` hook runs for update statements, not for a conflict clause.
-              updatedAt: sql`now()`,
             },
           })
       },
@@ -370,52 +333,46 @@ export class Agents extends Context.Service<Agents>()("astralbeam/agents/Agents"
       readonly organizationName: string
       readonly modelIds?: readonly string[]
     }) {
+      const { organizationId, organizationName, modelIds } = input
       return yield* db.transaction((transaction) =>
         Effect.gen(function* () {
           yield* transaction
             .insert(organizationConfiguration)
-            .values({
-              organizationId: input.organizationId,
-            })
+            .values({ organizationId })
             .onConflictDoNothing()
           const [configuration] = yield* transaction
             .select({ defaultAgentId: organizationConfiguration.defaultAgentId })
             .from(organizationConfiguration)
-            .where(eq(organizationConfiguration.organizationId, input.organizationId))
+            .where(eq(organizationConfiguration.organizationId, organizationId))
             .for("update")
           if (configuration?.defaultAgentId) return configuration.defaultAgentId
           const [existing] = yield* transaction
             .select({ id: agent.id })
             .from(agent)
-            .where(eq(agent.organizationId, input.organizationId))
+            .where(eq(agent.organizationId, organizationId))
             .orderBy(agent.createdAt, agent.id)
             .limit(1)
-          const [selected] = existing
-            ? [existing]
-            : yield* transaction
-                .insert(agent)
-                .values({
-                  organizationId: input.organizationId,
-                  name: defaultAgentName(input.organizationName),
-                  systemPrompt: defaultAgentSystemPrompt(input.organizationName),
-                })
-                .returning({ id: agent.id })
-          if (!existing && input.modelIds?.length)
-            yield* transaction.insert(agentModel).values(
-              agentModelValues({
-                organizationId: input.organizationId,
-                id: selected!.id,
-                modelIds: input.modelIds,
-              }),
-            )
+          const selected =
+            existing ??
+            (yield* agent
+              .insert({
+                organizationId,
+                name: defaultAgentName(organizationName),
+                systemPrompt: defaultAgentSystemPrompt(organizationName),
+              })
+              .pipe(useDatabase))
+          if (!existing && modelIds?.length)
+            yield* transaction
+              .insert(agentModel)
+              .values(agentModelValues({ organizationId, id: selected.id, modelIds }))
           yield* transaction
             .update(organizationConfiguration)
             .set({
-              defaultAgentId: selected!.id,
+              defaultAgentId: selected.id,
               lockVersion: sql`${organizationConfiguration.lockVersion} + 1`,
             })
-            .where(eq(organizationConfiguration.organizationId, input.organizationId))
-          return selected!.id
+            .where(eq(organizationConfiguration.organizationId, organizationId))
+          return selected.id
         }),
       )
     }, mapDatabaseErrors())

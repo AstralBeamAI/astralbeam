@@ -1,4 +1,4 @@
-import { index, unique, primaryKey, snakeCase } from "drizzle-orm/pg-core"
+import { index, unique } from "drizzle-orm/pg-core"
 import {
   deferrableForeignKey,
   encryptedJson,
@@ -11,8 +11,9 @@ import {
 import type { OrganizationId, TenantId, TenantUserId } from "./organizations.ts"
 import { organizationForeignKey, tenantUserForeignKey } from "./organizations.ts"
 import { McpCredentialEnvelopeSchema, McpStoredAuthConfigSchema } from "@/lib/mcp/schemas.ts"
+import { defineModel, primaryKey } from "@/lib/persistence.server"
 
-export const mcpServer = snakeCase.table(
+export const mcpServer = defineModel(
   "mcp_server",
   {
     organizationId: uuidV7({ generated: false }).$type<OrganizationId>().notNull(),
@@ -28,7 +29,7 @@ export const mcpServer = snakeCase.table(
   ],
 )
 
-export const mcpConnection = snakeCase.table(
+export const mcpConnection = defineModel(
   "mcp_connection",
   {
     organizationId: uuidV7({ generated: false }).$type<OrganizationId>().notNull(),

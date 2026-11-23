@@ -4,7 +4,8 @@ export function sqlState(error: unknown): string | undefined {
   return postgresErrorField(error, "code")
 }
 
-type DatabaseFailure = { readonly _tag: "EffectDrizzleQueryError" | "SqlError" }
+const databaseFailureTags = ["EffectDrizzleQueryError", "SqlError", "ValidationError"] as const
+type DatabaseFailure = { readonly _tag: (typeof databaseFailureTags)[number] }
 
 /**
  * Fails with the domain error mapped to the violated constraint. Every other database failure is
@@ -18,8 +19,7 @@ export function mapDatabaseErrors<
     Effect.catchIf(
       effect,
       (error): error is Extract<E, DatabaseFailure> =>
-        Predicate.isTagged(error, "EffectDrizzleQueryError") ||
-        Predicate.isTagged(error, "SqlError"),
+        databaseFailureTags.some((tag) => Predicate.isTagged(error, tag)),
       (error) => {
         const constraint = postgresErrorField(error, "constraint")
         const mapped =

@@ -26,7 +26,8 @@ export interface TenantListInput extends DatabasePageOptions {
 }
 
 // A typed projection keeps the organization ID and future columns out of API records.
-export const tenantRecordColumns = Struct.pick(tenant, Struct.keys(TenantRecordSchema.fields))
+const tenantRecordFields = Struct.keys(TenantRecordSchema.fields)
+export const tenantRecordColumns = Struct.pick(tenant, tenantRecordFields)
 const tenantScopeColumns = { organizationId: tenant.organizationId, tenantId: tenant.id }
 
 /** Escape LIKE wildcards so user input is a literal substring, not a pattern. */
@@ -62,8 +63,8 @@ function requireOrganizationScope(scope: TenantScope) {
 export class Tenants extends Context.Service<Tenants>()("astralbeam/tenants/Tenants", {
   make: Effect.gen(function* () {
     const db = yield* Database
+    const useDatabase = Effect.provideService(Database, db)
 
-    /** The internal ID of a Tenant identified by its customer-provided external ID. */
     const resolveId = Effect.fn("Tenants.resolveId")(function* (input: {
       readonly organizationId: OrganizationId
       readonly externalId: string
@@ -108,27 +109,23 @@ export class Tenants extends Context.Service<Tenants>()("astralbeam/tenants/Tena
         .from(tenant)
         .where(tenantWhere(input.scope, input.id))
         .limit(1)
-        .pipe(mapDatabaseErrors())
       if (!row) return yield* new TenantNotFound()
       return row
-    })
+    }, mapDatabaseErrors())
 
+    const mapTenantCreateErrors = mapDatabaseErrors({
+      tenant_organization_id_external_id_uidx: () => new TenantExternalIdTaken(),
+    })
     const create = Effect.fn("Tenants.create")(function* (input: {
       readonly scope: TenantScope
       readonly fields: typeof TenantWriteSchema.Type
     }) {
       yield* requireOrganizationScope(input.scope)
-      const [row] = yield* db
-        .insert(tenant)
-        .values({ ...input.fields, organizationId: input.scope.organizationId })
-        .returning(tenantRecordColumns)
-        .pipe(
-          mapDatabaseErrors({
-            tenant_organization_id_external_id_uidx: () => new TenantExternalIdTaken(),
-          }),
-        )
-      return row!
-    })
+      const row = yield* tenant
+        .insert({ ...input.fields, organizationId: input.scope.organizationId })
+        .pipe(useDatabase)
+      return Struct.pick(row, tenantRecordFields)
+    }, mapTenantCreateErrors)
 
     const update = Effect.fn("Tenants.update")(function* (input: {
       readonly scope: TenantScope
@@ -136,15 +133,14 @@ export class Tenants extends Context.Service<Tenants>()("astralbeam/tenants/Tena
       readonly patch: typeof TenantPatchSchema.Type
     }) {
       yield* requireOrganizationScope(input.scope)
-      const [row] = yield* db
-        .update(tenant)
-        .set(input.patch)
-        .where(tenantWhere(input.scope, input.id))
-        .returning(tenantRecordColumns)
-        .pipe(mapDatabaseErrors())
-      if (!row) return yield* new TenantNotFound()
-      return row
-    })
+      const row = yield* tenant
+        .update({ organizationId: input.scope.organizationId, id: input.id }, input.patch)
+        .pipe(
+          useDatabase,
+          Effect.catchTag("NotFound", () => new TenantNotFound()),
+        )
+      return Struct.pick(row, tenantRecordFields)
+    }, mapDatabaseErrors())
 
     return { resolveId, list, get, create, update }
   }),

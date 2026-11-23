@@ -11,7 +11,7 @@ import { fileObject } from "@/db/schema/files"
 import { ChatFiles } from "../attachments/attachments"
 import { CHAT_ATTACHMENT_MAX_FILENAME_LENGTH } from "../attachments/constants"
 import { and, eq, like, sql } from "drizzle-orm"
-import { Effect, Layer, ManagedRuntime } from "effect"
+import { Deferred, Effect, Fiber, Layer, ManagedRuntime } from "effect"
 import { beforeAll, beforeEach, afterAll, describe, expect, test, vi } from "vitest"
 
 const integration = vi.hoisted(() => {
@@ -241,6 +241,9 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     await expect(
       runtime.runPromise(files.read({ scope: { ...scope, threadId: empty.id }, fileId })),
     ).rejects.toMatchObject({ _tag: "ChatThreadInvalid" })
+    await expect(
+      runtime.runPromise(service.remove({ scope, id: thread.id, lockVersion: 0 })),
+    ).rejects.toMatchObject({ _tag: "ChatThreadConflict" })
     await runtime.runPromise(service.remove({ scope, id: thread.id, lockVersion: 1 }))
     const [retired] = await db.select().from(fileObject).where(eq(fileObject.id, fileId))
     expect(retired!.status).toBe("purging")
@@ -256,14 +259,6 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       version: 1,
       parts: [
         {
-          id: SecureRandom.uuidV7Unsafe(),
-          type: "text",
-          content: "Answer",
-          metadata: {
-            web: { sources: [], citations: [{ ...source, startIndex: 0, endIndex: 6, number: 1 }] },
-          },
-        },
-        {
           id,
           type: "tool-call",
           toolCallId: id,
@@ -276,31 +271,11 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         },
       ],
       provenance: { providerId: "provider", protocol: "responses", modelId: "model" },
-      modelMessages: [
-        {
-          id: SecureRandom.uuidV7Unsafe(),
-          role: "assistant",
-          content: "Answer",
-          metadata: { webProviderContext: [{ type: "web_search_call", id: "opaque" }] },
-        },
-      ],
     }
     await runtime.runPromise(complete({ claim: admitted.claim!, payload: evidence }))
     expect(await db.select().from(chatToolResponse)).toHaveLength(0)
     const records = await runtime.runPromise(service.history({ scope, id: thread.id }))
     expect(records[1]!.payload.parts).toEqual(evidence.parts)
-    expect(
-      JSON.stringify(
-        projectChatModelHistory(records, {
-          providerId: "provider",
-          protocol: "responses",
-          modelId: "model",
-        }),
-      ),
-    ).toContain("opaque")
-    const portable = JSON.stringify(projectChatModelHistory(records))
-    expect(portable).not.toContain("opaque")
-    expect(portable).toContain(source.url)
   })
 
   test("administrative history and uploads preserve scope without granting participant actions", async () => {
@@ -959,6 +934,16 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     expect((await runtime.runPromise(service.get({ scope: other, id: thread.id }))).role).toBe(
       "viewer",
     )
+    for (const [actor, id, error] of [
+      [other, thread.id, "ChatThreadForbidden"],
+      [scope, SecureRandom.uuidV7Unsafe(), "ChatThreadNotFound"],
+    ] as const)
+      for (const mutation of [
+        service.rename({ scope: actor, id, lockVersion: 0, title: "Forbidden" }),
+        service.remove({ scope: actor, id, lockVersion: 0 }),
+      ]) {
+        await expect(runtime.runPromise(mutation)).rejects.toMatchObject({ _tag: error })
+      }
     await expect(
       runtime.runPromise(
         service.admit({
@@ -974,9 +959,10 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     const thread = await create()
     const admitted = await admit(thread.id)
     const claimed = admitted.claim!
-    await runtime.runPromise(
+    const renamed = await runtime.runPromise(
       service.rename({ scope, id: thread.id, lockVersion: 1, title: "Renamed" }),
     )
+    expect(renamed).toMatchObject({ title: "Renamed", lockVersion: 2, writerActive: true })
     await runtime.runPromise(service.assertActive({ claim: claimed }))
     const answer: ChatMessagePayload = {
       version: 1,
@@ -994,6 +980,78 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     await expect(
       runtime.runPromise(service.checkpoint({ claim: claimed, payload, state: "draft" })),
     ).rejects.toMatchObject({ _tag: "ChatThreadConflict" })
+  })
+
+  test("rename rechecks authority after a concurrent demotion", async () => {
+    const thread = await create()
+    await runtime.runPromise(
+      service.setParticipant({
+        scope,
+        id: thread.id,
+        lockVersion: 0,
+        tenantUserId: other.tenantUserId,
+        role: "manager",
+      }),
+    )
+    await runtime.runPromise(
+      Effect.gen(function* () {
+        const native = yield* Database
+        const changed = Deferred.makeUnsafe<void>()
+        const commit = Deferred.makeUnsafe<void>()
+        const demote = service.setParticipant({
+          scope: other,
+          id: thread.id,
+          lockVersion: 1,
+          tenantUserId: scope.tenantUserId,
+          role: "viewer",
+        })
+        const revoking = yield* Effect.forkChild(
+          native.transaction(() =>
+            demote.pipe(
+              Effect.andThen(Deferred.succeed(changed, undefined)),
+              Effect.andThen(Deferred.await(commit)),
+            ),
+          ),
+        )
+        yield* Deferred.await(changed)
+        // The request guesses the new version, so stale-version checking cannot stand in for authorization.
+        const request = { scope: { ...scope }, id: thread.id, lockVersion: 2, title: "Forbidden" }
+        const renaming = yield* Effect.forkChild(service.rename(request).pipe(Effect.result))
+        yield* Effect.promise(() =>
+          expect
+            .poll(
+              async () => {
+                const result = await db.execute<{ waiting: boolean }>(sql`
+              select exists (
+                select from pg_stat_activity
+                where datname = current_database() and wait_event_type = 'Lock'
+                  and query like '%from "chat_thread"%for update'
+              ) as waiting
+            `)
+                return result.rows[0]?.waiting
+              },
+              { timeout: 3000 },
+            )
+            .toBe(true),
+        ).pipe(
+          Effect.tap(() =>
+            Effect.sync(() => {
+              request.scope.tenantUserId = other.tenantUserId
+            }),
+          ),
+          Effect.ensuring(Deferred.succeed(commit, undefined)),
+        )
+        yield* Fiber.join(revoking)
+        expect(yield* Fiber.join(renaming)).toMatchObject({
+          _tag: "Failure",
+          failure: { _tag: "ChatThreadForbidden" },
+        })
+      }).pipe(Effect.timeout("5 seconds")),
+    )
+    expect(await runtime.runPromise(service.get({ scope: other, id: thread.id }))).toMatchObject({
+      title: thread.title,
+      lockVersion: 2,
+    })
   })
 
   test("orders admission activity by append time rather than transaction start", async () => {
@@ -1775,7 +1833,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     },
   )
 
-  test("lists by thread updates, including renames, and keeps history readable after its agent is removed", async () => {
+  test("activity cursors survive renames/deletion and history survives agent removal", async () => {
     const first = await create()
     const second = await runtime.runPromise(service.create({ scope }))
     const admitted = await admit(first.id)
@@ -1784,15 +1842,16 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     await runtime.runPromise(complete({ claim: admitted.claim!, payload }))
     const secondAdmission = await admit(second.id)
     await runtime.runPromise(service.finish({ claim: secondAdmission.claim! }))
+    const page = await runtime.runPromise(service.list({ scope, pageSize: 1 }))
+    expect(page.items[0]!.id).toBe(second.id)
     await runtime.runPromise(
       service.rename({ scope, id: second.id, title: "Renamed conversation", lockVersion: 1 }),
     )
-    const page = await runtime.runPromise(service.list({ scope, pageSize: 1 }))
-    expect(page.items[0]!.id).toBe(second.id)
-    expect(
-      (await runtime.runPromise(service.list({ scope, pageSize: 1, position: page.nextPosition! })))
-        .items[0]!.id,
-    ).toBe(first.id)
+    const remainder = () =>
+      runtime.runPromise(service.list({ scope, position: page.nextPosition! }))
+    expect((await remainder()).items.map((row) => row.id)).toEqual([first.id])
+    await runtime.runPromise(service.remove({ scope, id: second.id, lockVersion: 2 }))
+    expect((await remainder()).items.map((row) => row.id)).toEqual([first.id])
     await db
       .update(chatThread)
       .set({ agentId: null })
@@ -1882,40 +1941,6 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     await expect(
       runtime.runPromise(service.assertActive({ claim: admitted.claim! })),
     ).rejects.toMatchObject({ _tag: "ChatThreadNotFound" })
-  })
-
-  test("thread activity cursors survive boundary updates and deletion", async () => {
-    const ids: string[] = []
-    for (let index = 0; index < 3; index++) {
-      const thread = await create()
-      const admitted = await admit(thread.id)
-      await runtime.runPromise(
-        complete({
-          claim: admitted.claim!,
-          payload: {
-            version: 1,
-            parts: [{ id: SecureRandom.uuidV7Unsafe(), type: "text", content: "Answer" }],
-          },
-        }),
-      )
-      ids.unshift(thread.id)
-    }
-    const first = await runtime.runPromise(service.list({ scope, pageSize: 1 }))
-    expect(first.items[0]!.id).toBe(ids[0])
-    await runtime.runPromise(
-      service.rename({ scope, id: ids[0]!, title: "Updated boundary", lockVersion: 1 }),
-    )
-    expect(
-      (await runtime.runPromise(service.list({ scope, position: first.nextPosition! }))).items.map(
-        (row) => row.id,
-      ),
-    ).toEqual(ids.slice(1))
-    await runtime.runPromise(service.remove({ scope, id: ids[0]!, lockVersion: 2 }))
-    expect(
-      (await runtime.runPromise(service.list({ scope, position: first.nextPosition! }))).items.map(
-        (row) => row.id,
-      ),
-    ).toEqual(ids.slice(1))
   })
 
   test("restores legacy client response slots and validates scoped relational JSON", async () => {

@@ -9,7 +9,7 @@ Tenant services, chat and MCP scopes, and usage-limit subjects use `Organization
 - `database.ts` owns the separate process-wide pools, the shared SQL runtime and idempotent shutdown. It exports the Promise Drizzle client for Better Auth and the `Database` service with its replaceable layer.
 - `schema/config.ts` defines the global `config` table. Each row holds an encrypted `value`. The `Config` service in `src/lib/config` validates stored settings, recovers unreadable rows for `/configure`, and adds environment precedence and process-local caching. The shared model pricing catalog stores schema-validated JSON text in that same column and uses dedicated uncached reads so replicas see refreshed prices without restarting.
 - `migration-runner.ts` reads and applies the bundled Drizzle migrations approved through `/configure`. `migrate-command.ts` serves the compiled CLI and `bun run db migrate`.
-- `lib/` contains reusable database primitives such as credentials and encryption, PostgreSQL types and errors, optimistic locking, and rate limiting.
+- `lib/` contains reusable database primitives such as credentials and encryption, PostgreSQL types and errors, and rate limiting.
 - `schema.ts` is the schema entrypoint and re-exports every table and relation Drizzle Kit must discover.
 - `schema/` contains responsibility-named domain table and relation modules.
 - `migrations/` contains generated migration SQL, Drizzle snapshots, and optional TypeScript data migrations.
@@ -41,6 +41,14 @@ Database imports belong in server-only code and do not initialize resources. Dat
 Import `text` and `caseInsensitiveText` from `lib/columns.ts`. Both accept an optional `schema` for validation by the Effect read schema. Native Drizzle text writes keep the existing SQL types and codecs. `text({ enum })` infers the literal set from the tuple.
 
 JSONB columns use `jsonb({ schema })` from `lib/columns.ts`. Its synchronous Effect Schema codec validates Drizzle inserts, updates, ordinary reads, and relational JSON reads. Invalid values fail without including their content in the validation error. Structured records reject unknown fields, while Tenant and TenantUser metadata retain arbitrary JSON object keys. Raw SQL expressions and direct database access bypass this application validation. The PostgreSQL column types and existing constraints remain unchanged.
+
+## Model writes
+
+[`defineModel(name, columns, constraints)`](../lib/persistence.server.ts) returns a native Drizzle table with a row `schema` and validated `insert`, `update`, and `delete` methods. Put the typed `primaryKey` first in constraints and name it only if Drizzle's default would rename an existing constraint. Pass the complete key and any `lockVersion` to update or delete.
+
+Inserts validate supplied fields before SQL and check the returned row after defaults run. Updates check the patch and merged row before writing and skip decoding replaced columns to allow credential repair. The generated schema validates columns and their explicit refinements. Services enforce rules involving multiple fields, and PostgreSQL enforces constraints for every writer. Deletes return only the key. Without a callback, a versioned delete reports a missing key or mismatched version as `NotFound`. An optional `onLocked` callback reads the full row before the version check and can authorize or run related SQL. Use `withTransaction(effect)` for wider atomic work and keep external I/O outside it. Each model write rolls back its own changes on failure, even if the enclosing caller catches the error.
+
+Use native Drizzle for reads, relations, bulk writes, upserts, and Better Auth's adapter. Application services handle authorization and map database errors to domain errors.
 
 ## Local services
 

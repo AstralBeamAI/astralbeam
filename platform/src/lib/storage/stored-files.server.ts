@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto"
-import { and, eq } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 import { Context, Effect, Layer } from "effect"
 
 import { Database } from "@/db/database"
@@ -13,7 +13,6 @@ const fileSha256 = (bytes: Uint8Array) => createHash("sha256").update(bytes).dig
 type StoredFile = typeof fileObject.$inferSelect
 type FileUpload = { organizationId: string; bytes: Uint8Array; contentType: string }
 
-// Coordinates file metadata and verified storage independently of consumers.
 export class StoredFiles extends Context.Service<StoredFiles>()("astralbeam/storage/StoredFiles", {
   make: Effect.gen(function* () {
     const db = yield* Database
@@ -24,35 +23,25 @@ export class StoredFiles extends Context.Service<StoredFiles>()("astralbeam/stor
         return yield* new StorageUnavailable()
       return bytes
     })
-    const upload = Effect.fn("StoredFiles.upload")(function* (input: FileUpload) {
-      const [file] = yield* db
-        .insert(fileObject)
-        .values({
+    const upload = Effect.fn("StoredFiles.upload")(
+      function* (input: FileUpload) {
+        const file = yield* fileObject.insert({
           organizationId: input.organizationId,
           objectKey: `files/${input.organizationId}/${crypto.randomUUID()}`,
           contentType: input.contentType,
           byteSize: input.bytes.length,
           sha256: fileSha256(input.bytes),
         })
-        .returning()
-        .pipe(mapDatabaseErrors())
-      yield* storage.put({ ...input, key: file!.objectKey })
-      yield* read({ file: file! })
-      const [verified] = yield* db
-        .update(fileObject)
-        .set({ status: "stored" })
-        .where(
-          and(
-            eq(fileObject.organizationId, input.organizationId),
-            eq(fileObject.id, file!.id),
-            eq(fileObject.status, "pending"),
-          ),
-        )
-        .returning({ id: fileObject.id })
-        .pipe(mapDatabaseErrors())
-      if (!verified) return yield* new StorageUnavailable()
-      return verified
-    })
+        yield* storage.put({ ...input, key: file.objectKey })
+        yield* read({ file })
+        yield* fileObject
+          .update(file, { status: "stored" }, { where: eq(fileObject.status, "pending") })
+          .pipe(Effect.catchTag("NotFound", () => new StorageUnavailable()))
+        return { id: file.id }
+      },
+      Effect.provideService(Database, db),
+      mapDatabaseErrors(),
+    )
     return { upload, read }
   }),
 }) {

@@ -16,19 +16,18 @@ const modelProviderIntegration = vi.hoisted(() => {
   return { url }
 })
 
-import { getAuthDatabase } from "@/db/database"
+import { Database, getAuthDatabase } from "@/db/database"
 import {
   agent,
   agentModel,
   configTable,
   modelProvider,
-  providerModel,
   organization,
-  organizationConfiguration,
+  providerModel,
 } from "@/db/schema"
 import { Agents } from "@/lib/agents/agents.server"
 import { Config } from "@/lib/config/config"
-import { formatAgentId } from "@/lib/agents/schemas"
+import { formatAgentId, parseAgentId } from "@/lib/agents/schemas"
 import { runAppEffect } from "@/lib/runtime/app-effect.server"
 import {
   catalogModelConfiguration,
@@ -160,6 +159,23 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
       ).pipe(Effect.flip),
     )
     expect(refused._tag).toBe("ModelProviderUnreadable")
+    await runAppEffect(
+      saveIntegrationProvider(organizationId, {
+        id: gatewayId,
+        lockVersion: 0,
+        name: "Gateway",
+        api: "chat-completions",
+        baseUrl: "https://gateway.example/v1",
+        apiKey: "repaired-gateway-secret",
+      }),
+    )
+    expect(
+      await runAppEffect(
+        Effect.flatMap(ModelProviders, (service) =>
+          service.resolveForAgent({ organizationId, agentId }),
+        ),
+      ),
+    ).toMatchObject({ providerId: gatewayId, apiKey: "repaired-gateway-secret" })
   })
 
   test("persists normalized catalog data and retains it after an invalid refresh", async () => {
@@ -461,6 +477,11 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
 
   test("requires the key again when a connection moves to another URL or provider type", async () => {
     const id = await runAppEffect(saveIntegrationProvider(organizationId))
+    await expect(
+      runAppEffect(
+        saveIntegrationProvider(organizationId, { id, lockVersion: 0, api: "anthropic-messages" }),
+      ),
+    ).rejects.toThrow("Invalid model provider settings")
     for (const change of [
       { baseUrl: "https://elsewhere.example/v1" },
       { providerType: "anthropic" as const, api: "anthropic-messages" as const },
@@ -510,84 +531,92 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
     ).toEqual([])
   })
 
-  test("reports setup readiness from the default agent's assignments only", async () => {
-    const providerId = await runAppEffect(saveIntegrationProvider(organizationId))
-    const provider = await runAppEffect(
-      Effect.flatMap(ModelProviders, (service) => service.get({ organizationId, id: providerId })),
-    )
-    const [defaultAgent] = await db
-      .insert(agent)
-      .values({ organizationId, name: "Default", systemPrompt: "Help" })
-      .returning()
-    await db
-      .insert(organizationConfiguration)
-      .values({ organizationId, defaultAgentId: defaultAgent!.id })
-    await db
-      .insert(agentModel)
-      .values({ organizationId, agentId, providerModelId: provider!.models[0]!.id, position: 0 })
-    const setup = () =>
-      runAppEffect(
-        Effect.flatMap(ModelProviders, (service) => service.setupState({ organizationId })),
-      )
-    expect(await setup()).toMatchObject({
-      defaultAgentId: formatAgentId({ organizationId, id: defaultAgent!.id }),
-      defaultAgentModelCount: 0,
-    })
-    await db.insert(agentModel).values({
-      organizationId,
-      agentId: defaultAgent!.id,
-      providerModelId: provider!.models[0]!.id,
-      position: 0,
-    })
-    expect((await setup()).defaultAgentModelCount).toBe(1)
-    await db
-      .update(organizationConfiguration)
-      .set({ defaultAgentId: null })
-      .where(eq(organizationConfiguration.organizationId, organizationId))
-    expect(await setup()).toMatchObject({ defaultAgentId: null, defaultAgentModelCount: 0 })
-  })
-
-  test("replaces ordered agent assignments atomically and makes the first model the default", async () => {
-    const providerId = await runAppEffect(
-      saveIntegrationProvider(organizationId, {
-        models: [
-          { modelId: "first", configuration: modelTestConfiguration, name: "First" },
-          { modelId: "second", configuration: modelTestConfiguration, name: "Second" },
-        ],
-      }),
-    )
-    const provider = await runAppEffect(
-      Effect.flatMap(ModelProviders, (service) => service.get({ organizationId, id: providerId })),
-    )
-    const modelIds = provider!.models.map((model) => model.id).reverse()
-    await runAppEffect(
-      Effect.flatMap(Agents, (service) =>
-        service.update({
-          organizationId,
-          agentId: formatAgentId({ organizationId, id: agentId }),
+  test("persists ordered Agent writes and recovers assignment and default-selection failures", () =>
+    runAppEffect(
+      Effect.gen(function* () {
+        const agents = yield* Agents
+        const providers = yield* ModelProviders
+        const native = yield* Database
+        const providerId = yield* saveIntegrationProvider(organizationId, {
+          models: [
+            { modelId: "first", configuration: modelTestConfiguration, name: "First" },
+            { modelId: "second", configuration: modelTestConfiguration, name: "Second" },
+          ],
+        })
+        const provider = yield* providers.get({ organizationId, id: providerId })
+        const modelIds = provider!.models.map((model) => model.id)
+        const fields = {
+          name: "Ordered Agent",
+          systemPrompt: "Help",
+          attachmentsEnabled: true,
+          webAccessEnabled: false,
+          sandboxProviderId: null,
+          modelIds,
+        }
+        const target = { organizationId, agentId: yield* agents.create({ organizationId, fields }) }
+        yield* agents.update({
+          ...target,
           lockVersion: 0,
-          fields: {
-            name: "Assistant",
-            systemPrompt: "Help",
-            attachmentsEnabled: true,
-            webAccessEnabled: false,
-            sandboxProviderId: null,
-            modelIds,
-          },
-        }),
-      ),
-    )
-    const configuration = await runAppEffect(
-      Effect.flatMap(ModelProviders, (service) =>
-        service.resolveForAgent({ organizationId, agentId }),
-      ),
-    )
-    expect(configuration!.modelId).toBe("second")
-    const edited = await runAppEffect(
-      Effect.flatMap(Agents, (service) =>
-        service.get({ organizationId, agentId: formatAgentId({ organizationId, id: agentId }) }),
-      ),
-    )
-    expect(edited.modelIds).toEqual(modelIds)
-  })
+          fields: { ...fields, modelIds: modelIds.toReversed() },
+        })
+        const configuration = yield* providers.resolveForAgent({
+          organizationId,
+          agentId: parseAgentId(target.agentId)!.id,
+        })
+        expect(configuration!.modelId).toBe("second")
+        const edited = yield* agents.get(target)
+        expect(edited.modelIds).toEqual(modelIds.toReversed())
+        const previousDefaultId = formatAgentId({ organizationId, id: agentId })
+        yield* agents.setDefault({ organizationId, agentId: previousDefaultId })
+        expect(yield* providers.setupState({ organizationId })).toMatchObject({
+          defaultAgentId: previousDefaultId,
+          defaultAgentModelCount: 0,
+        })
+        yield* agents.setDefault(target)
+        expect(yield* providers.setupState({ organizationId })).toMatchObject({
+          defaultAgentId: target.agentId,
+          defaultAgentModelCount: 2,
+        })
+        const before = yield* native.query.organizationConfiguration.findFirst({
+          where: { organizationId },
+        })
+        yield* native.transaction(() =>
+          Effect.gen(function* () {
+            const failed = yield* agents
+              .update({
+                ...target,
+                lockVersion: 1,
+                fields: {
+                  ...fields,
+                  name: "Must roll back",
+                  modelIds: ["019a0000-0000-7000-8000-000000000099"],
+                },
+              })
+              .pipe(Effect.result)
+            expect(failed).toMatchObject({
+              _tag: "Failure",
+              failure: { _tag: "AgentModelInvalid" },
+            })
+            expect(yield* agents.get(target)).toEqual(edited)
+            expect(
+              yield* agents.remove({ ...target, lockVersion: 0 }).pipe(Effect.result),
+            ).toMatchObject({ _tag: "Failure", failure: { _tag: "AgentChanged" } })
+            expect(
+              yield* native.query.organizationConfiguration.findFirst({
+                where: { organizationId },
+              }),
+            ).toEqual(before)
+          }),
+        )
+        yield* agents.remove({ ...target, lockVersion: 1 })
+        expect(
+          yield* native.query.organizationConfiguration.findFirst({ where: { organizationId } }),
+        ).toMatchObject({ defaultAgentId: null, lockVersion: before!.lockVersion + 1 })
+        expect(yield* providers.setupState({ organizationId })).toMatchObject({
+          defaultAgentId: null,
+          defaultAgentModelCount: 0,
+        })
+        expect(yield* agents.get(target).pipe(Effect.flip)).toMatchObject({ _tag: "AgentNotFound" })
+      }),
+    ))
 })

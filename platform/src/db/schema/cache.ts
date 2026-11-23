@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm"
-import { check, index, uniqueIndex, primaryKey, snakeCase } from "drizzle-orm/pg-core"
+import { check, index, uniqueIndex } from "drizzle-orm/pg-core"
+import { defineModel, primaryKey } from "@/lib/persistence.server"
 
 import { timestamps, timestampWithTimeZone, uuidV7, text } from "../lib/columns.ts"
 
@@ -11,7 +12,7 @@ export const DATABASE_CACHE_KEY_MAX_LENGTH = 512
 
 // TTL hides expired entries immediately. Cluster maintenance removes them in bounded batches.
 // Autovacuum then reclaims deleted versions: https://www.postgresql.org/docs/18/routine-vacuuming.html
-export const cacheEntry = snakeCase.table(
+export const cacheEntry = defineModel(
   "cache_entry",
   {
     // UUIDv7 follows repository conventions and gives each entry a stable row ID. A composite key could serve the KV contract.

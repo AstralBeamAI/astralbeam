@@ -1,18 +1,7 @@
 import { sql } from "drizzle-orm"
-import {
-  bigint,
-  boolean,
-  check,
-  integer,
-  numeric,
-  pgEnum,
-  unique,
-  primaryKey,
-  snakeCase,
-} from "drizzle-orm/pg-core"
+import { bigint, boolean, check, integer, numeric, pgEnum, unique } from "drizzle-orm/pg-core"
 
 import {
-  createSelectSchema,
   deferrableForeignKey,
   lockVersion,
   timestamps,
@@ -23,6 +12,7 @@ import {
 import { chatThread } from "./chat.ts"
 import type { OrganizationId, TenantId, TenantUserId } from "./organizations.ts"
 import { organizationForeignKey, tenantForeignKey, tenantUserForeignKey } from "./organizations.ts"
+import { defineModel, primaryKey } from "@/lib/persistence.server"
 import { DisplayNameSchema } from "@/lib/schemas"
 import {
   TimeZoneSchema,
@@ -41,52 +31,52 @@ const usageLimitWindowUnitEnum = pgEnum("usage_limit_window_unit", USAGE_LIMIT_W
  * A token or spend budget over a window, counted per scope subject. Default limits apply to every chat
  * token. Others apply only when a token lists their public ID. Global limits are always defaults.
  */
-const usageLimitColumns = {
-  organizationId: uuidV7({ generated: false }).notNull(),
-  id: uuidV7(),
-  // Shown to tenant users when the limit blocks them, so plans may share a name such as "Weekly limit".
-  name: text({ schema: DisplayNameSchema }).notNull(),
-  enabled: boolean().notNull(),
-  appliesByDefault: boolean().notNull(),
-  scope: usageLimitScopeEnum().notNull(),
-  metric: usageLimitMetricEnum().notNull(),
-  // Whole tokens, or US dollars for spend.
-  amount: numeric({ mode: "string" }).notNull(),
-  // Fixed windows align to the calendar in timeZone. Rolling windows start at first use.
-  windowType: usageLimitWindowTypeEnum().notNull(),
-  windowCount: integer().notNull(),
-  windowUnit: usageLimitWindowUnitEnum().notNull(),
-  timeZone: text({ schema: TimeZoneSchema }),
-  lockVersion: lockVersion(),
-  ...timestamps(),
-}
-
-export const usageLimit = snakeCase.table("usage_limit", usageLimitColumns, (table) => [
-  primaryKey({ name: "usage_limit_pkey", columns: [table.organizationId, table.id] }),
-  check("usage_limit_name_length_check", sql`char_length(${table.name}) between 1 and 100`),
-  check(
-    "usage_limit_amount_check",
-    sql`${table.amount} > 0 and (${table.metric} = 'spend' or ${table.amount} = trunc(${table.amount}))`,
-  ),
-  check("usage_limit_window_count_check", sql`${table.windowCount} > 0`),
-  check(
-    "usage_limit_time_zone_check",
-    sql`(${table.windowType} = 'fixed') = (${table.timeZone} is not null)`,
-  ),
-  check(
-    "usage_limit_global_default_check",
-    sql`${table.scope} <> 'global' or ${table.appliesByDefault}`,
-  ),
-  organizationForeignKey(table),
-])
-
-export const UsageLimitRowSchema = createSelectSchema(usageLimit, usageLimitColumns)
+export const usageLimit = defineModel(
+  "usage_limit",
+  {
+    organizationId: uuidV7({ generated: false }).notNull(),
+    id: uuidV7(),
+    // Shown to tenant users when the limit blocks them, so plans may share a name such as "Weekly limit".
+    name: text({ schema: DisplayNameSchema }).notNull(),
+    enabled: boolean().notNull(),
+    appliesByDefault: boolean().notNull(),
+    scope: usageLimitScopeEnum().notNull(),
+    metric: usageLimitMetricEnum().notNull(),
+    // Whole tokens, or US dollars for spend.
+    amount: numeric({ mode: "string" }).notNull(),
+    // Fixed windows align to the calendar in timeZone. Rolling windows start at first use.
+    windowType: usageLimitWindowTypeEnum().notNull(),
+    windowCount: integer().notNull(),
+    windowUnit: usageLimitWindowUnitEnum().notNull(),
+    timeZone: text({ schema: TimeZoneSchema }),
+    lockVersion: lockVersion(),
+    ...timestamps(),
+  },
+  (table) => [
+    primaryKey({ name: "usage_limit_pkey", columns: [table.organizationId, table.id] }),
+    check("usage_limit_name_length_check", sql`char_length(${table.name}) between 1 and 100`),
+    check(
+      "usage_limit_amount_check",
+      sql`${table.amount} > 0 and (${table.metric} = 'spend' or ${table.amount} = trunc(${table.amount}))`,
+    ),
+    check("usage_limit_window_count_check", sql`${table.windowCount} > 0`),
+    check(
+      "usage_limit_time_zone_check",
+      sql`(${table.windowType} = 'fixed') = (${table.timeZone} is not null)`,
+    ),
+    check(
+      "usage_limit_global_default_check",
+      sql`${table.scope} <> 'global' or ${table.appliesByDefault}`,
+    ),
+    organizationForeignKey(table),
+  ],
+)
 
 /**
  * One subject's usage in its current window of a limit. Global counters name no subject, and the
  * others name the tenant plus its tenant user or conversation, whose deletion removes the counter.
  */
-export const usageLimitCounter = snakeCase.table(
+export const usageLimitCounter = defineModel(
   "usage_limit_counter",
   {
     organizationId: uuidV7({ generated: false }).$type<OrganizationId>().notNull(),
