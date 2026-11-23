@@ -1,5 +1,4 @@
-import { sql, type InferSelectModel } from "drizzle-orm"
-import { createSelectSchema as drizzleSelectSchema } from "drizzle-orm/effect-schema"
+import { sql } from "drizzle-orm"
 import {
   customType,
   foreignKey,
@@ -9,7 +8,6 @@ import {
   uuid,
   type AnyPgColumn,
   type AnyPgColumnBuilder,
-  type AnyPgTable,
   type ForeignKey,
   type PgBuildColumn,
   type PgTextBuilder,
@@ -18,7 +16,7 @@ import {
   type SetNotNull,
 } from "drizzle-orm/pg-core"
 import { Result, Schema } from "effect"
-import { LockVersionSchema, UuidV7Schema } from "@/lib/schemas"
+import { UuidV7Schema } from "@/lib/schemas"
 
 import {
   type DatabaseEncryptionKeyring,
@@ -49,23 +47,16 @@ function schemaColumn<C extends AnyPgColumnBuilder>(
   return column
 }
 
-export function createSelectSchema<T extends AnyPgTable>(
-  table: T,
-  columns: Record<keyof InferSelectModel<T>, AnyPgColumnBuilder>,
-) {
+export function getColumnRefinements(columns: Readonly<Record<string, AnyPgColumnBuilder>>) {
   const refinements: Record<string, (base: Schema.Codec<unknown>) => Schema.Codec<unknown>> = {}
-  for (const [name, builder] of Object.entries<AnyPgColumnBuilder>(columns)) {
+  for (const [name, builder] of Object.entries(columns)) {
     const schema = columnSchemas.get(builder)
     if (!schema) continue
     const decode = Schema.decodeUnknownResult(Schema.toType(schema), { onExcessProperty: "error" })
     refinements[name] = (base) =>
       base.check(Schema.makeFilter((value) => Result.isSuccess(decode(value))))
   }
-  type Row = InferSelectModel<T>
-  const native: AnyPgTable = table
-  return drizzleSelectSchema(native, refinements) as unknown as Schema.Struct<{
-    [Name in keyof Row]: Schema.Codec<Row[Name]>
-  }>
+  return refinements
 }
 
 type ForeignKeyDeferrability = "immediate" | "deferred"
@@ -194,7 +185,7 @@ export function timestamps() {
 }
 
 export function lockVersion() {
-  return schemaColumn(integer().default(0).notNull(), LockVersionSchema)
+  return integer().default(0).notNull()
 }
 
 export function uuidV7(options: { generated: false }): ReturnType<typeof uuid>

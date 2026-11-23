@@ -13,7 +13,6 @@ import { Database } from "@/db/database"
 import { makeDatabaseCache, withDatabaseCacheLock } from "@/db/cache"
 import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials"
 import { decryptDatabaseValue, encryptDatabaseValue } from "@/db/lib/encryption"
-import { updateWithOptimisticLock } from "@/db/lib/optimistic-locking"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate"
 import { mcpConnection } from "@/db/schema/mcp"
 import { Config } from "@/lib/config/config"
@@ -21,6 +20,7 @@ import {
   McpConnections,
   mcpConnectionOwner,
   mcpCredentialState,
+  mcpStoreCredential,
   type McpStoredConnection,
 } from "./mcp.server.ts"
 import {
@@ -349,25 +349,12 @@ const makeMcpAuthorization = Effect.gen(function* () {
           )
         )
           return yield* new McpAuthorizationRequired()
-        const envelope: McpCredentialEnvelope = {
-          version: 1,
-          ...input.actor,
-          id: connection.id,
-          mcpServerId: connection.mcpServerId,
-          lockVersion: payload.expectedVersion + 1,
+        yield* mcpStoreCredential({
+          actor: input.actor,
+          connection,
+          lockVersion: payload.expectedVersion,
           credential: payload.pendingCredential,
-        }
-        yield* updateWithOptimisticLock({
-          executor: db,
-          table: mcpConnection,
-          id: connection.id,
-          scope: mcpConnectionOwner(input.actor),
-          expectedLockVersion: payload.expectedVersion,
-          set: { credentials: envelope },
-        }).pipe(
-          mapDatabaseErrors(),
-          Effect.catchTag("OptimisticLockError", () => Effect.fail(new McpChanged())),
-        )
+        }).pipe(Effect.provideService(Database, db))
         yield* attempts.remove(mcpAttemptKey(input.reference)).pipe(Effect.orDie)
         return true
       }),

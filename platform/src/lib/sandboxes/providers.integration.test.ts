@@ -1,4 +1,5 @@
 import { eq, sql } from "drizzle-orm"
+import { SandboxConnection } from "@astralbeam/sandbox"
 import { Effect, ManagedRuntime } from "effect"
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest"
 import { getAuthDatabase } from "@/db/database"
@@ -15,7 +16,7 @@ if (
 )
   throw new Error("Use a disposable loopback database ending in _test")
 
-describe.skipIf(!databaseUrl)("operator-owned sandbox images", () => {
+describe.skipIf(!databaseUrl)("sandbox provider persistence", () => {
   const runtime = ManagedRuntime.make(SandboxProviders.layer)
   let db: ReturnType<typeof getAuthDatabase>
   let organizationId: string
@@ -87,4 +88,61 @@ describe.skipIf(!databaseUrl)("operator-owned sandbox images", () => {
       })
     },
   )
+
+  test("repairs and deletes providers with unreadable credentials", async () => {
+    const providers = await runtime.runPromise(SandboxProviders)
+    const checked = vi.spyOn(SandboxConnection.prototype, "valid").mockResolvedValue(true)
+    try {
+      const fields = { organizationId, providerType: "e2b", options: { template: "base" } } as const
+      const name = "Credential repair"
+      await expect(
+        runtime.runPromise(
+          providers.save({
+            ...fields,
+            name,
+            id: null,
+            lockVersion: null,
+            options: {},
+            credentials: { apiKey: "test" },
+          }),
+        ),
+      ).rejects.toThrow("Invalid sandbox provider configuration")
+      expect(checked).not.toHaveBeenCalled()
+      const id = await runtime.runPromise(
+        providers.save({
+          ...fields,
+          id: null,
+          lockVersion: null,
+          name,
+          credentials: { apiKey: "initial-test-key" },
+        }),
+      )
+      const corruptCredentials = () =>
+        db.execute(
+          sql`update sandbox_provider set credentials = 'corrupt', updated_at = now() where organization_id = ${organizationId} and id = ${id}`,
+        )
+      await corruptCredentials()
+      expect(await runtime.runPromise(providers.get({ organizationId, id }))).toMatchObject({
+        credentialsReadable: false,
+        credentials: {},
+      })
+      await runtime.runPromise(
+        providers.save({
+          ...fields,
+          id,
+          lockVersion: 0,
+          name,
+          credentials: { apiKey: "replacement-test-key" },
+        }),
+      )
+      expect(
+        await runtime.runPromise(providers.resolveConfiguration({ organizationId, id })),
+      ).toMatchObject({ credentials: { apiKey: "replacement-test-key" } })
+      await corruptCredentials()
+      await runtime.runPromise(providers.remove({ organizationId, id, lockVersion: 1 }))
+      expect(await runtime.runPromise(providers.get({ organizationId, id }))).toBeNull()
+    } finally {
+      checked.mockRestore()
+    }
+  })
 })

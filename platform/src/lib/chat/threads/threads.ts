@@ -17,6 +17,7 @@ import {
   like,
   or,
   sql,
+  type SQLWrapper,
 } from "drizzle-orm"
 import type { AnyPgColumn } from "drizzle-orm/pg-core"
 import { Array as EffectArray, Context, Effect, Layer, Schema } from "effect"
@@ -25,7 +26,6 @@ import { Database, type EffectDatabase } from "@/db/database"
 import { cacheEntry } from "@/db/schema/cache"
 import { databasePage, type DatabasePageOptions } from "@/db/lib/pagination"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate"
-import { deleteWithOptimisticLock, updateWithOptimisticLock } from "@/db/lib/optimistic-locking"
 import {
   chatThread,
   chatMessage,
@@ -74,6 +74,10 @@ import {
 } from "./schemas.ts"
 
 type ChatReadScope = Pick<ChatThreadScope, "organizationId" | "tenantId">
+const chatThreadModelErrors = {
+  NotFound: () => new ChatThreadNotFound(),
+  StaleWrite: () => new ChatThreadConflict(),
+}
 export interface DirectoryThreadInput {
   readonly scope: TenantScope
   readonly tenantId: TenantId
@@ -126,11 +130,15 @@ interface ToolResponseInput extends ThreadInput {
 }
 
 type Executor = Pick<EffectDatabase, "select" | "insert" | "update" | "delete" | "execute">
-const threadExecutionActive = sql<boolean>`exists (
+const threadExecutionActive = (
+  scope: { organizationId: string | SQLWrapper; tenantId: string | SQLWrapper },
+  threadId: string | SQLWrapper,
+) =>
+  sql<boolean>`exists (
   select 1 from chat_message execution
-  where execution.organization_id = ${chatThread.organizationId}
-    and execution.tenant_id = ${chatThread.tenantId}
-    and execution.thread_id = ${chatThread.id}
+  where execution.organization_id = ${scope.organizationId}
+    and execution.tenant_id = ${scope.tenantId}
+    and execution.thread_id = ${threadId}
     and execution.turn_state = 'running'
 )`.mapWith(Boolean)
 const threadScopeWhere =
@@ -383,7 +391,7 @@ const saveChatParts = Effect.fnUntraced(function* (
 const threadRecordColumns = {
   ...getTableColumns(chatThread),
   role: chatParticipant.role,
-  writerActive: threadExecutionActive,
+  writerActive: threadExecutionActive(chatThread, chatThread.id),
 }
 
 const readThread = Effect.fnUntraced(function* (db: Executor, input: ThreadInput, lock = false) {
@@ -403,7 +411,30 @@ const readThread = Effect.fnUntraced(function* (db: Executor, input: ThreadInput
   return row
 })
 
-function requireRole(row: ThreadRecord, manager = false) {
+const readThreadWriteAccess = Effect.fnUntraced(function* (
+  db: Executor,
+  input: ThreadInput,
+  activity = false,
+) {
+  const [access] = yield* db
+    .select({
+      role: chatParticipant.role,
+      writerActive: activity ? threadExecutionActive(input.scope, input.id) : sql<boolean>`false`,
+    })
+    .from(chatParticipant)
+    .where(
+      and(
+        participantWhere(input.scope, input.id),
+        eq(chatParticipant.tenantUserId, input.scope.tenantUserId),
+      ),
+    )
+    .limit(1)
+  if (!access) return yield* new ChatThreadNotFound()
+  yield* requireRole(access, true)
+  return access.writerActive
+})
+
+function requireRole(row: Pick<ThreadRecord, "role">, manager = false) {
   return row.role === "viewer" || (manager && row.role !== "manager")
     ? Effect.fail(new ChatThreadForbidden())
     : Effect.void
@@ -928,6 +959,7 @@ export class ChatThreads extends Context.Service<ChatThreads>()(
   {
     make: Effect.gen(function* () {
       const db = yield* Database
+      const useDatabase = Effect.provideService(Database, db)
       const files = yield* ChatFiles
       const storedFiles = yield* StoredFiles
       const withChatClaim = <A, E, R>(
@@ -1070,21 +1102,17 @@ export class ChatThreads extends Context.Service<ChatThreads>()(
               )
               .limit(1)
             if (!chosen) return yield* new ChatThreadNotFound()
-            const [created] = yield* tx
-              .insert(chatThread)
-              .values({
-                ...rowScope(input.scope),
-                agentId: chosen.id,
-                title: input.title ?? "",
-              })
-              .returning()
+            const created = yield* chatThread
+              .insert({ ...rowScope(input.scope), agentId: chosen.id, title: input.title ?? "" })
+              .pipe(useDatabase)
             yield* tx.insert(chatParticipant).values({
               ...rowScope(input.scope),
-              threadId: created!.id,
+              threadId: created.id,
               tenantUserId: input.scope.tenantUserId,
               role: "manager",
             })
-            return yield* readThread(tx, { scope: input.scope, id: created!.id })
+            const thread: ThreadRecord = { ...created, role: "manager", writerActive: false }
+            return thread
           }),
         )
       }, mapDatabaseErrors())
@@ -1282,63 +1310,57 @@ export class ChatThreads extends Context.Service<ChatThreads>()(
           ),
       )
 
-      const rename = Effect.fn("ChatThreads.rename")(
-        (input: ThreadInput & { lockVersion: number; title: string }) =>
-          db
-            .transaction((tx) =>
-              Effect.gen(function* () {
-                const row = yield* readThread(tx, input, true)
-                yield* requireRole(row, true)
-                yield* updateWithOptimisticLock({
-                  executor: tx,
-                  table: chatThread,
-                  id: input.id,
-                  scope: scopeWhere(input.scope, input.id),
-                  expectedLockVersion: input.lockVersion,
-                  set: { title: input.title },
-                }).pipe(Effect.catchTag("OptimisticLockError", () => new ChatThreadConflict()))
-                return yield* readThread(tx, input)
-              }),
-            )
-            .pipe(mapDatabaseErrors()),
-      )
+      const rename = Effect.fn("ChatThreads.rename")(function* (
+        input: ThreadInput & { lockVersion: number; title: string },
+      ) {
+        const target = { ...input, scope: { ...input.scope } }
+        let writerActive = false
+        const row = yield* chatThread
+          .update(
+            { ...target, ...rowScope(target.scope) },
+            { title: target.title },
+            {
+              onLocked: () =>
+                Effect.map(readThreadWriteAccess(db, target, true), (active) => {
+                  writerActive = active
+                }),
+            },
+          )
+          .pipe(useDatabase, Effect.catchTags(chatThreadModelErrors))
+        return { ...row, role: "manager" as const, writerActive }
+      }, mapDatabaseErrors())
 
-      const remove = Effect.fn("ChatThreads.remove")(
-        (input: ThreadInput & { lockVersion: number }) =>
-          db
-            .transaction((tx) =>
-              Effect.gen(function* () {
-                const row = yield* readThread(tx, input, true)
-                yield* requireRole(row, true)
-                yield* tx
-                  .update(chatThread)
-                  .set({ currentLeafMessageId: null })
-                  .where(scopeWhere(input.scope, input.id))
-                yield* tx
-                  .update(fileObject)
-                  .set({ status: "purging" })
-                  .where(
-                    sql`${fileObject.organizationId} = ${input.scope.organizationId} and ${fileObject.id} in (select file_object_id from chat_file where organization_id = ${input.scope.organizationId} and tenant_id = ${input.scope.tenantId} and thread_id = ${input.id})`,
-                  )
-                yield* deleteWithOptimisticLock({
-                  executor: tx,
-                  table: chatThread,
-                  id: input.id,
-                  scope: scopeWhere(input.scope, input.id),
-                  expectedLockVersion: input.lockVersion,
-                }).pipe(Effect.catchTag("OptimisticLockError", () => new ChatThreadConflict()))
-                yield* tx
-                  .delete(cacheEntry)
-                  .where(
-                    and(
-                      eq(cacheEntry.namespace, "chat"),
-                      like(cacheEntry.key, `${row.organizationId}:${row.tenantId}:${row.id}:%`),
-                    ),
-                  )
-              }),
-            )
-            .pipe(mapDatabaseErrors()),
-      )
+      const remove = Effect.fn("ChatThreads.remove")(function* (
+        input: ThreadInput & { lockVersion: number },
+      ) {
+        const target = { ...input, scope: { ...input.scope } }
+        yield* chatThread
+          .delete(
+            { ...target, ...rowScope(target.scope) },
+            {
+              onLocked: (row) =>
+                Effect.gen(function* () {
+                  yield* readThreadWriteAccess(db, target)
+                  if (row.lockVersion !== target.lockVersion) return yield* new ChatThreadConflict()
+                  yield* db
+                    .update(fileObject)
+                    .set({ status: "purging" })
+                    .where(
+                      sql`${fileObject.organizationId} = ${target.scope.organizationId} and ${fileObject.id} in (select file_object_id from chat_file where organization_id = ${target.scope.organizationId} and tenant_id = ${target.scope.tenantId} and thread_id = ${target.id})`,
+                    )
+                  yield* db
+                    .delete(cacheEntry)
+                    .where(
+                      and(
+                        eq(cacheEntry.namespace, "chat"),
+                        like(cacheEntry.key, `${row.organizationId}:${row.tenantId}:${row.id}:%`),
+                      ),
+                    )
+                }),
+            },
+          )
+          .pipe(useDatabase, Effect.catchTags(chatThreadModelErrors))
+      }, mapDatabaseErrors())
 
       const participants = Effect.fn("ChatThreads.participants")(function* (
         input: ThreadInput & DatabasePageOptions,
@@ -1382,24 +1404,24 @@ export class ChatThreads extends Context.Service<ChatThreads>()(
       }, mapDatabaseErrors())
 
       const changeParticipant = Effect.fnUntraced(function* (
-        input: ThreadInput & {
+        request: ThreadInput & {
           lockVersion: number
           tenantUserId: TenantUserId
           role?: ChatParticipantRole | undefined
         },
       ) {
+        const input = { ...request, scope: { ...request.scope } }
         return yield* db.transaction((tx) =>
           Effect.gen(function* () {
-            const row = yield* readThread(tx, input, true)
-            yield* requireRole(row, true)
-            yield* updateWithOptimisticLock({
-              executor: tx,
-              table: chatThread,
-              id: input.id,
-              scope: scopeWhere(input.scope, input.id),
-              expectedLockVersion: input.lockVersion,
-              set: {},
-            }).pipe(Effect.catchTag("OptimisticLockError", () => new ChatThreadConflict()))
+            yield* chatThread
+              .update(
+                { ...input, ...rowScope(input.scope) },
+                {},
+                {
+                  onLocked: () => readThreadWriteAccess(tx, input),
+                },
+              )
+              .pipe(useDatabase, Effect.catchTags(chatThreadModelErrors))
             const threadParticipants = participantWhere(input.scope, input.id)
             const targetParticipant = and(
               threadParticipants,

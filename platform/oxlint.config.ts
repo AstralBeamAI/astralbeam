@@ -225,6 +225,18 @@ const deepImportPatterns = [
   },
 ]
 
+const sourceImportPatterns = ["bun", "bun:*", ...deepImportPatterns]
+const restrictedForeignKeyImport = {
+  regex: "^drizzle-orm/pg-core(?:/|$)",
+  importNames: ["foreignKey"],
+  message: "Use deferrableForeignKey from src/db/lib/columns.ts.",
+}
+const restrictedTableImport = {
+  regex: "^drizzle-orm/pg-core(?:/|$)",
+  importNames: ["snakeCase"],
+  message: "Use defineTable from @/lib/persistence.server to define tables.",
+}
+
 export default defineConfig({
   extends: [effectRecommended],
   plugins: ["effecttsgo", "eslint", "typescript", "unicorn", "oxc", "react"],
@@ -260,7 +272,7 @@ export default defineConfig({
       excludeFiles: ["scripts/**"],
       rules: {
         "no-restricted-properties": ["error", restrictedBunProperties],
-        "no-restricted-imports": ["error", { patterns: ["bun", "bun:*", ...deepImportPatterns] }],
+        "no-restricted-imports": ["error", { patterns: sourceImportPatterns }],
       },
     },
     {
@@ -283,16 +295,7 @@ export default defineConfig({
         "no-restricted-imports": [
           "error",
           {
-            patterns: [
-              "bun",
-              "bun:*",
-              ...deepImportPatterns,
-              {
-                regex: "^drizzle-orm/pg-core(?:/|$)",
-                importNames: ["foreignKey"],
-                message: "Use deferrableForeignKey from src/db/lib/columns.ts.",
-              },
-            ],
+            patterns: [...sourceImportPatterns, restrictedForeignKeyImport, restrictedTableImport],
           },
         ],
         "no-restricted-properties": [
@@ -306,6 +309,24 @@ export default defineConfig({
             property: "references",
             message: "Use deferrableForeignKey from src/db/lib/columns.ts.",
           },
+        ],
+      },
+    },
+    {
+      files: ["src/lib/persistence.server.ts"],
+      rules: {
+        "no-restricted-imports": [
+          "error",
+          { patterns: [...sourceImportPatterns, restrictedForeignKeyImport] },
+        ],
+      },
+    },
+    {
+      files: ["src/db/lib/columns.ts"],
+      rules: {
+        "no-restricted-imports": [
+          "error",
+          { patterns: [...sourceImportPatterns, restrictedTableImport] },
         ],
       },
     },

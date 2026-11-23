@@ -1,5 +1,6 @@
-import { uniqueIndex, primaryKey, snakeCase } from "drizzle-orm/pg-core"
+import { uniqueIndex } from "drizzle-orm/pg-core"
 import { Schema } from "effect"
+import { defineTable, primaryKey } from "@/lib/persistence.server"
 
 import { encryptedJson, timestamps, uuidV7, text } from "../lib/columns.ts"
 
@@ -9,7 +10,7 @@ export const ConfigValuePayloadSchema = Schema.Struct({
 })
 
 // Global control-plane tables without an organizationId exist before any organization does.
-export const configTable = snakeCase.table(
+export const configTable = defineTable(
   "config",
   {
     id: uuidV7(),

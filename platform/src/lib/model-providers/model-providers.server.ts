@@ -1,12 +1,11 @@
 import { and, eq, notInArray, sql } from "drizzle-orm"
-import { Context, Effect, Layer, Result } from "effect"
+import { Context, Effect, Layer, Result, Schema } from "effect"
 import { SecureRandom } from "effect/crypto"
 
 import { Database } from "@/db/database"
 import { Config } from "@/lib/config/config"
 import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials"
 import { decryptDatabaseValue } from "@/db/lib/encryption"
-import { deleteWithOptimisticLock, updateWithOptimisticLock } from "@/db/lib/optimistic-locking"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate"
 import { DatabaseRateLimiter, hashedRateLimitKey } from "@/db/lib/rate-limiter"
 import {
@@ -34,29 +33,20 @@ import { testProviderModel } from "./test-model.server.ts"
 import { modelWebAccess } from "./web.server"
 import {
   ModelProviderCredentialsPayloadSchema,
+  ModelProviderFieldsSchema,
   type ModelProviderFields,
   type ModelProviderApi,
   type ModelProviderType,
   type ModelConfiguration,
 } from "./schemas.ts"
 
-interface ModelProviderModel {
-  readonly id: string
-  readonly modelId: string
-  readonly name: string
-  readonly configuration: ModelConfiguration | null
-}
+type ModelProviderModel = Readonly<
+  Pick<typeof providerModel.$inferSelect, "id" | "modelId" | "name" | "configuration">
+>
 
-export interface OrganizationModelProvider {
-  readonly id: string
-  readonly organizationId: string
-  readonly name: string
-  readonly providerType: ModelProviderType
-  readonly api: ModelProviderApi
-  readonly baseUrl: string
-  readonly lockVersion: number
-  readonly createdAt: Date
-  readonly updatedAt: Date
+export type OrganizationModelProvider = Readonly<
+  Omit<typeof modelProvider.$inferSelect, "credentials">
+> & {
   readonly apiKeyHint: string | null
   readonly credentialsReadable: boolean
   readonly models: readonly ModelProviderModel[]
@@ -156,12 +146,14 @@ const mapModelProviderWriteErrors = mapDatabaseErrors({
   model_provider_organization_id_name_uidx: () => new ModelProviderNameTaken(),
   agent_model_provider_model_fk: () => new ModelProviderInUse(),
 })
+const modelProviderChangedTags = ["NotFound", "StaleWrite"] as const
 
 export class ModelProviders extends Context.Service<ModelProviders>()(
   "astralbeam/model-providers/ModelProviders",
   {
     make: Effect.gen(function* () {
       const db = yield* Database
+      const useDatabase = Effect.provideService(Database, db)
       const config = yield* Config
       const rateLimiter = yield* DatabaseRateLimiter
       const readPricing = readModelPriceCatalog.pipe(Effect.provideService(Config, config))
@@ -286,6 +278,8 @@ export class ModelProviders extends Context.Service<ModelProviders>()(
         const apiKey = input.apiKey ?? (keyKept ? readModelProviderKey(existing) : null)
         if (!apiKey)
           return yield* keyKept ? new ModelProviderUnreadable() : new ModelProviderKeyMissing()
+        if (!Schema.is(ModelProviderFieldsSchema)(input))
+          return yield* Effect.die(new Error("Invalid model provider settings"))
         const inheritedModelIds =
           existing?.providerType === input.providerType
             ? input.models
@@ -340,21 +334,9 @@ export class ModelProviders extends Context.Service<ModelProviders>()(
                   apiKey,
                 },
               }
-              if (existing)
-                yield* updateWithOptimisticLock({
-                  executor: transaction,
-                  table: modelProvider,
-                  id,
-                  scope: eq(modelProvider.organizationId, input.organizationId),
-                  expectedLockVersion: existing.lockVersion,
-                  set: fields,
-                })
+              if (existing) yield* modelProvider.update(existing, fields)
               else
-                yield* transaction.insert(modelProvider).values({
-                  id,
-                  organizationId: input.organizationId,
-                  ...fields,
-                })
+                yield* modelProvider.insert({ id, organizationId: input.organizationId, ...fields })
               yield* transaction
                 .delete(providerModel)
                 .where(
@@ -383,33 +365,28 @@ export class ModelProviders extends Context.Service<ModelProviders>()(
                     set: {
                       name: sql`excluded.name`,
                       configuration: sql`excluded.configuration`,
-                      updatedAt: sql`now()`,
                     },
                   })
               return id
             }),
           )
           .pipe(
+            useDatabase,
             mapModelProviderWriteErrors,
-            Effect.catchTags({
-              OptimisticLockError: () => Effect.fail(new ModelProviderChanged()),
-              ModelProviderInUse: () => failInUse(input.organizationId, existing!.id, modelIds),
-            }),
+            Effect.catchTag(modelProviderChangedTags, () => new ModelProviderChanged()),
+            Effect.catchTag("ModelProviderInUse", () =>
+              failInUse(input.organizationId, existing!.id, modelIds),
+            ),
           )
       })
 
       const remove = Effect.fn("ModelProviders.remove")(
         function* (input: { organizationId: string; id: string; lockVersion: number }) {
-          yield* deleteWithOptimisticLock({
-            executor: db,
-            table: modelProvider,
-            id: input.id,
-            scope: eq(modelProvider.organizationId, input.organizationId),
-            expectedLockVersion: input.lockVersion,
-          })
+          yield* modelProvider.delete(input)
         },
+        useDatabase,
         mapDatabaseErrors({ agent_model_provider_model_fk: () => new ModelProviderInUse() }),
-        Effect.catchTag("OptimisticLockError", () => Effect.fail(new ModelProviderChanged())),
+        Effect.catchTag(modelProviderChangedTags, () => new ModelProviderChanged()),
         (effect, input) =>
           Effect.catchTag(effect, "ModelProviderInUse", () =>
             failInUse(input.organizationId, input.id, []),

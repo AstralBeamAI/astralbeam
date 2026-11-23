@@ -78,11 +78,12 @@ test("TenantUser monthly costs are visible to owners and omitted for viewers", a
       if (new URL(request.url()).pathname === `/api/v1/tenants/${tenantId}/tenant_users`)
         rowRequests++
     })
-    const release = Promise.withResolvers<void>()
+    let release = Promise.withResolvers<void>()
     let usageRequests = 0
     let usageStatus = 503
     await page.route(`**${usagePath}?**`, async (route) => {
-      if (++usageRequests === 1) await release.promise
+      usageRequests++
+      await release.promise
       if (usageStatus === 200) return route.continue()
       await route.fulfill({
         status: usageStatus,
@@ -154,11 +155,15 @@ test("TenantUser monthly costs are visible to owners and omitted for viewers", a
       const retainedRequests = usageRequests
       await shell.sectionLink("Dashboard").click()
       await expect(directory).toHaveCount(0)
+      release = Promise.withResolvers<void>()
+      const revalidation = page.waitForRequest(`**${usagePath}?**`)
       await shell.navigation.getByRole("link", { name: "Tenant users", exact: true }).click()
       await selectTenant()
+      await revalidation
       await expect(userRow("Priced user")).toContainText("$0.0123")
+      release.resolve()
       await expect(refresh).toBeEnabled()
-      expect(usageRequests).toBe(retainedRequests)
+      expect(usageRequests).toBe(retainedRequests + 1)
       await filterUsers("priced")
       await expect(userRow("Priced user")).toContainText("$0.0123")
       const requests = usageRequests
@@ -242,8 +247,8 @@ test("TenantUser monthly costs are visible to owners and omitted for viewers", a
     await test.step("Viewer loads users without a usage request or column", async () => {
       const requests = usageRequests
       await page.setViewportSize({ width: 1440, height: 900 })
-      await page.goto("/auth/sign-out")
-      await page.waitForURL(/\/auth\/sign-in/)
+      await page.context().clearCookies()
+      await auth.open("sign-in")
       await auth.signIn(SEED_USERS[2].email, SEED_PASSWORD)
       await page.waitForURL((url) => !url.pathname.startsWith("/auth/"))
       await page.goto(`/${organization.slug}/tenant-users`)

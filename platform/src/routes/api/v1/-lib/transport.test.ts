@@ -181,6 +181,7 @@ function restTestDatabase(): EffectDatabase {
       restTestState.limits.push(limit)
       return result()
     },
+    for: result,
     values(value: unknown) {
       restTestState.writes.push(value)
       return this
@@ -195,6 +196,7 @@ function restTestDatabase(): EffectDatabase {
     returning: result,
   }
   const database = {
+    $client: { withTransaction: <A>(effect: A) => effect },
     transaction: (run: (tx: unknown) => unknown) => run(database),
     query: { tenant: { findFirst: () => Effect.map(result(), (rows) => rows[0]) } },
     select: () => ({ ...query }),
@@ -313,7 +315,7 @@ const restSdkFetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Re
 ) => restWebHandler.handler(new Request(input, init))
 const restTenantJwt = `${btoa(JSON.stringify({ typ: "astralbeam+jwt" }))}.e30.c2ln`
 const restTestApiKey = `key_${restOrgId}_${restOtherId}_abo_${"A".repeat(64)}`
-// Repositories project public columns, so queued rows carry no organization ID.
+// Read results use public projections; model writes return full native rows.
 const restTenantRow = {
   id: restTenantId,
   externalId: " Customer/東京 +?# ",
@@ -323,6 +325,8 @@ const restTenantRow = {
   updatedAt: new Date("2026-09-01T00:00:00Z"),
 }
 const restUserRow = { ...restTenantRow, id: restUserId, tenantId: restTenantId, admin: false }
+const restStoredTenantRow = { ...restTenantRow, organizationId: restOrgId }
+const restStoredUserRow = { ...restUserRow, organizationId: restOrgId }
 const restPrincipal = {
   organization: { id: restOrgId },
   tenantUser: { id: "caller-not-persisted", admin: true, tenant: { id: restTenantRow.externalId } },
@@ -1313,7 +1317,12 @@ describe("REST API through the Effect Fetch handler", () => {
   })
 
   test("HTTP responses preserve wire records, exact filters and scoped partial writes", async () => {
-    restTestState.rows.push([restTenantRow], [restTenantRow], [restTenantRow])
+    restTestState.rows.push(
+      [restStoredTenantRow],
+      [restTenantRow],
+      [restStoredTenantRow],
+      [restStoredTenantRow],
+    )
     const created = await restRequest("/tenants", {
       method: "POST",
       json: { external_id: restTenantRow.externalId },
@@ -1453,7 +1462,12 @@ describe("REST API through the Effect Fetch handler", () => {
       )
       const jwt = `${btoa(JSON.stringify({ typ: "astralbeam-organization+jwt" }))}.e30.c2ln`
       const headers = { Authorization: `Bearer ${jwt}`, "Content-Type": "application/json" }
-      restTestState.rows.push([restTenantRow], [restTenantRow], [restUserRow])
+      restTestState.rows.push(
+        [restTenantRow],
+        [restStoredTenantRow],
+        [restStoredUserRow],
+        [{ ...restStoredUserRow, name: "Updated" }],
+      )
       expect((await restRequest("/tenants", { headers })).status).toBe(readStatus)
       expect(
         (
@@ -1638,13 +1652,25 @@ describe("REST API through the Effect Fetch handler", () => {
   })
 
   test("TenantUser updates preserve scope and lists accept exact filters", async () => {
-    restTestState.rows.push([restUserRow])
-    await restJson(TenantUserRecordSchema, `/tenants/${restTenantId}/tenant_users/${restUserId}`, {
-      method: "PATCH",
-      json: { admin: true },
+    const patchAsTenant = (tenantId: string) =>
+      restJson(TenantUserRecordSchema, `/tenants/${tenantId}/tenant_users/${restUserId}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${restTenantJwt}` },
+        json: { admin: true },
+      })
+    restTestState.rows.push(
+      [{ id: restTenantId }],
+      [restStoredUserRow],
+      [{ ...restStoredUserRow, admin: true }],
+    )
+    expect(await patchAsTenant(restTenantId.toUpperCase())).toMatchObject({
+      id: restUserId,
+      admin: true,
     })
-    expect(restTestState.writes.at(-1)).toEqual({ admin: true })
-    expect(restLastPredicate().params).toEqual([restOrgId, restTenantId, restUserId])
+    expect(restLastPredicate().params).toEqual([restOrgId, restTenantId.toUpperCase(), restUserId])
+    restTestState.rows.push([{ id: restTenantId }])
+    await expect(patchAsTenant(restOtherId)).rejects.toMatchObject({ status: 404 })
+    expect(restTestState.writes).toEqual([{ admin: true }])
 
     const filter = { "filter[external_id]": restUserRow.externalId }
     restTestState.rows.push([restTenantRow], [restUserRow])

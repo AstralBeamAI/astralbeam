@@ -1,13 +1,5 @@
 import { sql } from "drizzle-orm"
-import {
-  boolean,
-  check,
-  index,
-  integer,
-  uniqueIndex,
-  primaryKey,
-  snakeCase,
-} from "drizzle-orm/pg-core"
+import { boolean, check, index, integer, uniqueIndex } from "drizzle-orm/pg-core"
 import type { AnyPgColumn, ForeignKeyBuilder } from "drizzle-orm/pg-core"
 import * as Schema from "effect/Schema"
 
@@ -25,10 +17,10 @@ import {
 } from "@/lib/model-providers/schemas.ts"
 import { DisplayNameSchema, UuidV7Schema } from "@/lib/schemas.ts"
 import { AgentSystemPromptSchema } from "@/lib/agents/schemas.ts"
+import { defineTable, primaryKey } from "@/lib/persistence.server"
 
 import {
   caseInsensitiveText,
-  createSelectSchema,
   deferrableForeignKey,
   encryptedJson,
   jsonb,
@@ -67,7 +59,7 @@ export const SandboxProviderCredentialsPayloadSchema = Schema.Struct({
   ),
 )
 
-export const organization = snakeCase.table(
+export const organization = defineTable(
   "organization",
   {
     id: uuidV7(),
@@ -127,7 +119,7 @@ export function tenantUserForeignKey(
   })
 }
 
-export const apiKey = snakeCase.table(
+export const apiKey = defineTable(
   "api_key",
   {
     id: uuidV7(),
@@ -163,21 +155,19 @@ export const apiKey = snakeCase.table(
   ],
 )
 
-const sandboxProviderColumns = {
-  id: uuidV7(),
-  organizationId: uuidV7({ generated: false }).notNull(),
-  name: caseInsensitiveText({ schema: DisplayNameSchema }).notNull(),
-  providerType: text({ enum: SandboxProviderIdSchema.literals }).notNull(),
-  options: jsonb({ schema: SandboxProviderOptionsSchema }).notNull(),
-  credentials: encryptedJson({ schema: SandboxProviderCredentialsPayloadSchema }),
-  lastTest: jsonb({ schema: SandboxTestMetadataSchema }),
-  lockVersion: lockVersion(),
-  ...timestamps(),
-}
-
-export const sandboxProvider = snakeCase.table(
+export const sandboxProvider = defineTable(
   "sandbox_provider",
-  sandboxProviderColumns,
+  {
+    id: uuidV7(),
+    organizationId: uuidV7({ generated: false }).notNull(),
+    name: caseInsensitiveText({ schema: DisplayNameSchema }).notNull(),
+    providerType: text({ enum: SandboxProviderIdSchema.literals }).notNull(),
+    options: jsonb({ schema: SandboxProviderOptionsSchema }).notNull(),
+    credentials: encryptedJson({ schema: SandboxProviderCredentialsPayloadSchema }),
+    lastTest: jsonb({ schema: SandboxTestMetadataSchema }),
+    lockVersion: lockVersion(),
+    ...timestamps(),
+  },
   (table) => [
     primaryKey({
       name: "sandbox_provider_pkey",
@@ -188,20 +178,15 @@ export const sandboxProvider = snakeCase.table(
   ],
 )
 
-export const SandboxProviderRowSchema = createSelectSchema(
-  sandboxProvider,
-  sandboxProviderColumns,
-).mapFields(({ credentials: _credentials, ...fields }) => fields)
-
-export const modelProvider = snakeCase.table(
+export const modelProvider = defineTable(
   "model_provider",
   {
     id: uuidV7(),
     organizationId: uuidV7({ generated: false }).notNull(),
-    name: caseInsensitiveText().notNull(),
+    name: caseInsensitiveText({ schema: DisplayNameSchema }).notNull(),
     providerType: text({ enum: ModelProviderFieldsSchema.fields.providerType.literals }).notNull(),
     api: text({ enum: ModelProviderFieldsSchema.fields.api.literals }).notNull(),
-    baseUrl: text().notNull(),
+    baseUrl: text({ schema: ModelProviderFieldsSchema.fields.baseUrl }).notNull(),
     credentials: encryptedJson({ schema: ModelProviderCredentialsPayloadSchema }),
     lockVersion: lockVersion(),
     ...timestamps(),
@@ -213,7 +198,7 @@ export const modelProvider = snakeCase.table(
   ],
 )
 
-export const providerModel = snakeCase.table(
+export const providerModel = defineTable(
   "provider_model",
   {
     id: uuidV7(),
@@ -240,44 +225,44 @@ export const providerModel = snakeCase.table(
   ],
 )
 
-const agentColumns = {
-  id: uuidV7(),
-  organizationId: uuidV7({ generated: false }).notNull(),
-  name: caseInsensitiveText({ schema: DisplayNameSchema }).notNull(),
-  systemPrompt: text({ schema: AgentSystemPromptSchema }).notNull(),
-  // Agent capability policy the chat endpoint enforces; the SDK can narrow it, never grant it.
-  attachmentsEnabled: boolean().notNull().default(true),
-  webAccessEnabled: boolean().notNull().default(false),
-  // Optional so a new organization has a usable agent before anyone configures a provider,
-  // which cannot be saved until its connection test passes.
-  sandboxProviderId: uuidV7({ generated: false }),
-  lockVersion: lockVersion(),
-  ...timestamps(),
-}
+export const agent = defineTable(
+  "agent",
+  {
+    id: uuidV7(),
+    organizationId: uuidV7({ generated: false }).notNull(),
+    name: caseInsensitiveText({ schema: DisplayNameSchema }).notNull(),
+    systemPrompt: text({ schema: AgentSystemPromptSchema }).notNull(),
+    // Agent capability policy the chat endpoint enforces; the SDK can narrow it, never grant it.
+    attachmentsEnabled: boolean().notNull().default(true),
+    webAccessEnabled: boolean().notNull().default(false),
+    // Optional so a new organization has a usable agent before anyone configures a provider,
+    // which cannot be saved until its connection test passes.
+    sandboxProviderId: uuidV7({ generated: false }),
+    lockVersion: lockVersion(),
+    ...timestamps(),
+  },
+  (table) => [
+    primaryKey({ name: "agent_pkey", columns: [table.organizationId, table.id] }),
+    index("agent_organization_id_sandbox_provider_id_idx").on(
+      table.organizationId,
+      table.sandboxProviderId,
+    ),
+    // The name is the only human-readable handle left once the ID is opaque.
+    uniqueIndex("agent_organization_id_name_uidx").on(table.organizationId, table.name),
+    check(
+      "agent_system_prompt_length_check",
+      sql`char_length(${table.systemPrompt}) between 1 and 32768`,
+    ),
+    deferrableForeignKey({
+      name: "agent_organization_id_sandbox_provider_id_fk",
+      columns: [table.organizationId, table.sandboxProviderId],
+      foreignColumns: [sandboxProvider.organizationId, sandboxProvider.id],
+    }).onDelete("no action"),
+    organizationForeignKey(table),
+  ],
+)
 
-export const agent = snakeCase.table("agent", agentColumns, (table) => [
-  primaryKey({ name: "agent_pkey", columns: [table.organizationId, table.id] }),
-  index("agent_organization_id_sandbox_provider_id_idx").on(
-    table.organizationId,
-    table.sandboxProviderId,
-  ),
-  // The name is the only human-readable handle left once the ID is opaque.
-  uniqueIndex("agent_organization_id_name_uidx").on(table.organizationId, table.name),
-  check(
-    "agent_system_prompt_length_check",
-    sql`char_length(${table.systemPrompt}) between 1 and 32768`,
-  ),
-  deferrableForeignKey({
-    name: "agent_organization_id_sandbox_provider_id_fk",
-    columns: [table.organizationId, table.sandboxProviderId],
-    foreignColumns: [sandboxProvider.organizationId, sandboxProvider.id],
-  }).onDelete("no action"),
-  organizationForeignKey(table),
-])
-
-export const AgentRowSchema = createSelectSchema(agent, agentColumns)
-
-export const agentModel = snakeCase.table(
+export const agentModel = defineTable(
   "agent_model",
   {
     id: uuidV7(),
@@ -319,7 +304,7 @@ export const agentModel = snakeCase.table(
   ],
 )
 
-export const organizationConfiguration = snakeCase.table(
+export const organizationConfiguration = defineTable(
   "organization_configuration",
   {
     id: uuidV7(),
@@ -345,7 +330,7 @@ export const organizationConfiguration = snakeCase.table(
   ],
 )
 
-export const tenant = snakeCase.table(
+export const tenant = defineTable(
   "tenant",
   {
     organizationId: uuidV7({ generated: false }).$type<OrganizationId>().notNull(),
@@ -368,7 +353,7 @@ export const tenant = snakeCase.table(
   ],
 )
 
-export const tenantUser = snakeCase.table(
+export const tenantUser = defineTable(
   "tenant_user",
   {
     organizationId: uuidV7({ generated: false }).$type<OrganizationId>().notNull(),
@@ -399,7 +384,7 @@ export const tenantUser = snakeCase.table(
   ],
 )
 
-export const member = snakeCase.table(
+export const member = defineTable(
   "member",
   {
     id: uuidV7(),
@@ -426,7 +411,7 @@ export const member = snakeCase.table(
   ],
 )
 
-export const invitation = snakeCase.table(
+export const invitation = defineTable(
   "invitation",
   {
     id: uuidV7(),

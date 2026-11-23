@@ -5,14 +5,8 @@ import { SecureRandom } from "effect/crypto"
 import { Database } from "@/db/database"
 import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials"
 import { decryptDatabaseValue } from "@/db/lib/encryption"
-import { deleteWithOptimisticLock, updateWithOptimisticLock } from "@/db/lib/optimistic-locking"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate"
-import {
-  sandboxProvider,
-  SandboxProviderCredentialsPayloadSchema,
-  SandboxProviderRowSchema,
-} from "@/db/schema/organizations"
-import { UuidV7Schema } from "@/lib/schemas"
+import { sandboxProvider, SandboxProviderCredentialsPayloadSchema } from "@/db/schema/organizations"
 import { runSandboxConnectionTest } from "./connection-test.server.ts"
 import { isSandboxProviderEnabled } from "./availability.server.ts"
 import {
@@ -27,13 +21,16 @@ import {
 } from "./errors.ts"
 import {
   decodeProviderOptions,
+  SandboxProviderConfigurationSchema,
   type SandboxProviderCredentials,
   type SandboxProviderId,
-  SandboxProviderIdSchema,
-  SandboxProviderNameSchema,
   type SandboxProviderOptions,
-  SandboxTestMetadataSchema,
 } from "./schemas.ts"
+
+const decodeSandboxConfiguration = Schema.decodeUnknownResult(SandboxProviderConfigurationSchema, {
+  onExcessProperty: "error",
+})
+const SandboxProviderRowSchema = sandboxProvider.schema.mapFields(Struct.omit(["credentials"]))
 
 type SandboxProviderRow = typeof SandboxProviderRowSchema.Type
 
@@ -43,12 +40,7 @@ const decodeSandboxProviderRow = Schema.decodeUnknownEffect(SandboxProviderRowSc
 
 const decodeSandboxProviderSummaries = Schema.decodeUnknownEffect(
   Schema.Array(
-    Schema.Struct({
-      id: UuidV7Schema,
-      name: SandboxProviderNameSchema,
-      providerType: SandboxProviderIdSchema,
-      lastTest: Schema.NullOr(SandboxTestMetadataSchema),
-    }),
+    SandboxProviderRowSchema.mapFields(Struct.pick(["id", "name", "providerType", "lastTest"])),
   ),
   { onExcessProperty: "error" },
 )
@@ -62,13 +54,6 @@ export type OrganizationSandboxProvider = SandboxProviderRow & {
   credentials: SandboxProviderCredentials[SandboxProviderId]
   /** False when stored credentials no longer decrypt, so the member enters them again. */
   credentialsReadable: boolean
-}
-
-interface SandboxProviderConfiguration {
-  readonly name: string
-  readonly provider: SandboxProviderId
-  readonly options: SandboxProviderOptions[SandboxProviderId]
-  readonly credentials: SandboxProviderCredentials[SandboxProviderId]
 }
 
 interface SaveSandboxProviderInput<Provider extends SandboxProviderId = SandboxProviderId> {
@@ -125,12 +110,14 @@ function credentialsPayload(input: SaveSandboxProviderInput & { id: string }) {
 const mapSandboxProviderWriteErrors = mapDatabaseErrors({
   sandbox_provider_organization_id_name_uidx: () => new SandboxProviderNameTaken(),
 })
+const sandboxProviderChangedTags = ["NotFound", "StaleWrite"] as const
 
 export class SandboxProviders extends Context.Service<SandboxProviders>()(
   "astralbeam/sandboxes/SandboxProviders",
   {
     make: Effect.gen(function* () {
       const db = yield* Database
+      const useDatabase = Effect.provideService(Database, db)
 
       const readRow = Effect.fnUntraced(function* (organizationId: string, id: string) {
         const [stored] = yield* db
@@ -184,6 +171,14 @@ export class SandboxProviders extends Context.Service<SandboxProviders>()(
             : !existing || input.lockVersion !== existing.row.lockVersion
         )
           return yield* new SandboxProviderChanged()
+        if (
+          Result.isFailure(
+            decodeSandboxConfiguration(
+              Struct.pick(input, ["providerType", "options", "credentials"]),
+            ),
+          )
+        )
+          return yield* Effect.die(new Error("Invalid sandbox provider configuration"))
         // Checked before the connection test, which creates a billable vendor sandbox.
         if (
           yield* db.query.sandboxProvider
@@ -225,30 +220,26 @@ export class SandboxProviders extends Context.Service<SandboxProviders>()(
           options: input.options,
           lastTest: tested ?? existing?.row.lastTest ?? null,
         }
-        if (!existing) {
-          yield* db
-            .insert(sandboxProvider)
-            .values({ id, organizationId: input.organizationId, ...fields, credentials })
-            .pipe(mapSandboxProviderWriteErrors)
-          return id
-        }
-        yield* updateWithOptimisticLock({
-          executor: db,
-          table: sandboxProvider,
-          id,
-          scope: eq(sandboxProvider.organizationId, input.organizationId),
-          expectedLockVersion: existing.row.lockVersion,
-          set: {
-            ...fields,
-            ...(credentials === null || credentialsChanged ? { credentials } : {}),
-          },
-        }).pipe(
+        const write = existing
+          ? sandboxProvider.update(existing.row, {
+              ...fields,
+              ...(credentials === null || credentialsChanged ? { credentials } : {}),
+            })
+          : sandboxProvider.insert({
+              id,
+              organizationId: input.organizationId,
+              ...fields,
+              credentials,
+            })
+        yield* write.pipe(
+          useDatabase,
           mapSandboxProviderWriteErrors,
-          Effect.catchTag("OptimisticLockError", () => Effect.fail(new SandboxProviderChanged())),
+          Effect.catchTag(sandboxProviderChangedTags, () => new SandboxProviderChanged()),
         )
         return id
       })
 
+      /** Tests a saved provider and records the outcome, which it returns rather than fails with. */
       const testConnection = Effect.fn("SandboxProviders.testConnection")(function* (input: {
         organizationId: string
         id: string
@@ -262,36 +253,26 @@ export class SandboxProviders extends Context.Service<SandboxProviders>()(
           options: found.row.options,
           credentials: found.credentials,
         })
-        yield* updateWithOptimisticLock({
-          executor: db,
-          table: sandboxProvider,
-          id: input.id,
-          scope: eq(sandboxProvider.organizationId, input.organizationId),
-          expectedLockVersion: input.lockVersion,
-          set: { options: found.row.options, lastTest: result },
-        }).pipe(
+        yield* sandboxProvider.update(input, { options: found.row.options, lastTest: result }).pipe(
+          useDatabase,
           mapDatabaseErrors(),
-          Effect.catchTag("OptimisticLockError", () => Effect.fail(new SandboxProviderChanged())),
+          Effect.catchTag(sandboxProviderChangedTags, () => new SandboxProviderChanged()),
         )
         return result
       })
 
       const remove = Effect.fn("SandboxProviders.remove")(
         function* (input: { organizationId: string; id: string; lockVersion: number }) {
-          yield* deleteWithOptimisticLock({
-            executor: db,
-            table: sandboxProvider,
-            id: input.id,
-            scope: eq(sandboxProvider.organizationId, input.organizationId),
-            expectedLockVersion: input.lockVersion,
-          })
+          yield* sandboxProvider.delete(input)
         },
+        useDatabase,
         mapDatabaseErrors({
           agent_organization_id_sandbox_provider_id_fk: () => new SandboxProviderInUse(),
         }),
-        Effect.catchTag("OptimisticLockError", () => Effect.fail(new SandboxProviderChanged())),
+        Effect.catchTag(sandboxProviderChangedTags, () => new SandboxProviderChanged()),
       )
 
+      /** Enabled, readable configuration for chat and new sandbox-only attachments. */
       const resolveConfiguration = Effect.fn("SandboxProviders.resolveConfiguration")(
         function* (input: { organizationId: string; id: string }) {
           const found = yield* readRow(input.organizationId, input.id)
@@ -306,7 +287,7 @@ export class SandboxProviders extends Context.Service<SandboxProviders>()(
             provider: found.row.providerType,
             options: found.row.options,
             credentials: found.credentials,
-          } satisfies SandboxProviderConfiguration
+          }
         },
       )
 

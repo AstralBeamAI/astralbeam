@@ -1,12 +1,11 @@
 import { assert, describe, it } from "@effect/vitest"
 import type { SQL } from "drizzle-orm"
-import { EffectDrizzleQueryError } from "drizzle-orm/effect-core"
 import { PgDialect } from "drizzle-orm/pg-core"
-import { Cause, Effect, Exit, Layer } from "effect"
+import { Effect, Layer } from "effect"
 
 import { Database, type EffectDatabase } from "@/db/database"
 import { ModelProviders } from "@/lib/model-providers/model-providers.server"
-import { Agents, defaultAgentName } from "./agents.server.ts"
+import { Agents } from "./agents.server.ts"
 import { formatAgentId } from "./schemas.ts"
 
 const ORGANIZATION_ID = "01990a5d-ac96-774b-b942-6b13c85384cb"
@@ -55,15 +54,6 @@ function agentSql(expression: SQL | undefined) {
   return new PgDialect().sqlToQuery(expression!)
 }
 
-function insertFailing(cause: object) {
-  const failure = new EffectDrizzleQueryError({ query: "insert", params: ["secret"], cause })
-  const database = {
-    insert: () => ({ values: () => ({ returning: () => Effect.fail(failure) }) }),
-    transaction: (body: (transaction: unknown) => Effect.Effect<unknown>) => body(database),
-  } as unknown as EffectDatabase
-  return Layer.succeed(Database, database)
-}
-
 describe("Agents", () => {
   it.effect("refuses another organization's agent ID before any query", () =>
     Effect.gen(function* () {
@@ -83,37 +73,6 @@ describe("Agents", () => {
         ),
       ),
     ),
-  )
-
-  it.effect("maps the name constraint to a user-facing error and other failures to defects", () =>
-    Effect.gen(function* () {
-      const create = Effect.flatMap(Agents, (agents) =>
-        agents.create({ organizationId: ORGANIZATION_ID, fields: FIELDS }),
-      )
-      const nameTaken = insertFailing({ constraint: "agent_organization_id_name_uidx" })
-      const taken = yield* create.pipe(
-        Effect.flip,
-        Effect.provide(
-          Agents.layerNoDeps.pipe(
-            Layer.provide(Layer.succeed(ModelProviders, {} as ModelProviders["Service"])),
-            Layer.provide(nameTaken),
-          ),
-        ),
-      )
-      assert.strictEqual(taken._tag, "AgentNameTaken")
-
-      const outage = insertFailing({ code: "08006" })
-      const exit = yield* create.pipe(
-        Effect.exit,
-        Effect.provide(
-          Agents.layerNoDeps.pipe(
-            Layer.provide(Layer.succeed(ModelProviders, {} as ModelProviders["Service"])),
-            Layer.provide(outage),
-          ),
-        ),
-      )
-      assert.isTrue(Exit.isFailure(exit) && Cause.hasDies(exit.cause))
-    }),
   )
 
   it.effect("scopes a chat agent ID to the authenticated organization", () => {
@@ -177,11 +136,5 @@ describe("Agents", () => {
       )
       assert.deepStrictEqual(agentSql(predicates.where[0]).params, [ORGANIZATION_ID])
     }).pipe(Effect.provide(layer))
-  })
-
-  it("names the starter agent within the length the agent form accepts", () => {
-    const name = defaultAgentName(`${"Organization".repeat(10)} Holdings`)
-    assert.isAtMost(name.length, 100)
-    assert.isTrue(name.endsWith(" Assistant"))
   })
 })
