@@ -17,7 +17,7 @@ import {
 } from "@/lib/model-providers/schemas.ts"
 import { DisplayNameSchema, UuidV7Schema } from "@/lib/schemas.ts"
 import { AgentSystemPromptSchema } from "@/lib/agents/schemas.ts"
-import { defineModel, primaryKey } from "@/lib/persistence.server"
+import { defineTable, primaryKey } from "@/lib/persistence.server"
 
 import {
   caseInsensitiveText,
@@ -59,7 +59,7 @@ export const SandboxProviderCredentialsPayloadSchema = Schema.Struct({
   ),
 )
 
-export const organization = defineModel(
+export const organization = defineTable(
   "organization",
   {
     id: uuidV7(),
@@ -119,7 +119,7 @@ export function tenantUserForeignKey(
   })
 }
 
-export const apiKey = defineModel(
+export const apiKey = defineTable(
   "api_key",
   {
     id: uuidV7(),
@@ -155,7 +155,7 @@ export const apiKey = defineModel(
   ],
 )
 
-export const sandboxProvider = defineModel(
+export const sandboxProvider = defineTable(
   "sandbox_provider",
   {
     id: uuidV7(),
@@ -178,7 +178,7 @@ export const sandboxProvider = defineModel(
   ],
 )
 
-export const modelProvider = defineModel(
+export const modelProvider = defineTable(
   "model_provider",
   {
     id: uuidV7(),
@@ -198,7 +198,7 @@ export const modelProvider = defineModel(
   ],
 )
 
-export const providerModel = defineModel(
+export const providerModel = defineTable(
   "provider_model",
   {
     id: uuidV7(),
@@ -225,7 +225,7 @@ export const providerModel = defineModel(
   ],
 )
 
-export const agent = defineModel(
+export const agent = defineTable(
   "agent",
   {
     id: uuidV7(),
@@ -262,7 +262,7 @@ export const agent = defineModel(
   ],
 )
 
-export const agentModel = defineModel(
+export const agentModel = defineTable(
   "agent_model",
   {
     id: uuidV7(),
@@ -304,7 +304,7 @@ export const agentModel = defineModel(
   ],
 )
 
-export const organizationConfiguration = defineModel(
+export const organizationConfiguration = defineTable(
   "organization_configuration",
   {
     id: uuidV7(),
@@ -330,7 +330,7 @@ export const organizationConfiguration = defineModel(
   ],
 )
 
-export const tenant = defineModel(
+export const tenant = defineTable(
   "tenant",
   {
     organizationId: uuidV7({ generated: false }).$type<OrganizationId>().notNull(),
@@ -353,7 +353,7 @@ export const tenant = defineModel(
   ],
 )
 
-export const tenantUser = defineModel(
+export const tenantUser = defineTable(
   "tenant_user",
   {
     organizationId: uuidV7({ generated: false }).$type<OrganizationId>().notNull(),
@@ -384,7 +384,7 @@ export const tenantUser = defineModel(
   ],
 )
 
-export const member = defineModel(
+export const member = defineTable(
   "member",
   {
     id: uuidV7(),
@@ -411,7 +411,7 @@ export const member = defineModel(
   ],
 )
 
-export const invitation = defineModel(
+export const invitation = defineTable(
   "invitation",
   {
     id: uuidV7(),

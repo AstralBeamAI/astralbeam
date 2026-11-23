@@ -1,6 +1,6 @@
 import type { OrganizationId } from "@/db/schema/organizations"
 import { OrganizationIdSchema, TenantIdSchema } from "@/db/schema/organizations"
-import { defineModel, primaryKey, withTransaction } from "@/lib/persistence.server"
+import { defineTable, primaryKey, withTransaction } from "@/lib/persistence.server"
 import { Tenants } from "@/lib/tenants/tenants"
 import { eq, sql } from "drizzle-orm"
 import { integer } from "drizzle-orm/pg-core"
@@ -124,7 +124,7 @@ describe.skipIf(!columnIntegration.url)("schema-backed JSONB columns", () => {
 
 const persistencePrefix = `persistence_${crypto.randomUUID().replaceAll("-", "")}`
 const rejectName = sql.identifier(`${persistencePrefix}_reject_name`)
-const persistenceTable = defineModel(
+const persistenceTable = defineTable(
   `${persistencePrefix}_records`,
   {
     scope: text().notNull(),

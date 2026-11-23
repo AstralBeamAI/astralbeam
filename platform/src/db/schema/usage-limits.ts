@@ -12,7 +12,7 @@ import {
 import { chatThread } from "./chat.ts"
 import type { OrganizationId, TenantId, TenantUserId } from "./organizations.ts"
 import { organizationForeignKey, tenantForeignKey, tenantUserForeignKey } from "./organizations.ts"
-import { defineModel, primaryKey } from "@/lib/persistence.server"
+import { defineTable, primaryKey } from "@/lib/persistence.server"
 import { DisplayNameSchema } from "@/lib/schemas"
 import {
   TimeZoneSchema,
@@ -31,7 +31,7 @@ const usageLimitWindowUnitEnum = pgEnum("usage_limit_window_unit", USAGE_LIMIT_W
  * A token or spend budget over a window, counted per scope subject. Default limits apply to every chat
  * token. Others apply only when a token lists their public ID. Global limits are always defaults.
  */
-export const usageLimit = defineModel(
+export const usageLimit = defineTable(
   "usage_limit",
   {
     organizationId: uuidV7({ generated: false }).notNull(),
@@ -76,7 +76,7 @@ export const usageLimit = defineModel(
  * One subject's usage in its current window of a limit. Global counters name no subject, and the
  * others name the tenant plus its tenant user or conversation, whose deletion removes the counter.
  */
-export const usageLimitCounter = defineModel(
+export const usageLimitCounter = defineTable(
   "usage_limit_counter",
   {
     organizationId: uuidV7({ generated: false }).$type<OrganizationId>().notNull(),

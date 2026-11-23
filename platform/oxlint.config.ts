@@ -234,7 +234,7 @@ const restrictedForeignKeyImport = {
 const restrictedTableImport = {
   regex: "^drizzle-orm/pg-core(?:/|$)",
   importNames: ["snakeCase"],
-  message: "Use defineModel from @/lib/persistence.server to define tables.",
+  message: "Use defineTable from @/lib/persistence.server to define tables.",
 }
 
 export default defineConfig({

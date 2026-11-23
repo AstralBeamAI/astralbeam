@@ -1,5 +1,5 @@
 import { boolean, index, uniqueIndex } from "drizzle-orm/pg-core"
-import { defineModel, primaryKey } from "@/lib/persistence.server"
+import { defineTable, primaryKey } from "@/lib/persistence.server"
 
 import {
   caseInsensitiveText,
@@ -10,7 +10,7 @@ import {
   text,
 } from "../lib/columns.ts"
 
-export const user = defineModel(
+export const user = defineTable(
   "user",
   {
     id: uuidV7(),
@@ -29,7 +29,7 @@ export const user = defineModel(
   ],
 )
 
-export const session = defineModel(
+export const session = defineTable(
   "session",
   {
     id: uuidV7(),
@@ -53,7 +53,7 @@ export const session = defineModel(
   ],
 )
 
-export const account = defineModel(
+export const account = defineTable(
   "account",
   {
     id: uuidV7(),
@@ -80,7 +80,7 @@ export const account = defineModel(
   ],
 )
 
-export const verification = defineModel(
+export const verification = defineTable(
   "verification",
   {
     id: uuidV7(),

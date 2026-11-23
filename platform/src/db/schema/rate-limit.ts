@@ -1,9 +1,9 @@
 import { bigint, integer, uniqueIndex } from "drizzle-orm/pg-core"
-import { defineModel, primaryKey } from "@/lib/persistence.server"
+import { defineTable, primaryKey } from "@/lib/persistence.server"
 
 import { timestamps, uuidV7, text } from "../lib/columns.ts"
 
-export const rateLimit = defineModel(
+export const rateLimit = defineTable(
   "rate_limit",
   {
     id: uuidV7(),

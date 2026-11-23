@@ -44,7 +44,7 @@ JSONB columns use `jsonb({ schema })` from `lib/columns.ts`. Its synchronous Eff
 
 ## Model writes
 
-[`defineModel(name, columns, constraints)`](../lib/persistence.server.ts) returns a native Drizzle table with a row `schema` and validated `insert`, `update`, and `delete` methods. Put the typed `primaryKey` first in constraints and name it only if Drizzle's default would rename an existing constraint. Pass the complete key and any `lockVersion` to update or delete.
+[`defineTable(name, columns, constraints)`](../lib/persistence.server.ts) returns a native Drizzle table with a row `schema` and validated `insert`, `update`, and `delete` methods. Put the typed `primaryKey` first in constraints and name it only if Drizzle's default would rename an existing constraint. Pass the complete key and any `lockVersion` to update or delete.
 
 Inserts validate supplied fields before SQL and check the returned row after defaults run. Updates check the patch and merged row before writing and skip decoding replaced columns to allow credential repair. The generated schema validates columns and their explicit refinements. Services enforce rules involving multiple fields, and PostgreSQL enforces constraints for every writer. Deletes return only the key. Without a callback, a versioned delete reports a missing key or mismatched version as `NotFound`. An optional `onLocked` callback reads the full row before the version check and can authorize or run related SQL. Use `withTransaction(effect)` for wider atomic work and keep external I/O outside it. Each model write rolls back its own changes on failure, even if the enclosing caller catches the error.
 

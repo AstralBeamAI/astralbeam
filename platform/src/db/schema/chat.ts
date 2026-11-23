@@ -12,7 +12,7 @@ import {
 } from "drizzle-orm/pg-core"
 
 import { ApiUuidSchema, UuidV7Schema } from "@/lib/schemas.ts"
-import { defineModel, primaryKey } from "@/lib/persistence.server"
+import { defineTable, primaryKey } from "@/lib/persistence.server"
 import {
   deferrableForeignKey,
   jsonb,
@@ -121,7 +121,7 @@ const chatMessageStateEnum = pgEnum("chat_message_state", ["draft", "complete", 
  * Shared Tenant conversation with a selected agent and default history leaf, authorized through participant grants.
  * Parent links allow future branches. Independent turns can execute concurrently, and updatedAt orders thread activity.
  */
-export const chatThread = defineModel(
+export const chatThread = defineTable(
   "chat_thread",
   {
     organizationId: uuidV7({ generated: false }).$type<OrganizationId>().notNull(),
@@ -167,7 +167,7 @@ export const chatThread = defineModel(
  * One TenantUser's access grant across all their clients. Viewers read, members also send, and managers manage the thread.
  * Creation grants manager access to the requester. Revoking membership preserves historical message authorship.
  */
-export const chatParticipant = defineModel(
+export const chatParticipant = defineTable(
   "chat_participant",
   {
     organizationId: uuidV7({ generated: false }).$type<OrganizationId>().notNull(),
@@ -218,7 +218,7 @@ const chatMessagePartExecutionLocationEnum = pgEnum("chat_message_part_execution
  * Transcript node with ordered content parts. Parent links define history, while turn links identify the initiating input.
  * The input holds turn state and metadata invocation identity. Interruption preserves accepted input and saved results.
  */
-export const chatMessage = defineModel(
+export const chatMessage = defineTable(
   "chat_message",
   {
     organizationId: uuidV7({ generated: false }).$type<OrganizationId>().notNull(),
@@ -296,7 +296,7 @@ export const chatMessage = defineModel(
  * Ordered message content: text, reasoning, attachments, widgets, tool decisions, or results, restored without reexecution.
  * Tool decisions retain their declaration and location. Their stable part IDs anchor one or more expected responses.
  */
-export const chatMessagePart = defineModel(
+export const chatMessagePart = defineTable(
   "chat_message_part",
   {
     organizationId: uuidV7({ generated: false }).$type<OrganizationId>().notNull(),
@@ -338,7 +338,7 @@ export const chatMessagePart = defineModel(
  * One expected response to a committed tool decision, created before execution or delivery, optionally targeting a user/client.
  * Several slots support multiple responders. A null result means outstanding, not failed. Accepted results are immutable.
  */
-export const chatToolResponse = defineModel(
+export const chatToolResponse = defineTable(
   "chat_tool_response",
   {
     organizationId: uuidV7({ generated: false }).$type<OrganizationId>().notNull(),
@@ -386,7 +386,7 @@ export const chatToolResponse = defineModel(
 )
 
 // Uploads belong to their uploader until sending attaches them to a message.
-export const chatFile = defineModel(
+export const chatFile = defineTable(
   "chat_file",
   {
     organizationId: uuidV7({ generated: false }).$type<OrganizationId>().notNull(),
@@ -419,7 +419,7 @@ const ChatCompactionPayloadSchema = Schema.Struct({
   messages: Schema.Array(Schema.JsonObject),
 })
 
-export const chatCompaction = defineModel(
+export const chatCompaction = defineTable(
   "chat_compaction",
   {
     organizationId: uuidV7({ generated: false }).$type<OrganizationId>().notNull(),

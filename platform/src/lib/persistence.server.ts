@@ -141,7 +141,7 @@ export const primaryKey = nativePrimaryKey as <
   name?: string
 }) => ModelPrimaryKey<C[number][typeof columnKey]>
 
-export function defineModel<
+export function defineTable<
   TableName extends string,
   Columns extends Record<string, AnyPgColumnBuilder>,
   const K extends Name<ModelTable<TableName, Columns>>,

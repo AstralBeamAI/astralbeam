@@ -2,13 +2,13 @@ import { bigint, index, pgEnum, uniqueIndex } from "drizzle-orm/pg-core"
 
 import { timestamps, uuidV7, text } from "../lib/columns.ts"
 import { organizationForeignKey } from "./organizations.ts"
-import { defineModel, primaryKey } from "@/lib/persistence.server"
+import { defineTable, primaryKey } from "@/lib/persistence.server"
 
 // pending: upload not yet verified. stored: uploaded and verified, with or without an attachment.
 // purging: S3 content and metadata are being removed.
 const fileObjectStatus = pgEnum("file_object_status", ["pending", "stored", "purging"])
 
-export const fileObject = defineModel(
+export const fileObject = defineTable(
   "file_object",
   {
     organizationId: uuidV7({ generated: false }).notNull(),

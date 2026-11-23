@@ -11,9 +11,9 @@ import {
 import type { OrganizationId, TenantId, TenantUserId } from "./organizations.ts"
 import { organizationForeignKey, tenantUserForeignKey } from "./organizations.ts"
 import { McpCredentialEnvelopeSchema, McpStoredAuthConfigSchema } from "@/lib/mcp/schemas.ts"
-import { defineModel, primaryKey } from "@/lib/persistence.server"
+import { defineTable, primaryKey } from "@/lib/persistence.server"
 
-export const mcpServer = defineModel(
+export const mcpServer = defineTable(
   "mcp_server",
   {
     organizationId: uuidV7({ generated: false }).$type<OrganizationId>().notNull(),
@@ -29,7 +29,7 @@ export const mcpServer = defineModel(
   ],
 )
 
-export const mcpConnection = defineModel(
+export const mcpConnection = defineTable(
   "mcp_connection",
   {
     organizationId: uuidV7({ generated: false }).$type<OrganizationId>().notNull(),
